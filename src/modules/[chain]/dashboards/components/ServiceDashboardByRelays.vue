@@ -46,13 +46,38 @@ function shouldUsePost(params: URLSearchParams): boolean {
 
 // Helper function to make API request (GET or POST)
 async function fetchApi(url: string, params: URLSearchParams): Promise<any> {
-  if (shouldUsePost(params)) {
+  const isRewardsEndpoint = url.includes('/proof-submissions/rewards');
+  const isSummaryEndpoint = url.includes('/proof-submissions/summary');
+  
+  // Check if we have supplier_address parameter
+  const hasSupplierAddress = params.has('supplier_address');
+  const supplierAddressValue = hasSupplierAddress ? params.get('supplier_address') : null;
+  const hasMultipleSuppliers = supplierAddressValue && supplierAddressValue.includes(',');
+  
+  // For rewards and summary endpoints: always use POST when supplier_address is present
+  // This ensures proper handling of supplier_addresses array format
+  const shouldPost = shouldUsePost(params) || 
+    ((isRewardsEndpoint || isSummaryEndpoint) && hasSupplierAddress);
+  
+  if (shouldPost) {
     // Use POST with request body
     const postBody: any = {};
     params.forEach((value, key) => {
-      if (key === 'supplier_address' && value.includes(',')) {
-        // Convert comma-separated to array
-        postBody[key] = value.split(',').map((addr: string) => addr.trim()).filter((addr: string) => addr.length > 0);
+      // For rewards and summary endpoints, handle supplier_address specially
+      if ((isRewardsEndpoint || isSummaryEndpoint) && key === 'supplier_address') {
+        // Check if value contains comma (multiple addresses)
+        const trimmedValue = value.trim();
+        if (trimmedValue.includes(',')) {
+          // Multiple addresses: use supplier_addresses array for POST
+          const addresses = trimmedValue.split(',').map((addr: string) => addr.trim()).filter((addr: string) => addr.length > 0);
+          if (addresses.length > 0) {
+            postBody.supplier_addresses = addresses;
+          }
+          // Do NOT include supplier_address when using supplier_addresses
+        } else if (trimmedValue.length > 0) {
+          // Single address: use supplier_address (POST supports both formats)
+          postBody.supplier_address = trimmedValue;
+        }
       } else {
         postBody[key] = value;
       }

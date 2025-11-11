@@ -198,13 +198,14 @@ onMounted(() => {
                 <div v-if="expandedDelegateeRows[item.address]">
                   <!-- Expanded view: show all addresses -->
                   <div class="flex flex-col gap-1">
-                    <div 
+                    <RouterLink
                       v-for="(addr, idx) in item.delegatee_gateway_addresses" 
                       :key="idx"
-                      class="text-sm font-mono"
+                      :to="`/${chainStore.chainName}/account/${addr}`"
+                      class="text-sm font-mono text-[#09279F] dark:text-warning hover:underline"
                     >
                       {{ addr }}
-                    </div>
+                    </RouterLink>
                     <button
                       @click="toggleDelegateeExpanded(item.address)"
                       class="text-xs text-[#007bff] hover:underline mt-1"
@@ -216,7 +217,13 @@ onMounted(() => {
                 <div v-else>
                   <!-- Collapsed view: show first address truncated -->
                   <div class="flex items-center gap-2">
-                    <span class="text-sm font-mono">{{ truncateAddress(item.delegatee_gateway_addresses[0]) }}</span>
+                    <RouterLink
+                      :to="`/${chainStore.chainName}/account/${item.delegatee_gateway_addresses[0]}`"
+                      class="text-sm font-mono text-[#09279F] dark:text-warning hover:underline"
+                      :title="item.delegatee_gateway_addresses[0]"
+                    >
+                      {{ truncateAddress(item.delegatee_gateway_addresses[0]) }}
+                    </RouterLink>
                     <button
                       v-if="item.delegatee_gateway_addresses.length > 1"
                       @click="toggleDelegateeExpanded(item.address)"

@@ -3,6 +3,7 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { Icon } from '@iconify/vue';
 import ApexCharts from 'vue3-apexcharts';
 import { useBlockchain, useFormatter } from '@/stores';
+import { fetchNetworkAverages, fetchTopPerformers, calculateGrowthRates, calculateTrends, type NetworkAverages, type TopPerformersThreshold } from '../composables/useSupplierAnalytics';
 
 const props = defineProps<{
   chain?: string;
@@ -46,13 +47,38 @@ function shouldUsePost(params: URLSearchParams): boolean {
 
 // Helper function to make API request (GET or POST)
 async function fetchApi(url: string, params: URLSearchParams, body?: any): Promise<any> {
-  if (shouldUsePost(params) || body) {
+  const isRewardsEndpoint = url.includes('/proof-submissions/rewards');
+  const isSummaryEndpoint = url.includes('/proof-submissions/summary');
+  
+  // Check if we have supplier_address parameter
+  const hasSupplierAddress = params.has('supplier_address');
+  const supplierAddressValue = hasSupplierAddress ? params.get('supplier_address') : null;
+  const hasMultipleSuppliers = supplierAddressValue && supplierAddressValue.includes(',');
+  
+  // For rewards and summary endpoints: always use POST when supplier_address is present
+  // This ensures proper handling of supplier_addresses array format
+  const shouldPost = shouldUsePost(params) || body || 
+    ((isRewardsEndpoint || isSummaryEndpoint) && hasSupplierAddress);
+  
+  if (shouldPost) {
     // Use POST with request body
     const postBody: any = {};
     params.forEach((value, key) => {
-      if (key === 'supplier_address' && value.includes(',')) {
-        // Convert comma-separated to array
-        postBody[key] = value.split(',').map((addr: string) => addr.trim()).filter((addr: string) => addr.length > 0);
+      // For rewards and summary endpoints, handle supplier_address specially
+      if ((isRewardsEndpoint || isSummaryEndpoint) && key === 'supplier_address') {
+        // Check if value contains comma (multiple addresses)
+        const trimmedValue = value.trim();
+        if (trimmedValue.includes(',')) {
+          // Multiple addresses: use supplier_addresses array for POST
+          const addresses = trimmedValue.split(',').map((addr: string) => addr.trim()).filter((addr: string) => addr.length > 0);
+          if (addresses.length > 0) {
+            postBody.supplier_addresses = addresses;
+          }
+          // Do NOT include supplier_address when using supplier_addresses
+        } else if (trimmedValue.length > 0) {
+          // Single address: use supplier_address (POST supports both formats)
+          postBody.supplier_address = trimmedValue;
+        }
       } else {
         postBody[key] = value;
       }
@@ -184,6 +210,12 @@ const loadingRewardShare = ref(false);
 const rewardShareSearchQuery = ref('');
 const rewardShareDateRange = ref({ start: '', end: '' });
 const showFees = ref(false);
+
+// Comparison data for Summary tab
+const networkAverages = ref<NetworkAverages | null>(null);
+const topPerformers = ref<TopPerformersThreshold | null>(null);
+const comparisonLoading = ref(false);
+const growthRates = ref({ dayOverDay: 0, weekOverWeek: 0, monthOverMonth: 0 });
 
 const rewardsChartSeries = ref([{ name: 'Total Rewards', data: [] as number[] }]);
 const efficiencyChartSeries = ref([{ name: 'Efficiency %', data: [] as number[] }]);
@@ -426,10 +458,96 @@ async function loadSummaryStats() {
     
     const data = await fetchApi('/api/v1/proof-submissions/summary', params);
       summaryStats.value = data.data;
+    
+    // Load comparison data if filters are provided
+    if (props.filters?.supplier_address || props.filters?.owner_address) {
+      loadComparisonData();
+    }
   } catch (error: any) {
     console.error('Error loading summary stats:', error);
   }
 }
+
+async function loadComparisonData() {
+  if (!props.filters?.supplier_address && !props.filters?.owner_address) {
+    networkAverages.value = null;
+    topPerformers.value = null;
+    return;
+  }
+
+  comparisonLoading.value = true;
+  try {
+    const [network, top10] = await Promise.all([
+      fetchNetworkAverages(apiChainName.value),
+      fetchTopPerformers(apiChainName.value),
+    ]);
+    networkAverages.value = network;
+    topPerformers.value = top10;
+
+    // Calculate growth rates if we have reward analytics
+    if (rewardAnalytics.value.length > 0) {
+      const trends = calculateTrends(rewardAnalytics.value, true);
+      growthRates.value = calculateGrowthRates(trends);
+    }
+  } catch (error) {
+    console.error('Error loading comparison data:', error);
+  } finally {
+    comparisonLoading.value = false;
+  }
+}
+
+// Calculate comparison metrics
+const comparisonMetrics = computed(() => {
+  if (!summaryStats.value || (!networkAverages.value && !topPerformers.value)) {
+    return null;
+  }
+
+  const supplierRewards = parseFloat(summaryStats.value.total_rewards_upokt) / parseFloat(summaryStats.value.total_submissions || '1');
+  const supplierRelays = parseFloat(summaryStats.value.total_relays) / parseFloat(summaryStats.value.total_submissions || '1');
+  const supplierEfficiency = parseFloat(summaryStats.value.avg_efficiency_percent);
+
+  let networkRewards = 0;
+  let networkRelays = 0;
+  let networkEfficiency = 0;
+  let top10Rewards = 0;
+  let top10Relays = 0;
+  let top10Efficiency = 0;
+
+  if (networkAverages.value) {
+    networkRewards = networkAverages.value.avg_rewards;
+    networkRelays = networkAverages.value.avg_relays;
+    networkEfficiency = networkAverages.value.avg_efficiency;
+  }
+
+  if (topPerformers.value && topPerformers.value.top10Percent.length > 0) {
+    top10Rewards = topPerformers.value.rewards_threshold;
+    top10Relays = topPerformers.value.relays_threshold;
+    top10Efficiency = topPerformers.value.top10Percent.reduce((sum, p) => sum + p.avg_efficiency_percent, 0) / topPerformers.value.top10Percent.length;
+  }
+
+  const networkRewardsDiff = networkRewards > 0 ? ((supplierRewards - networkRewards) / networkRewards) * 100 : 0;
+  const networkRelaysDiff = networkRelays > 0 ? ((supplierRelays - networkRelays) / networkRelays) * 100 : 0;
+  const networkEfficiencyDiff = supplierEfficiency - networkEfficiency;
+
+  const top10RewardsDiff = top10Rewards > 0 ? ((supplierRelays - top10Rewards) / top10Rewards) * 100 : 0;
+  const top10RelaysDiff = top10Relays > 0 ? ((supplierRelays - top10Relays) / top10Relays) * 100 : 0;
+  const top10EfficiencyDiff = supplierEfficiency - top10Efficiency;
+
+  // Calculate percentile (rough estimate)
+  const isTop10 = top10Relays > 0 && supplierRelays >= top10Relays * 0.9;
+  const percentile = isTop10 ? 'Top 10%' : top10Relays > 0 ? `${Math.max(10, Math.min(90, 90 - (top10RelaysDiff / top10Relays) * 100)).toFixed(0)}%` : 'N/A';
+
+  return {
+    networkRewardsDiff,
+    networkRelaysDiff,
+    networkEfficiencyDiff,
+    top10RewardsDiff,
+    top10RelaysDiff,
+    top10EfficiencyDiff,
+    percentile,
+    isTop10,
+  };
+});
 
 function updateCharts() {
   const sorted = [...rewardAnalytics.value].sort((a, b) => new Date(a.hour_bucket).getTime() - new Date(b.hour_bucket).getTime());
@@ -643,6 +761,10 @@ watch(() => props.filters, () => {
   if (props.tabView === 'reward-share') {
     loadRewardShareData();
   }
+  // Load comparison data when filters change
+  if (props.filters?.supplier_address || props.filters?.owner_address) {
+    loadComparisonData();
+  }
 }, { deep: true });
 
 watch(() => props.tabView, (newTab) => {
@@ -664,6 +786,33 @@ onMounted(() => {
 
 <template>
   <div>
+    <!-- Comparison Cards (only when filters are provided) -->
+    <div v-if="props.filters && (props.filters.supplier_address || props.filters.owner_address) && comparisonMetrics" class="mb-3">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3 border-l-4" :class="comparisonMetrics.networkRewardsDiff >= 0 ? 'border-success' : 'border-error'">
+          <div class="text-xs text-secondary mb-1">vs Network Average</div>
+          <div class="text-sm font-bold" :class="comparisonMetrics.networkRewardsDiff >= 0 ? 'text-success' : 'text-error'">
+            {{ comparisonMetrics.networkRewardsDiff >= 0 ? '+' : '' }}{{ comparisonMetrics.networkRewardsDiff.toFixed(1) }}%
+          </div>
+          <div class="text-xs text-secondary mt-1">Rewards difference</div>
+        </div>
+        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3 border-l-4" :class="comparisonMetrics.isTop10 ? 'border-success' : 'border-info'">
+          <div class="text-xs text-secondary mb-1">Performance Rank</div>
+          <div class="text-sm font-bold" :class="comparisonMetrics.isTop10 ? 'text-success' : 'text-info'">
+            {{ comparisonMetrics.percentile }}
+          </div>
+          <div class="text-xs text-secondary mt-1">Percentile position</div>
+        </div>
+        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3 border-l-4" :class="growthRates.weekOverWeek >= 0 ? 'border-success' : 'border-warning'">
+          <div class="text-xs text-secondary mb-1">Week-over-Week</div>
+          <div class="text-sm font-bold" :class="growthRates.weekOverWeek >= 0 ? 'text-success' : 'text-warning'">
+            {{ growthRates.weekOverWeek >= 0 ? '+' : '' }}{{ growthRates.weekOverWeek.toFixed(1) }}%
+          </div>
+          <div class="text-xs text-secondary mt-1">Growth rate</div>
+        </div>
+      </div>
+    </div>
+
     <!-- Top Row: 8 KPI Boxes (Compact) -->
     <div v-if="summaryStats" class="mb-3">
       <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
