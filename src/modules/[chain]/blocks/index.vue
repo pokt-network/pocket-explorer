@@ -3,6 +3,7 @@ import { computed, ref, onMounted, watch } from 'vue'
 import { useStakingStore, useBaseStore, useFormatter } from '@/stores'
 import { PageRequest } from '@/types'
 import { useBlockchain } from '@/stores'
+import { Icon } from '@iconify/vue';
 
 const props = defineProps(['chain'])
 const tab = ref('blocks')
@@ -11,6 +12,15 @@ const stakingStore = useStakingStore();
 stakingStore.init()
 const format = useFormatter()
 const blockchain = useBlockchain()
+
+const currentBlockHeight = computed(() => {
+  return base.latest?.block?.header?.height ?? 0
+})
+
+const currentTxCount = computed(() => {
+  return base.latest?.block?.data?.txs?.length ?? 0
+})
+
 
 // ✅ Network Stats
 const networkStats = ref({
@@ -79,12 +89,31 @@ const apiChainName = computed(() =>
 )
 
 const blocks = ref<ApiBlockItem[]>([])
+const currentBlockProductionTime = ref(0)
 const loading = ref(false)
 const currentPage = ref(1)
 const itemsPerPage = ref(25)
 const totalBlocks = ref(0)
 const totalPages = ref(0)
 const pageSizeOptions = [10, 25, 50, 100]
+
+function updateCurrentBlockProductionTime() {
+  const height = currentBlockHeight.value
+  const block = blocks.value.find(b => b.height === height)
+
+  currentBlockProductionTime.value = block?.block_production_time || 0
+}
+
+// ⭐ Watch block list changed
+watch(blocks, () => {
+  updateCurrentBlockProductionTime()
+})
+
+// ⭐ Watch current block height changed
+watch(currentBlockHeight, () => {
+  updateCurrentBlockProductionTime()
+})
+
 
 // ✅ Fetch blocks
 async function loadBlocks() {
@@ -139,6 +168,34 @@ function formatBytes(bytes?: number): string {
   return `${value.toFixed(decimals)} ${units[unitIndex]}`
 }
 
+function formatProductionTime(secondsStr?: string | number) {
+  if (!secondsStr) return "0s"
+
+  const totalSeconds =
+    typeof secondsStr === "string"
+      ? parseFloat(secondsStr)
+      : secondsStr
+
+  if (!totalSeconds || isNaN(totalSeconds)) return "0s"
+
+  if (totalSeconds < 60) {
+    return `${Math.round(totalSeconds)}s`
+  }
+
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = Math.round(totalSeconds % 60)
+
+  return `${minutes}m ${seconds}s`
+}
+
+function safeProductionTime(item: any) {
+  return formatProductionTime(item?.block_production_time)
+}
+
+
+
+
+
 
 // ✅ Convert seconds → "Xs" or "Xm Ys" without decimal in seconds
 function formatBlockTime(secondsStr?: string | number) {
@@ -165,14 +222,43 @@ function prevPage() { if (currentPage.value > 1) currentPage.value-- }
 onMounted(() => {
   loadNetworkStats()
   loadBlocks()
+  updateCurrentBlockProductionTime()
 })
 </script>
 
 <template>
   <div>
-    <p class="bg-[#09279F] dark:bg-base-100 text-2xl rounded-xl px-4 py-4 my-4 font-bold text-white">
-      Blocks
-    </p>
+    <p class="bg-[#09279F] dark:bg-base-100 text-2xl rounded-xl px-4 py-4 my-4 font-bold text-white">Blocks</p>
+
+    <div class="grid sm:grid-cols-1 md:grid-cols-4 py-4 gap-4 mb-4">
+      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+        <span>
+          <div class="text-xs text-[#64748B]">Latest Blocks</div>
+          <div class="flex justify-center items-center">
+            <div class="font-bold">{{ currentBlockHeight }}</div>
+            <Icon icon="mdi:content-copy" class="ml-2 cursor-pointer text-[#64748B]" />
+          </div>
+        </span>
+      </div>
+      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+        <span>
+          <div class="text-xs text-[#64748B]">Transactions</div>
+          <div class="font-bold">{{ currentTxCount }}</div>
+        </span>
+      </div>
+      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+        <span>
+          <div class="text-xs text-[#64748B]">Production Time (Avg. 24H)</div>
+          <div class="font-bold">{{ safeProductionTime(item || 0)  }}</div>
+        </span>
+      </div>
+      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+        <span>
+          <div class="text-xs text-[#64748B]">Total Size (Avg. 24H)</div>
+          <div class="font-bold">58.3 KB</div>
+        </span>
+      </div>
+    </div>
 
     <div class="tabs tabs-boxed bg-transparent mb-4">
       <a

@@ -37,6 +37,13 @@ const totalPages = ref(0)
 const transactions = ref<ApiTransaction[]>([])
 const loading = ref(false)
 
+// 🔹 Last 24H Transactions
+const tx24HCount = ref(0)
+
+const currentTxCount = computed(() => {
+  return base.latest?.block?.data?.txs?.length ?? 0
+})
+
 // 🔹 Page size options
 const pageSizeOptions = [10, 25, 50, 100]
 
@@ -79,11 +86,6 @@ const typeTabMap: Record<string, string[]> = {
 // 🔹 Debounce timer
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
-onMounted(async () => {
-  tab.value = String(router.currentRoute.value.query.tab || 'recent')
-  await loadTransactions()
-})
-
 // 🔹 Load transactions from API
 async function loadTransactions() {
   loading.value = true
@@ -96,12 +98,8 @@ async function loadTransactions() {
       sort_order: sortOrder.value,
     }
 
-    // Add type filter based on selected tab
     const selectedTypes = typeTabMap[selectedTypeTab.value]
     if (selectedTypes.length > 0) {
-      // For multiple types, we need to make separate calls or use a different approach
-      // For now, we'll use the first type as the API supports single type filter
-      // In a real implementation, you might want to handle multiple types differently
       filters.type = selectedTypes[0]
     }
 
@@ -109,11 +107,9 @@ async function loadTransactions() {
       filters.status = statusFilter.value === 'success' ? "true" : "false"
     }
     if (startDate.value) {
-      // Convert datetime-local to ISO 8601
       filters.start_date = new Date(startDate.value).toISOString()
     }
     if (endDate.value) {
-      // Convert datetime-local to ISO 8601
       filters.end_date = new Date(endDate.value).toISOString()
     }
     if (minAmount.value !== undefined) {
@@ -138,6 +134,49 @@ async function loadTransactions() {
   }
 }
 
+// 🔹 Get last 24H transactions count
+const getLast24HTransactionsCount = async () => {
+  const now = new Date()
+  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+
+  try {
+    const data = await fetchTransactions({
+      chain: apiChainName,
+      page: 1,
+      limit: 1,
+      start_date: yesterday.toISOString(),
+      end_date: now.toISOString(),
+    })
+
+    return data.meta?.total || 0
+  } catch (error) {
+    console.error("Error fetching last 24H transactions:", error)
+    return 0
+  }
+}
+
+// 🔹 Get last 24H failed transactions count
+const getFailed24HTransactionsCount = async () => {
+  const now = new Date()
+  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+
+  try {
+    const data = await fetchTransactions({
+      chain: apiChainName,
+      page: 1,
+      limit: 1,
+      start_date: yesterday.toISOString(),
+      end_date: now.toISOString(),
+      status: "false" // failed
+    })
+
+    return data.meta?.total || 0
+  } catch (error) {
+    console.error("Error fetching failed 24H transactions:", error)
+    return 0
+  }
+}
+
 // 🔹 Debounced load function
 function debouncedLoad() {
   if (debounceTimer) {
@@ -149,18 +188,16 @@ function debouncedLoad() {
   }, 300)
 }
 
-// 🔹 Watch for filter changes
+// 🔹 Watchers
 watch([selectedTypeTab, statusFilter, startDate, endDate, minAmount, maxAmount, sortBy, sortOrder], () => {
   debouncedLoad()
 })
 
-// 🔹 Watch for page size changes
 watch(itemsPerPage, () => {
   currentPage.value = 1
   loadTransactions()
 })
 
-// 🔹 Watch for page changes
 watch(currentPage, () => {
   loadTransactions()
 })
@@ -188,15 +225,61 @@ function goToLast() {
 function changePageSize(newSize: number) {
   itemsPerPage.value = newSize
 }
+
+// 🔹 Mounted hook
+onMounted(async () => {
+  tab.value = String(router.currentRoute.value.query.tab || 'recent')
+  await loadTransactions()
+
+  // Initial 24H transactions count
+  tx24HCount.value = await getLast24HTransactionsCount()
+
+  // Refresh every 1 minute
+  setInterval(async () => {
+    tx24HCount.value = await getLast24HTransactionsCount()
+  }, 60000)
+})
 </script>
 
 <template>
   <div>
     <p class="bg-[#09279F] dark:bg-base-100 text-2xl rounded-xl px-4 py-4 my-4 font-bold text-white">Transactions</p>
-    <div
-      v-show="tab === 'recent'"
-      class="bg-[#EFF2F5] dark:bg-base-100 px-0.5 pt-0.5 pb-4 rounded-xl shadow-md mb-4"
-    >
+    
+    <div class="grid sm:grid-cols-1 md:grid-cols-4 py-4 gap-4 mb-4">
+      <!-- ✅ Dynamic Transactions (24H) -->
+      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+        <span>
+          <div class="text-xs text-[#64748B]">Transactions (24H)</div>
+          <div class="font-bold">{{ tx24HCount }}</div>
+        </span>
+      </div>
+
+      <!-- ✅ Dynamic Failed Transactions (24H) -->
+      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+        <span>
+          <div class="text-xs text-[#64748B]">Failed Transactions (24H)</div>
+          <div class="font-bold">{{ currentTxCount }}</div>
+        </span>
+      </div>
+
+      <!-- Existing cards -->
+      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+        <span>
+          <div class="text-xs text-[#64748B]">Total Transactions (24H)</div>
+          <div class="font-bold">{{ tx24HCount }}</div>
+        </span>
+      </div>
+      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+        <span>
+          <div class="text-xs text-[#64748B]">Transactions (Last Block)</div>
+          <div class="font-bold">0</div>
+        </span>
+      </div>
+    </div>
+
+
+    <!-- Rest of your template stays same -->
+     <div v-show="tab === 'recent'" class="bg-[#EFF2F5] dark:bg-base-100 px-0.5 pt-0.5 pb-4 rounded-xl shadow-md mb-4">
       <!-- Filter Section - Compact & Modern -->
       <div class="bg-base-200 dark:bg-base-300 rounded-lg border border-base-300 dark:border-base-400 mb-4">
         <!-- Main Filter Bar -->

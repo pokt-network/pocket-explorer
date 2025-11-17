@@ -432,135 +432,135 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- Middle Section: Rewards Distribution Table (Large) -->
-    <div v-if="topServicesData.length > 0" class="dark:bg-base-100 bg-base-200 pt-3 rounded-lg border-[3px] border-solid border-base-200 dark:border-base-100 mb-3">
-      <div class="flex items-center justify-between mb-3 ml-4 mr-4">
-        <div class="text-base font-semibold text-main">Rewards Distribution</div>
-        <span v-if="latestHourBucketTime" class="text-xs text-secondary bg-base-200 dark:bg-base-300 px-2 py-1 rounded-full">
-          {{ new Date(latestHourBucketTime).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) }}
-        </span>
-      </div>
-      <div class="dark:bg-base-200 bg-base-100 p-2 rounded-md">
-        <div class="overflow-auto">
-          <table class="table table-compact w-full text-xs">
-            <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
-              <tr class="border-b-[0px]">
-                <th class="py-1">Rank</th>
-                <th class="py-1">Service</th>
-                <th class="py-1">Supplier</th>
-                <th class="py-1">Application</th>
-                <th class="py-1">Rewards (upokt)</th>
-                <th class="py-1">Efficiency</th>
-                <th class="py-1">Relays</th>
-              </tr>
-            </thead>
-            <tbody class="bg-base-100 relative">
-              <tr v-for="(service, index) in topServicesData" :key="service.serviceId" class="hover:bg-base-300 transition-colors duration-200 border-b-[0px]">
-                <td class="dark:bg-base-200 bg-white font-bold py-1">
-                  <span class="badge badge-sm" :class="index === 0 ? 'badge-primary' : index === 1 ? 'badge-secondary' : index === 2 ? 'badge-accent' : 'badge-ghost'">
-                    #{{ index + 1 }}
-                  </span>
-                </td>
-                <td class="dark:bg-base-200 bg-white py-1">
-                  <span class="badge badge-primary badge-xs">{{ service.serviceId }}</span>
-                </td>
-                <td class="dark:bg-base-200 bg-white truncate py-1 text-xs" style="max-width:120px">
-                  <RouterLink
-                    v-if="service.topSupplier && service.topSupplier !== 'unknown'"
-                    class="truncate hover:underline font-mono dark:text-warning text-[#153cd8]"
-                    :to="`/${chain}/account/${service.topSupplier}`"
-                    :title="service.topSupplier"
-                  >
-                    {{ service.topSupplier.length > 15 ? service.topSupplier.substring(0, 12) + '...' : service.topSupplier }}
-                  </RouterLink>
-                  <span v-else class="font-mono text-gray-500">-</span>
-                </td>
-                <td class="dark:bg-base-200 bg-white truncate py-1 text-xs" style="max-width:120px">
-                  <RouterLink
-                    v-if="service.topApplication && service.topApplication !== 'unknown'"
-                    class="truncate hover:underline font-mono dark:text-warning text-[#153cd8]"
-                    :to="`/${chain}/account/${service.topApplication}`"
-                    :title="service.topApplication"
-                  >
-                    {{ service.topApplication.length > 15 ? service.topApplication.substring(0, 12) + '...' : service.topApplication }}
-                  </RouterLink>
-                  <span v-else class="font-mono text-gray-500">-</span>
-                </td>
-                <td class="dark:bg-base-200 bg-white py-1 text-xs">{{ formatNumber(service.rewards) }}</td>
-                <td class="dark:bg-base-200 bg-white py-1">
-                  <span :class="service.efficiency >= 95 ? 'text-success' : service.efficiency >= 80 ? 'text-warning' : 'text-error'" class="text-xs">
-                    {{ service.efficiency.toFixed(2) }}%
-                  </span>
-                </td>
-                <td class="dark:bg-base-200 bg-white py-1 text-xs">{{ formatNumber(service.relays) }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
     <!-- Bottom Section: 3 Columns -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-2 mb-3">
-      <div>
-      <!-- Left Column: Servicer & Producer Cards (Stacked) -->
-      <div class="space-y-3 mb-3">
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3">
-          <div class="text-sm font-semibold mb-2">Servicer</div>
-          <div class="space-y-1 text-xs">
-            <div class="flex justify-between">
-              <span class="text-secondary mb-1">Relays Last 24H:</span>
-              <span class="font-medium">{{ formatNumber(parseInt(summaryStats?.total_relays || '0')) }}</span>
+      <!-- <div>
+
+        <div class="space-y-3 mb-3">
+          <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3">
+            <div class="text-sm font-semibold mb-2">Servicer</div>
+            <div class="space-y-1 text-xs">
+              <div class="flex justify-between">
+                <span class="text-secondary mb-1">Relays Last 24H:</span>
+                <span class="font-medium">{{ formatNumber(parseInt(summaryStats?.total_relays || '0')) }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-secondary mb-1">Rewards Last 24H:</span>
+                <span class="font-medium">{{ formatUpokt(summaryStats?.total_rewards_upokt || '0') }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-secondary mb-1">Avg Efficiency:</span>
+                <span class="font-medium">{{ parseFloat(summaryStats?.avg_efficiency_percent || '0').toFixed(2) }}%</span>
+              </div>
             </div>
-            <div class="flex justify-between">
-              <span class="text-secondary mb-1">Rewards Last 24H:</span>
-              <span class="font-medium">{{ formatUpokt(summaryStats?.total_rewards_upokt || '0') }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-secondary mb-1">Avg Efficiency:</span>
-              <span class="font-medium">{{ parseFloat(summaryStats?.avg_efficiency_percent || '0').toFixed(2) }}%</span>
+            <div class="space-y-1 text-xs">
+              <div class="flex justify-between">
+                <span class="text-secondary mb-1">Rewards / Times 24H:</span>
+                <span class="font-medium">{{ formatUpokt(summaryStats?.total_rewards_upokt || '0') }} / {{ formatNumber(parseInt(summaryStats?.total_submissions || '0')) }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-secondary mb-1">Rewards / Times 48H:</span>
+                <span class="font-medium">-</span>
+              </div>
             </div>
           </div>
-          <div class="space-y-1 text-xs">
+        </div>
+
+        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3">
+          <div class="flex items-center justify-between mb-2">
+            <div class="text-sm font-semibold">Performance</div>
+          </div>
+          <div class="space-y-2 text-xs">
             <div class="flex justify-between">
-              <span class="text-secondary mb-1">Rewards / Times 24H:</span>
-              <span class="font-medium">{{ formatUpokt(summaryStats?.total_rewards_upokt || '0') }} / {{ formatNumber(parseInt(summaryStats?.total_submissions || '0')) }}</span>
+              <div class="text-secondary mb-1">Total Rewards <span>24H:</span></div>
+              <div>
+                <span class="font-medium">{{ formatUpokt(summaryStats?.total_rewards_upokt || '0') }}</span>
+              </div>
             </div>
             <div class="flex justify-between">
-              <span class="text-secondary mb-1">Rewards / Times 48H:</span>
-              <span class="font-medium">-</span>
+              <div class="text-secondary mb-1">Servicer Avg Relays <span>24H:</span></div>
+              <div>
+                <span class="font-medium">{{ formatNumber(parseInt(summaryStats?.total_relays || '0')) }}</span>
+              </div>
             </div>
+            <div class="flex justify-between">
+              <div class="text-secondary mb-1">Validator Avg Rewards <span>24H:</span></div>
+              <div class="">
+                <span class="font-medium">{{ (parseFloat(summaryStats?.avg_reward_per_relay || '0') / 1000000).toFixed(2) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div> -->
+
+      <!-- Middle Section: Rewards Distribution Table (Large) -->
+      <div v-if="topServicesData.length > 0" class="dark:bg-base-100 bg-base-200 pt-3 rounded-lg border-[3px] border-solid border-base-200 dark:border-base-100 mb-3">
+        <div class="flex items-center justify-between mb-3 ml-4 mr-4">
+          <div class="text-base font-semibold text-main">Rewards Distribution</div>
+          <span v-if="latestHourBucketTime" class="text-xs text-secondary bg-base-200 dark:bg-base-300 px-2 py-1 rounded-full">
+            {{ new Date(latestHourBucketTime).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) }}
+          </span>
+        </div>
+        <div class="dark:bg-base-200 bg-base-100 p-2 rounded-md">
+          <div class="overflow-auto">
+            <table class="table table-compact w-full text-xs">
+              <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
+                <tr class="border-b-[0px]">
+                  <th class="py-1">Rank</th>
+                  <th class="py-1">Service</th>
+                  <th class="py-1">Supplier</th>
+                  <th class="py-1">Application</th>
+                  <th class="py-1">Rewards (upokt)</th>
+                  <th class="py-1">Efficiency</th>
+                  <th class="py-1">Relays</th>
+                </tr>
+              </thead>
+              <tbody class="bg-base-100 relative">
+                <tr v-for="(service, index) in topServicesData" :key="service.serviceId" class="hover:bg-base-300 transition-colors duration-200 border-b-[0px]">
+                  <td class="dark:bg-base-200 bg-white font-bold py-1">
+                    <span class="badge badge-sm" :class="index === 0 ? 'badge-primary' : index === 1 ? 'badge-secondary' : index === 2 ? 'badge-accent' : 'badge-ghost'">
+                      #{{ index + 1 }}
+                    </span>
+                  </td>
+                  <td class="dark:bg-base-200 bg-white py-1">
+                    <span class="badge badge-primary badge-xs">{{ service.serviceId }}</span>
+                  </td>
+                  <td class="dark:bg-base-200 bg-white truncate py-1 text-xs" style="max-width:120px">
+                    <RouterLink
+                      v-if="service.topSupplier && service.topSupplier !== 'unknown'"
+                      class="truncate hover:underline font-mono dark:text-warning text-[#153cd8]"
+                      :to="`/${chain}/account/${service.topSupplier}`"
+                      :title="service.topSupplier"
+                    >
+                      {{ service.topSupplier.length > 15 ? service.topSupplier.substring(0, 12) + '...' : service.topSupplier }}
+                    </RouterLink>
+                    <span v-else class="font-mono text-gray-500">-</span>
+                  </td>
+                  <td class="dark:bg-base-200 bg-white truncate py-1 text-xs" style="max-width:120px">
+                    <RouterLink
+                      v-if="service.topApplication && service.topApplication !== 'unknown'"
+                      class="truncate hover:underline font-mono dark:text-warning text-[#153cd8]"
+                      :to="`/${chain}/account/${service.topApplication}`"
+                      :title="service.topApplication"
+                    >
+                      {{ service.topApplication.length > 15 ? service.topApplication.substring(0, 12) + '...' : service.topApplication }}
+                    </RouterLink>
+                    <span v-else class="font-mono text-gray-500">-</span>
+                  </td>
+                  <td class="dark:bg-base-200 bg-white py-1 text-xs">{{ formatNumber(service.rewards) }}</td>
+                  <td class="dark:bg-base-200 bg-white py-1">
+                    <span :class="service.efficiency >= 95 ? 'text-success' : service.efficiency >= 80 ? 'text-warning' : 'text-error'" class="text-xs">
+                      {{ service.efficiency.toFixed(2) }}%
+                    </span>
+                  </td>
+                  <td class="dark:bg-base-200 bg-white py-1 text-xs">{{ formatNumber(service.relays) }}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
 
-      <!-- Middle Column: Performance Card -->
-      <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3">
-        <div class="flex items-center justify-between mb-2">
-          <div class="text-sm font-semibold">Performance</div>
-        </div>
-        <div class="space-y-2 text-xs">
-          <div class="flex justify-between">
-            <div class="text-secondary mb-1">Total Rewards <span>24H:</span></div>
-            <div>
-              <span class="font-medium">{{ formatUpokt(summaryStats?.total_rewards_upokt || '0') }}</span>
-            </div>
-          </div>
-          <div class="flex justify-between">
-            <div class="text-secondary mb-1">Servicer Avg Relays <span>24H:</span></div>
-            <div>
-              <span class="font-medium">{{ formatNumber(parseInt(summaryStats?.total_relays || '0')) }}</span>
-            </div>
-          </div>
-          <div class="flex justify-between">
-            <div class="text-secondary mb-1">Validator Avg Rewards <span>24H:</span></div>
-            <div class="">
-              <span class="font-medium">{{ (parseFloat(summaryStats?.avg_reward_per_relay || '0') / 1000000).toFixed(2) }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
       <!-- Right Column: Services Chart -->
       <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3">
         <div class="text-sm font-semibold mb-2">Services</div>

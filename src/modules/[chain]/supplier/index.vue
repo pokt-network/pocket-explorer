@@ -4,6 +4,7 @@ import { useBlockchain, useFormatter } from '@/stores';
 import { PageRequest, type Pagination, type Supplier } from '@/types';
 import type { PaginatedBalances } from '@/types/bank'
 const props = defineProps(['chain']);
+const blockchain = useBlockchain()
 
 const format = useFormatter();
 const chainStore = useBlockchain();
@@ -111,9 +112,44 @@ function goToLast() {
   }
 }
 
+// ✅ Network Stats
+const networkStats = ref({
+  wallets: 0,
+  applications: 0,
+  suppliers: 0,
+  gateways: 0,
+})
+
+// ✅ Cache control
+const networkStatsCacheTime = ref(0)
+const CACHE_EXPIRATION_MS = 60000
+
+// ✅ Load network stats
+async function loadNetworkStats() {
+  const now = Date.now()
+  if (now - networkStatsCacheTime.value < CACHE_EXPIRATION_MS && networkStats.value.wallets > 0) {
+    return
+  }
+
+  const pageRequest = new PageRequest()
+  pageRequest.limit = 1
+
+  try {
+    const [suppliersData] = await Promise.all([
+      blockchain.rpc.getSuppliers(pageRequest),
+    ])
+
+    networkStats.value.suppliers = parseInt(suppliersData.pagination?.total || '0')
+    networkStatsCacheTime.value = now
+  } catch (error) {
+    console.error('Error loading network stats:', error)
+  }
+}
+
 // 🔹 Load data initially
 onMounted(() => {
   loadSuppliers();
+  loadNetworkStats();
 });
 
 // 🔹 Computed status
@@ -124,6 +160,34 @@ const statusText = computed(() => (value.value === 'stake' ? 'Staked' : 'Unstake
 <template>
   <div class="mb-[2vh]">
     <p class="bg-[#09279F] dark:bg-base-100 text-2xl rounded-xl px-4 py-4 my-4 font-bold text-white">Suppliers</p>
+
+    <div class="grid sm:grid-cols-1 md:grid-cols-4 py-4 gap-4 mb-4">
+      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+        <span>
+          <div class="text-xs text-[#64748B]">Staked Suppliers</div>
+          <div class="font-bold">{{ networkStats.suppliers.toLocaleString() }}</div>
+        </span>
+      </div>
+      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+        <span>
+          <div class="text-xs text-[#64748B]">Staked Tokens</div>
+          <div class="font-bold">353M POKT</div>
+        </span>
+      </div>
+      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+        <span>
+          <div class="text-xs text-[#64748B]">Unstaking Suppliers</div>
+          <div class="font-bold">0</div>
+        </span>
+      </div>
+      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+        <span>
+          <div class="text-xs text-[#64748B]">Unstaking Tokens</div>
+          <div class="font-bold">0 POKT</div>
+        </span>
+      </div>
+    </div>
+
     <!-- ✅ Scroll hataya gaya -->
     <div
       class="bg-base-200 dark:bg-base-100 rounded-xl p-3"

@@ -6,6 +6,7 @@ import type { PaginatedBalances } from '@/types/bank'
 
 const props = defineProps<{ chain: string }>()
 
+const blockchain = useBlockchain()
 const chainStore = useBlockchain()
 const format = useFormatter()
 // Main data list
@@ -138,12 +139,73 @@ function toggleDelegateeExpanded(address: string) {
 // ✅ Mounted
 onMounted(() => {
   loadApplications()
+  loadNetworkStats()
 })
+
+// ✅ Network Stats
+const networkStats = ref({
+  wallets: 0,
+  applications: 0,
+})
+
+// ✅ Cache control
+const networkStatsCacheTime = ref(0)
+const CACHE_EXPIRATION_MS = 60000
+
+// ✅ Load network stats
+async function loadNetworkStats() {
+  const now = Date.now()
+  if (now - networkStatsCacheTime.value < CACHE_EXPIRATION_MS && networkStats.value.wallets > 0) {
+    return
+  }
+
+  const pageRequest = new PageRequest()
+  pageRequest.limit = 1
+
+  try {
+    const [applicationsData] = await Promise.all([
+      blockchain.rpc.getApplications(pageRequest),
+    ])
+
+    networkStats.value.applications = parseInt(applicationsData.pagination?.total || '0')
+    networkStatsCacheTime.value = now
+  } catch (error) {
+    console.error('Error loading network stats:', error)
+  }
+}
 </script>
 
 <template>
   <div class="mb-[2vh]">
     <p class="bg-[#09279F] dark:bg-base-100 text-2xl rounded-xl px-4 py-4 my-4 font-bold text-white">Applications</p>
+
+    <div class="grid sm:grid-cols-1 md:grid-cols-4 py-4 gap-4 mb-4">
+      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+        <span>
+          <div class="text-xs text-[#64748B]">Staked Applications</div>
+          <div class="font-bold">{{ networkStats.applications.toLocaleString() }}</div>
+        </span>
+      </div>
+      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+        <span>
+          <div class="text-xs text-[#64748B]">Staked Tokens</div>
+          <div class="font-bold">1,870,920.549828 POKT</div>
+        </span>
+      </div>
+      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+        <span>
+          <div class="text-xs text-[#64748B]">Unstaking Applications</div>
+          <div class="font-bold">0</div>
+        </span>
+      </div>
+      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+        <span>
+          <div class="text-xs text-[#64748B]">Unstaking Tokens</div>
+          <div class="font-bold">0 POKT</div>
+        </span>
+      </div>
+    </div>
+
     <div class="bg-base-200 dark:bg-base-100 rounded-xl p-2">
       <table class="table w-full table-compact rounded-xl">
         <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">

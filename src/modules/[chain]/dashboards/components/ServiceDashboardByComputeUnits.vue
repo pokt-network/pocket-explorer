@@ -773,13 +773,13 @@ onMounted(() => {
 
     <!-- Bottom Section: 2 Columns (Merged Servicer/Producer/Performance + Services Chart) -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-3" v-if="!props.tabView || props.tabView === 'summary'">
-      <!-- Left Column: Supplier & Service Performance Summary -->
-      <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3">
+
+      <!-- <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3">
         <div class="flex items-center justify-between mb-3">
           <div class="text-sm font-semibold">Performance Summary</div>
         </div>
         <div class="grid grid-cols-2 gap-3 text-xs">
-          <!-- Supplier Section -->
+
           <div>
             <div class="text-xs font-semibold mb-2 text-secondary">Supplier</div>
             <div class="space-y-1">
@@ -797,7 +797,7 @@ onMounted(() => {
               </div>
             </div>
           </div>
-          <!-- Service Section -->
+
           <div>
             <div class="text-xs font-semibold mb-2 text-secondary">Service</div>
             <div class="space-y-1">
@@ -816,6 +816,61 @@ onMounted(() => {
             </div>
           </div>
         </div>
+      </div> -->
+
+      <!-- Proof Submissions Table (Compact) - Show in Summary tab only -->
+      <div v-if="!props.tabView || props.tabView === 'summary'" class="dark:bg-base-100 bg-base-200 pt-2 rounded-lg border-[3px] border-solid border-base-200 dark:border-base-100 mb-3">
+        <div class="flex items-center justify-between mb-2 ml-3 mr-3">
+          <div class="text-sm font-semibold text-main">Proof Submissions</div>
+          <div class="flex items-center gap-1">
+            <span class="text-xs text-secondary">Show:</span>
+            <select v-model="itemsPerPage" @change="loadProofSubmissions()" class="select select-bordered select-xs w-full text-xs">
+              <option :value="25">25</option>
+              <option :value="50">50</option>
+              <option :value="100">100</option>
+            </select>
+          </div>
+        </div>
+        <div class="dark:bg-base-200 bg-base-100 p-2 rounded-md">
+          <div class="overflow-auto max-h-96">
+            <table class="table w-full table-compact text-xs">
+              <thead class="bg-white sticky top-0">
+                <tr class="border-b-[0px]">
+                  <th class="py-1">Tx Hash</th>
+                  <th class="py-1">Service</th>
+                  <th class="py-1">Supplier</th>
+                  <th class="py-1">Relays</th>
+                  <th class="py-1">Rewards</th>
+                  <th class="py-1">Efficiency</th>
+                  <th class="py-1">Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="loading" class="text-center"><td colspan="7" class="py-4"><div class="flex justify-center items-center"><div class="loading loading-spinner loading-sm"></div><span class="ml-2 text-xs">Loading...</span></div></td></tr>
+                <tr v-else-if="submissions.length === 0" class="text-center"><td colspan="7" class="py-4"><div class="text-gray-500 text-xs">No submissions found</div></td></tr>
+                <tr v-for="submission in submissions" :key="submission.id" class="hover:bg-base-300 transition-colors duration-200 border-b-[0px]">
+                  <td class="truncate dark:bg-base-200 bg-white text-[#153cd8] py-1" style="max-width:120px"><a :href="`#tx/${submission.transaction_hash}`" class="hover:underline text-xs">{{ submission.transaction_hash.substring(0, 12) }}...</a></td>
+                  <td class="dark:bg-base-200 bg-white py-1"><span class="badge badge-primary badge-xs">{{ submission.service_id }}</span></td>
+                  <td class="truncate dark:bg-base-200 bg-white py-1 text-xs" style="max-width:120px">{{ submission.supplier_operator_address.substring(0, 12) }}...</td>
+                  <td class="dark:bg-base-200 bg-white py-1 text-xs">{{ formatNumber(parseInt(submission.num_relays)) }}</td>
+                  <td class="dark:bg-base-200 bg-white py-1 text-xs">{{ format.formatToken({ denom: 'upokt', amount: String(submission.claimed_upokt_amount) }) }}</td>
+                  <td class="dark:bg-base-200 bg-white py-1"><span :class="parseFloat(submission.compute_unit_efficiency) >= 95 ? 'text-success' : parseFloat(submission.compute_unit_efficiency) >= 80 ? 'text-warning' : 'text-error'" class="text-xs">{{ parseFloat(submission.compute_unit_efficiency).toFixed(2) }}%</span></td>
+                  <td class="dark:bg-base-200 bg-white py-1 text-xs">{{ new Date(submission.timestamp).toLocaleTimeString() }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="flex justify-between items-center gap-2 my-2 px-2 text-xs">
+            <span class="text-gray-600">Showing {{ ((currentPage - 1) * itemsPerPage) + 1 }} to {{ Math.min(currentPage * itemsPerPage, submissions.length) }} of {{ submissions.length }}</span>
+            <div class="flex items-center gap-1">
+              <button class="btn btn-xs btn-ghost" @click="goToFirst" :disabled="currentPage === 1 || totalPages === 0">First</button>
+              <button class="btn btn-xs btn-ghost" @click="prevPage" :disabled="currentPage === 1 || totalPages === 0">&lt;</button>
+              <span class="px-1">Page {{ currentPage }}/{{ totalPages }}</span>
+              <button class="btn btn-xs btn-ghost" @click="nextPage" :disabled="currentPage === totalPages || totalPages === 0">&gt;</button>
+              <button class="btn btn-xs btn-ghost" @click="goToLast" :disabled="currentPage === totalPages || totalPages === 0">Last</button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Right Column: Services Chart -->
@@ -828,10 +883,10 @@ onMounted(() => {
           <div v-else-if="topServicesByComputeUnits.length === 0" class="flex justify-center items-center h-64 text-gray-500 text-xs">
             No data
           </div>
-          <div v-else class="h-64">
+          <div v-else class="h-100">
             <ApexCharts 
               :type="topServicesChartType" 
-              height="250" 
+              height="360" 
               :options="topServicesChartOptions" 
               :series="topServicesChartSeries"
               :key="`topServices-${topServicesChartType}`"
@@ -1170,61 +1225,6 @@ onMounted(() => {
               title="Line Chart">
               <Icon icon="mdi:chart-line" class="text-sm" />
             </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Proof Submissions Table (Compact) - Show in Summary tab only -->
-    <div v-if="!props.tabView || props.tabView === 'summary'" class="dark:bg-base-100 bg-base-200 pt-2 rounded-lg border-[3px] border-solid border-base-200 dark:border-base-100 mb-3">
-      <div class="flex items-center justify-between mb-2 ml-3 mr-3">
-        <div class="text-sm font-semibold text-main">Proof Submissions</div>
-        <div class="flex items-center gap-1">
-          <span class="text-xs text-secondary">Show:</span>
-          <select v-model="itemsPerPage" @change="loadProofSubmissions()" class="select select-bordered select-xs w-full text-xs">
-            <option :value="25">25</option>
-            <option :value="50">50</option>
-            <option :value="100">100</option>
-          </select>
-        </div>
-      </div>
-      <div class="dark:bg-base-200 bg-base-100 p-2 rounded-md">
-        <div class="overflow-auto max-h-96">
-          <table class="table w-full table-compact text-xs">
-            <thead class="bg-white sticky top-0">
-              <tr class="border-b-[0px]">
-                <th class="py-1">Tx Hash</th>
-                <th class="py-1">Service</th>
-                <th class="py-1">Supplier</th>
-                <th class="py-1">Relays</th>
-                <th class="py-1">Rewards</th>
-                <th class="py-1">Efficiency</th>
-                <th class="py-1">Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-if="loading" class="text-center"><td colspan="7" class="py-4"><div class="flex justify-center items-center"><div class="loading loading-spinner loading-sm"></div><span class="ml-2 text-xs">Loading...</span></div></td></tr>
-              <tr v-else-if="submissions.length === 0" class="text-center"><td colspan="7" class="py-4"><div class="text-gray-500 text-xs">No submissions found</div></td></tr>
-              <tr v-for="submission in submissions" :key="submission.id" class="hover:bg-base-300 transition-colors duration-200 border-b-[0px]">
-                <td class="truncate dark:bg-base-200 bg-white text-[#153cd8] py-1" style="max-width:120px"><a :href="`#tx/${submission.transaction_hash}`" class="hover:underline text-xs">{{ submission.transaction_hash.substring(0, 12) }}...</a></td>
-                <td class="dark:bg-base-200 bg-white py-1"><span class="badge badge-primary badge-xs">{{ submission.service_id }}</span></td>
-                <td class="truncate dark:bg-base-200 bg-white py-1 text-xs" style="max-width:120px">{{ submission.supplier_operator_address.substring(0, 12) }}...</td>
-                <td class="dark:bg-base-200 bg-white py-1 text-xs">{{ formatNumber(parseInt(submission.num_relays)) }}</td>
-                <td class="dark:bg-base-200 bg-white py-1 text-xs">{{ format.formatToken({ denom: 'upokt', amount: String(submission.claimed_upokt_amount) }) }}</td>
-                <td class="dark:bg-base-200 bg-white py-1"><span :class="parseFloat(submission.compute_unit_efficiency) >= 95 ? 'text-success' : parseFloat(submission.compute_unit_efficiency) >= 80 ? 'text-warning' : 'text-error'" class="text-xs">{{ parseFloat(submission.compute_unit_efficiency).toFixed(2) }}%</span></td>
-                <td class="dark:bg-base-200 bg-white py-1 text-xs">{{ new Date(submission.timestamp).toLocaleTimeString() }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="flex justify-between items-center gap-2 my-2 px-2 text-xs">
-          <span class="text-gray-600">Showing {{ ((currentPage - 1) * itemsPerPage) + 1 }} to {{ Math.min(currentPage * itemsPerPage, submissions.length) }} of {{ submissions.length }}</span>
-          <div class="flex items-center gap-1">
-            <button class="btn btn-xs btn-ghost" @click="goToFirst" :disabled="currentPage === 1 || totalPages === 0">First</button>
-            <button class="btn btn-xs btn-ghost" @click="prevPage" :disabled="currentPage === 1 || totalPages === 0">&lt;</button>
-            <span class="px-1">Page {{ currentPage }}/{{ totalPages }}</span>
-            <button class="btn btn-xs btn-ghost" @click="nextPage" :disabled="currentPage === totalPages || totalPages === 0">&gt;</button>
-            <button class="btn btn-xs btn-ghost" @click="goToLast" :disabled="currentPage === totalPages || totalPages === 0">Last</button>
           </div>
         </div>
       </div>

@@ -478,10 +478,9 @@ function getTransactionFee(tx: any): string {
         <Icon v-else class="text-4xl" :icon="`mdi-help-circle-outline`" />
         <div>
           <h2 class="text-2xl font-bold text-[#FFFFFF]">{{ v.description?.moniker }}</h2>
+          <!-- Validator Details -->
+        <p class="text-[16px] dark:text-gray-200 text-[#FFFFFF]">{{ v.description?.details }}</p>
         </div>
-
-        <!-- Validator Details -->
-        <p class="text-sm dark:text-gray-200 text-[#FFFFFF]">{{ v.description?.details }}</p>
       </div>
     </div>
 
@@ -532,7 +531,7 @@ function getTransactionFee(tx: any): string {
 
       <!-- About Us Card -->
       <div class="dark:bg-base-100 bg-base-200 rounded-xl p-3 flex flex-col h-full">
-        <div class="flex items-start flex-1">
+        <div class="flex items-center flex-1">
           <div class="w-10 h-10 dark:bg-base-200 bg-[#5E9AE4] rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
             <Icon icon="mdi-information-outline" class="text-xl dark:text-primary text-[#FFFFFF]" />
           </div>
@@ -982,11 +981,11 @@ function getTransactionFee(tx: any): string {
                   class="dark:text-primary text-[#09279F] dark:invert">
                   {{ item.hash }}
                 </RouterLink>
-              </td>
+              </td>           
               <td class="py-3">
                 <div class="flex items-center">
                   <span class="mr-2">{{ item.type }}</span>
-                  <Icon v-if="item.status === 'success'" icon="mdi-check" class="text-[#60BC29] text-lg" />
+                  <Icon v-if="item.status === 'true'" icon="mdi-check" class="text-[#60BC29] text-lg" />
                   <Icon v-else icon="mdi-multiply" class="text-error text-lg" />
                 </div>
               </td>
