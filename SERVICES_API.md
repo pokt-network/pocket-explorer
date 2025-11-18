@@ -3,6 +3,7 @@
 This document describes the API endpoints for accessing service performance and compute unit analytics.
 
 ## Base URL
+
 All endpoints are prefixed with `/api/v1`
 
 ---
@@ -16,11 +17,13 @@ All endpoints are prefixed with `/api/v1`
 Returns top N services by total compute units for the specified time period. Perfect for **growth graphs** showing service adoption over time.
 
 **Query Parameters:**
-- `limit` (integer, optional): Number of top services to return. **Accepted values: 5, 10, 25, or 50**. Default: 10
+
+- `limit` (integer, optional): Number of top services to return. **Accepted values: 10, 20, 30, or 50**. Default: 10
 - `days` (integer, optional): Time period in days. **Accepted values: 7, 15, or 30**. Default: 30
 - `chain` (string, optional): Filter by chain identifier (e.g., "mainnet", "testnet")
 
 **Response Format:**
+
 ```json
 {
   "data": [
@@ -56,12 +59,13 @@ Returns top N services by total compute units for the specified time period. Per
 ```
 
 **Response Fields:**
+
 - `service_id`: The service identifier (e.g., "avax", "iotex", "blast")
 - `chain`: The chain identifier
 - `total_claimed_compute_units`: Sum of all claimed compute units for this service in the period
 - `total_estimated_compute_units`: Sum of all estimated compute units
 - `submission_count`: Number of proof submissions
-- `avg_efficiency_percent`: Average efficiency percentage (claimed/estimated * 100)
+- `avg_efficiency_percent`: Average efficiency percentage (claimed/estimated \* 100)
 - `period_start`: Start timestamp of the analysis period
 - `period_end`: End timestamp of the analysis period
 
@@ -87,14 +91,14 @@ async function fetchServiceGrowth(limit = 10, days = 7) {
     `/api/v1/services/top-by-compute-units?limit=${limit}&days=${days}&chain=mainnet`
   );
   const result = await response.json();
-  
+
   // Data is sorted by total_claimed_compute_units DESC
   // Perfect for creating line/bar charts showing service adoption
-  return result.data.map(service => ({
+  return result.data.map((service) => ({
     label: service.service_id,
     value: parseInt(service.total_claimed_compute_units),
     submissions: parseInt(service.submission_count),
-    efficiency: parseFloat(service.avg_efficiency_percent)
+    efficiency: parseFloat(service.avg_efficiency_percent),
   }));
 }
 ```
@@ -108,10 +112,13 @@ async function fetchServiceGrowth(limit = 10, days = 7) {
 Returns top 10 services by compute units with percentage distribution. Perfect for displaying a **table** showing network usage distribution and market share.
 
 **Query Parameters:**
+
 - `chain` (string, optional): Filter by chain identifier (e.g., "mainnet", "testnet")
 - `days` (integer, optional): Time period in days. **Accepted values: 7, 15, or 30**. Default: 30
+- `limit` (integer, optional): Number of top services to return. **Accepted values: 10, 20, 30, or 50**. Default: 10
 
 **Response Format:**
+
 ```json
 {
   "data": [
@@ -122,7 +129,7 @@ Returns top 10 services by compute units with percentage distribution. Perfect f
       "total_claimed_compute_units": 1500000000,
       "total_estimated_compute_units": 1500000000,
       "submission_count": 1250,
-      "avg_efficiency_percent": 100.00,
+      "avg_efficiency_percent": 100.0,
       "percentage_of_total": 35.5,
       "period_start": "2025-01-01T00:00:00Z",
       "period_end": "2025-01-31T23:59:59Z"
@@ -142,6 +149,7 @@ Returns top 10 services by compute units with percentage distribution. Perfect f
   ],
   "total_compute_units": 4225353000,
   "meta": {
+    "limit": 10,
     "days": 30,
     "chain": "mainnet",
     "period_start": "2025-01-01T00:00:00Z",
@@ -151,6 +159,7 @@ Returns top 10 services by compute units with percentage distribution. Perfect f
 ```
 
 **Response Fields:**
+
 - `rank`: Ranking position (1-10) based on total claimed compute units
 - `service_id`: The service identifier
 - `chain`: The chain identifier
@@ -185,11 +194,11 @@ async function fetchServicePerformance(chain = 'mainnet', days = 30) {
     `/api/v1/services/top-by-performance?chain=${chain}&days=${days}`
   );
   const result = await response.json();
-  
+
   return {
     services: result.data, // Array of top 10 services with rank and percentage
     total: result.total_compute_units, // Total for calculations
-    period: result.meta // Period information
+    period: result.meta, // Period information
   };
 }
 
@@ -208,7 +217,7 @@ function renderPerformanceTable(data) {
         </tr>
       </thead>
       <tbody>
-        {data.services.map(service => (
+        {data.services.map((service) => (
           <tr key={service.service_id}>
             <td>{service.rank}</td>
             <td>{service.service_id}</td>
@@ -236,44 +245,48 @@ function renderPerformanceTable(data) {
 ### Growth Graph Visualization
 
 Use `/api/v1/services/top-by-compute-units` to:
+
 - Create line charts showing service adoption over time (compare 7, 15, 30 days)
 - Display bar charts comparing top services
 - Build stacked area charts showing service growth
 - Generate trend analysis dashboards
 
 **Example Chart Configuration:**
+
 ```javascript
 // Fetch data for multiple time periods
 const [week, month] = await Promise.all([
   fetchServiceGrowth(10, 7),
-  fetchServiceGrowth(10, 30)
+  fetchServiceGrowth(10, 30),
 ]);
 
 // Create comparison chart
 const chartData = {
-  labels: week.map(s => s.label),
+  labels: week.map((s) => s.label),
   datasets: [
     {
       label: 'Last 7 Days',
-      data: week.map(s => s.value)
+      data: week.map((s) => s.value),
     },
     {
       label: 'Last 30 Days',
-      data: month.map(s => s.value)
-    }
-  ]
+      data: month.map((s) => s.value),
+    },
+  ],
 };
 ```
 
 ### Performance Table Display
 
 Use `/api/v1/services/top-by-performance` to:
+
 - Show market share distribution in a table
 - Display percentage bars for visual representation
 - Create leaderboard-style rankings
 - Build network usage analytics dashboards
 
 **Example Table Features:**
+
 - Sortable columns (rank, service, compute units, percentage, etc.)
 - Visual percentage bars showing market share
 - Highlight top performers
@@ -295,6 +308,7 @@ Use `/api/v1/services/top-by-performance` to:
 ## Error Handling
 
 All endpoints return errors in the following format:
+
 ```json
 {
   "error": "Error message description"
@@ -302,7 +316,7 @@ All endpoints return errors in the following format:
 ```
 
 Common HTTP status codes:
+
 - `200`: Success
 - `400`: Invalid query parameters
 - `500`: Server error
-
