@@ -1060,7 +1060,7 @@ watch(() => base.blocktime, (newVal, oldVal) => {
   }
 });
 
-// ✅ Convert seconds → "Xs" or "Xm Ys" without decimal in seconds
+// Convert seconds → "Xs" or "Xm Ys" without decimal in seconds
 function formatBlockTime(secondsStr?: string | number) {
   if (!secondsStr) return '0s'
   const totalSeconds = typeof secondsStr === 'string' ? parseFloat(secondsStr) : secondsStr

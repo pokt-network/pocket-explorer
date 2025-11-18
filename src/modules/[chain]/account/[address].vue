@@ -363,7 +363,18 @@ async function loadTransactions(address: string) {
     // Add type filter based on selected tab
     const selectedTypes = typeTabMap[selectedTypeTab.value];
     if (selectedTypes.length > 0) {
-      filters.type = selectedTypes[0];
+      // if the account is an application, add the MsgStakeApplication type
+      if (selectedTypeTab.value === 'staking') {
+        if (applications.value.address === address) {
+          filters.type = 'MsgStakeApplication (application)';
+        } else if (gateways.value.address === address) {
+          filters.type = 'MsgStakeGateway (gateway)';
+        } else if (suppliers.value.operator_address === address) {
+          filters.type = 'MsgStakeSupplier (supplier)';
+        }
+      } else {
+        filters.type = selectedTypes[0];
+      }
     }
 
     if (txStatusFilter.value) {

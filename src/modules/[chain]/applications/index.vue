@@ -22,11 +22,11 @@ const itemsPerPage = ref(25)
 // Track expanded rows for delegatee addresses
 const expandedDelegateeRows = ref<Record<string, boolean>>({})
 
-// ✅ Status text
+// Status text
 const value = ref('stake')
 const statusText = computed(() => (value.value === 'stake' ? 'Staked' : 'Unstaked'))
 
-// ✅ Server-side pagination logic
+// Server-side pagination logic
 const totalPages = computed(() => {
   const total = parseInt(pageResponse.value.total || '0')
   if (total === 0) return 0
@@ -35,7 +35,7 @@ const totalPages = computed(() => {
 
 const totalApplications = computed(() => parseInt(pageResponse.value.total || '0'))
 
-// ✅ Client-side sorting (applied after server returns page data)
+// Client-side sorting (applied after server returns page data)
 const sortedList = computed(() => {
   return [...list.value].sort((a, b) => {
     const aStake = parseInt(a.stake.amount || '0')
@@ -55,7 +55,7 @@ watch(itemsPerPage, () => {
   loadApplications()
 })
 
-// ✅ Load data from RPC
+// Load data from RPC
 async function loadApplications() {
   if (!chainStore.rpc) {
     await waitForRpc()
@@ -100,7 +100,7 @@ async function waitForRpc() {
   }
 }
 
-// ✅ Pagination methods
+// Pagination methods
 function goToFirst() {
   if (currentPage.value !== 1) {
     currentPage.value = 1
@@ -136,23 +136,40 @@ function toggleDelegateeExpanded(address: string) {
   expandedDelegateeRows.value[address] = !expandedDelegateeRows.value[address]
 }
 
-// ✅ Mounted
+// Mounted
 onMounted(() => {
   loadApplications()
   loadNetworkStats()
 })
 
-// ✅ Network Stats
+// Network Stats
 const networkStats = ref({
   wallets: 0,
   applications: 0,
+  totalStakedAmount: 0,
+  unstakingCount: 0,
+  totalUnstakingTokens: 0,
 })
 
-// ✅ Cache control
+// Cache control
 const networkStatsCacheTime = ref(0)
 const CACHE_EXPIRATION_MS = 60000
 
-// ✅ Load network stats
+// Get API chain name helper
+const getApiChainName = (chainName: string) => {
+  const chainMap: Record<string, string> = {
+    'pocket-beta': 'pocket-testnet-beta',
+    'pocket-alpha': 'pocket-testnet-alpha',
+    'pocket-mainnet': 'pocket-mainnet'
+  }
+  return chainMap[chainName] || chainName || 'pocket-testnet-beta'
+}
+
+const apiChainName = computed(() =>
+  getApiChainName(chainStore.current?.chainName || props.chain || 'pocket-beta')
+)
+
+// Load network stats
 async function loadNetworkStats() {
   const now = Date.now()
   if (now - networkStatsCacheTime.value < CACHE_EXPIRATION_MS && networkStats.value.wallets > 0) {
@@ -163,11 +180,28 @@ async function loadNetworkStats() {
   pageRequest.limit = 1
 
   try {
+    // Fetch from RPC for total count
     const [applicationsData] = await Promise.all([
       blockchain.rpc.getApplications(pageRequest),
     ])
 
     networkStats.value.applications = parseInt(applicationsData.pagination?.total || '0')
+    
+    // Fetch from API for aggregate statistics
+    try {
+      const apiUrl = `/api/v1/applications?chain=${apiChainName.value}&page=1&limit=1`
+      const apiRes = await fetch(apiUrl)
+      const apiData = await apiRes.json()
+      
+      if (apiRes.ok && apiData.meta) {
+        networkStats.value.totalStakedAmount = apiData.meta.totalStakedAmount || 0
+        networkStats.value.unstakingCount = apiData.meta.unstakingCount || 0
+        networkStats.value.totalUnstakingTokens = apiData.meta.totalUnstakingTokens || 0
+      }
+    } catch (apiError) {
+      console.error('Error loading API stats:', apiError)
+    }
+    
     networkStatsCacheTime.value = now
   } catch (error) {
     console.error('Error loading network stats:', error)
@@ -189,19 +223,19 @@ async function loadNetworkStats() {
       <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
         <span>
           <div class="text-xs text-[#64748B]">Staked Tokens</div>
-          <div class="font-bold">1,870,920.549828 POKT</div>
+          <div class="font-bold">{{ format.formatToken({ denom: 'upokt', amount: networkStats.totalStakedAmount.toString() }) }}</div>
         </span>
       </div>
       <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
         <span>
           <div class="text-xs text-[#64748B]">Unstaking Applications</div>
-          <div class="font-bold">0</div>
+          <div class="font-bold">{{ networkStats.unstakingCount.toLocaleString() }}</div>
         </span>
       </div>
       <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
         <span>
           <div class="text-xs text-[#64748B]">Unstaking Tokens</div>
-          <div class="font-bold">0 POKT</div>
+          <div class="font-bold">{{ format.formatToken({ denom: 'upokt', amount: networkStats.totalUnstakingTokens.toString() }) }}</div>
         </span>
       </div>
     </div>
@@ -316,7 +350,7 @@ async function loadNetworkStats() {
         </tbody>
       </table>
 
-      <!-- ✅ Pagination Bar -->
+      <!-- Pagination Bar -->
       <div class="flex justify-between items-center gap-4 my-6 px-6">
         <!-- Page Size Dropdown -->
         <div class="flex items-center gap-2">

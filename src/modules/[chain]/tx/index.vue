@@ -39,6 +39,7 @@ const loading = ref(false)
 
 // 🔹 Last 24H Transactions
 const tx24HCount = ref(0)
+const failedLast24h = ref(0)
 
 const currentTxCount = computed(() => {
   return base.latest?.block?.data?.txs?.length ?? 0
@@ -124,11 +125,14 @@ async function loadTransactions() {
     transactions.value = data.data || []
     totalTransactions.value = data.meta?.total || 0
     totalPages.value = data.meta?.totalPages || 0
+    // Store failed transactions count from API meta
+    failedLast24h.value = data.meta?.failedLast24h ?? 0
   } catch (error) {
     console.error('Error loading transactions:', error)
     transactions.value = []
     totalTransactions.value = 0
     totalPages.value = 0
+    failedLast24h.value = 0
   } finally {
     loading.value = false
   }
@@ -234,7 +238,7 @@ onMounted(async () => {
   // Initial 24H transactions count
   tx24HCount.value = await getLast24HTransactionsCount()
 
-  // Refresh every 1 minute
+  // Refresh 24H count every 1 minute
   setInterval(async () => {
     tx24HCount.value = await getLast24HTransactionsCount()
   }, 60000)
@@ -246,33 +250,35 @@ onMounted(async () => {
     <p class="bg-[#09279F] dark:bg-base-100 text-2xl rounded-xl px-4 py-4 my-4 font-bold text-white">Transactions</p>
     
     <div class="grid sm:grid-cols-1 md:grid-cols-4 py-4 gap-4 mb-4">
-      <!-- ✅ Dynamic Transactions (24H) -->
+      <!-- Transactions (24H) -->
       <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
         <span>
           <div class="text-xs text-[#64748B]">Transactions (24H)</div>
-          <div class="font-bold">{{ tx24HCount }}</div>
+          <div class="font-bold">{{ tx24HCount.toLocaleString() }}</div>
         </span>
       </div>
 
-      <!-- ✅ Dynamic Failed Transactions (24H) -->
+      <!-- Failed Transactions (24H) from API -->
       <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
         <span>
           <div class="text-xs text-[#64748B]">Failed Transactions (24H)</div>
-          <div class="font-bold">{{ currentTxCount }}</div>
+          <div class="font-bold">{{ failedLast24h.toLocaleString() }}</div>
         </span>
       </div>
 
-      <!-- Existing cards -->
+      <!-- Total Transactions -->
       <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
         <span>
-          <div class="text-xs text-[#64748B]">Total Transactions (24H)</div>
-          <div class="font-bold">{{ tx24HCount }}</div>
+          <div class="text-xs text-[#64748B]">Total Transactions</div>
+          <div class="font-bold">{{ totalTransactions.toLocaleString() }}</div>
         </span>
       </div>
+
+      <!-- Transactions (Last Block) -->
       <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
         <span>
           <div class="text-xs text-[#64748B]">Transactions (Last Block)</div>
-          <div class="font-bold">0</div>
+          <div class="font-bold">{{ currentTxCount.toLocaleString() }}</div>
         </span>
       </div>
     </div>
@@ -492,7 +498,7 @@ onMounted(async () => {
         </table>
       </div>
 
-      <!-- ✅ Pagination Bar -->
+      <!-- Pagination Bar -->
       <div class="flex justify-between items-center gap-4 my-6 px-6">
         <!-- Page Size Dropdown -->
         <div class="flex items-center gap-2">

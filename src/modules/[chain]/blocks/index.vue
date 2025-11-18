@@ -22,7 +22,7 @@ const currentTxCount = computed(() => {
 })
 
 
-// ✅ Network Stats
+// Network Stats
 const networkStats = ref({
   wallets: 0,
   applications: 0,
@@ -30,11 +30,11 @@ const networkStats = ref({
   gateways: 0,
 })
 
-// ✅ Cache control
+// Cache control
 const networkStatsCacheTime = ref(0)
 const CACHE_EXPIRATION_MS = 60000
 
-// ✅ Load network stats
+// Load network stats
 async function loadNetworkStats() {
   const now = Date.now()
   if (now - networkStatsCacheTime.value < CACHE_EXPIRATION_MS && networkStats.value.wallets > 0) {
@@ -60,7 +60,7 @@ async function loadNetworkStats() {
   }
 }
 
-// ✅ API blocks interface
+// API blocks interface
 interface ApiBlockItem {
   id: string
   height: number
@@ -97,9 +97,14 @@ const totalBlocks = ref(0)
 const totalPages = ref(0)
 const pageSizeOptions = [10, 25, 50, 100]
 
+// Block statistics from API meta
+const avgBlockProductionTime = ref<number | null>(null)
+const avgBlockSize = ref<number | null>(null)
+
 function updateCurrentBlockProductionTime() {
   const height = currentBlockHeight.value
-  const block = blocks.value.find(b => b.height === height)
+  // Ensure both values are of the same type for comparison
+  const block = blocks.value.find(b => String(b.height) === String(height))
 
   currentBlockProductionTime.value = block?.block_production_time || 0
 }
@@ -115,7 +120,7 @@ watch(currentBlockHeight, () => {
 })
 
 
-// ✅ Fetch blocks
+// Fetch blocks
 async function loadBlocks() {
   loading.value = true
   try {
@@ -130,28 +135,35 @@ async function loadBlocks() {
       }))
       totalBlocks.value = data.meta?.total || 0
       totalPages.value = data.meta?.totalPages || 0
+      // Store average statistics from API meta
+      avgBlockProductionTime.value = data.meta?.avgBlockProductionTime ?? null
+      avgBlockSize.value = data.meta?.avgBlockSize ?? null
     } else {
       console.error('Error loading blocks:', data)
       blocks.value = []
       totalBlocks.value = 0
       totalPages.value = 0
+      avgBlockProductionTime.value = null
+      avgBlockSize.value = null
     }
   } catch (e) {
     console.error('Error loading blocks:', e)
     blocks.value = []
     totalBlocks.value = 0
     totalPages.value = 0
+    avgBlockProductionTime.value = null
+    avgBlockSize.value = null
   } finally {
     loading.value = false
   }
 }
 
-// ✅ Watchers
+// Watchers
 watch(itemsPerPage, () => { currentPage.value = 1; loadBlocks() })
 watch(currentPage, () => loadBlocks())
 watch(apiChainName, (n, o) => { if(n!==o){ currentPage.value=1; loadBlocks() } })
 
-// ✅ Convert bytes → largest appropriate unit (B, KB, MB, GB, TB, PB)
+// Convert bytes → largest appropriate unit (B, KB, MB, GB, TB, PB)
 function formatBytes(bytes?: number): string {
   if (!bytes || bytes === 0) return '0 B'
   
@@ -197,7 +209,7 @@ function safeProductionTime(item: any) {
 
 
 
-// ✅ Convert seconds → "Xs" or "Xm Ys" without decimal in seconds
+// Convert seconds → "Xs" or "Xm Ys" without decimal in seconds
 function formatBlockTime(secondsStr?: string | number) {
   if (!secondsStr) return '0s'
   const totalSeconds = typeof secondsStr === 'string' ? parseFloat(secondsStr) : secondsStr
@@ -212,13 +224,13 @@ function formatBlockTime(secondsStr?: string | number) {
 }
 
 
-// ✅ Pagination
+// Pagination
 function goToFirst() { if (currentPage.value !== 1) currentPage.value = 1 }
 function goToLast() { if (currentPage.value !== totalPages.value) currentPage.value = totalPages.value }
 function nextPage() { if (currentPage.value < totalPages.value) currentPage.value++ }
 function prevPage() { if (currentPage.value > 1) currentPage.value-- }
 
-// ✅ Auto-load on mount
+// Auto-load on mount
 onMounted(() => {
   loadNetworkStats()
   loadBlocks()
@@ -249,13 +261,13 @@ onMounted(() => {
       <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
         <span>
           <div class="text-xs text-[#64748B]">Production Time (Avg. 24H)</div>
-          <div class="font-bold">{{ safeProductionTime(item || 0)  }}</div>
+          <div class="font-bold">{{ avgBlockProductionTime !== null ? formatProductionTime(avgBlockProductionTime) : '-' }}</div>
         </span>
       </div>
       <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
         <span>
           <div class="text-xs text-[#64748B]">Total Size (Avg. 24H)</div>
-          <div class="font-bold">58.3 KB</div>
+          <div class="font-bold">{{ avgBlockSize !== null ? formatBytes(avgBlockSize) : '-' }}</div>
         </span>
       </div>
     </div>
@@ -342,7 +354,7 @@ onMounted(() => {
           </tbody>
         </table>
 
-        <!-- ✅ Pagination Bar -->
+        <!-- Pagination Bar -->
         <div class="flex justify-between items-center gap-4 my-6 px-6">
           <div class="flex items-center gap-2">
             <span class="text-sm text-gray-600">Show:</span>

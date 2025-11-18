@@ -175,7 +175,7 @@ onMounted(() => {
         </tbody>
       </table>
 
-      <!-- ✅ Pagination -->
+      <!-- Pagination -->
       <div class="flex justify-between items-center gap-4 my-6 px-6">
         <!-- Page Size Dropdown -->
         <div class="flex items-center gap-2">

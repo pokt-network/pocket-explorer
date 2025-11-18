@@ -112,19 +112,36 @@ function goToLast() {
   }
 }
 
-// ✅ Network Stats
+// Network Stats
 const networkStats = ref({
   wallets: 0,
   applications: 0,
   suppliers: 0,
   gateways: 0,
+  totalStakedTokens: 0,
+  unstakingCount: 0,
+  totalUnstakingTokens: 0,
 })
 
-// ✅ Cache control
+// Cache control
 const networkStatsCacheTime = ref(0)
 const CACHE_EXPIRATION_MS = 60000
 
-// ✅ Load network stats
+// Get API chain name helper
+const getApiChainName = (chainName: string) => {
+  const chainMap: Record<string, string> = {
+    'pocket-beta': 'pocket-testnet-beta',
+    'pocket-alpha': 'pocket-testnet-alpha',
+    'pocket-mainnet': 'pocket-mainnet'
+  }
+  return chainMap[chainName] || chainName || 'pocket-testnet-beta'
+}
+
+const apiChainName = computed(() =>
+  getApiChainName(chainStore.current?.chainName || props.chain || 'pocket-beta')
+)
+
+// Load network stats
 async function loadNetworkStats() {
   const now = Date.now()
   if (now - networkStatsCacheTime.value < CACHE_EXPIRATION_MS && networkStats.value.wallets > 0) {
@@ -135,11 +152,28 @@ async function loadNetworkStats() {
   pageRequest.limit = 1
 
   try {
+    // Fetch from RPC for total count
     const [suppliersData] = await Promise.all([
       blockchain.rpc.getSuppliers(pageRequest),
     ])
 
     networkStats.value.suppliers = parseInt(suppliersData.pagination?.total || '0')
+    
+    // Fetch from API for aggregate statistics
+    try {
+      const apiUrl = `/api/v1/suppliers?chain=${apiChainName.value}&page=1&limit=1`
+      const apiRes = await fetch(apiUrl)
+      const apiData = await apiRes.json()
+      
+      if (apiRes.ok && apiData.meta) {
+        networkStats.value.totalStakedTokens = apiData.meta.totalStakedTokens || 0
+        networkStats.value.unstakingCount = apiData.meta.unstakingCount || 0
+        networkStats.value.totalUnstakingTokens = apiData.meta.totalUnstakingTokens || 0
+      }
+    } catch (apiError) {
+      console.error('Error loading API stats:', apiError)
+    }
+    
     networkStatsCacheTime.value = now
   } catch (error) {
     console.error('Error loading network stats:', error)
@@ -171,24 +205,24 @@ const statusText = computed(() => (value.value === 'stake' ? 'Staked' : 'Unstake
       <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
         <span>
           <div class="text-xs text-[#64748B]">Staked Tokens</div>
-          <div class="font-bold">353M POKT</div>
+          <div class="font-bold">{{ format.formatToken({ denom: 'upokt', amount: networkStats.totalStakedTokens.toString() }) }}</div>
         </span>
       </div>
       <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
         <span>
           <div class="text-xs text-[#64748B]">Unstaking Suppliers</div>
-          <div class="font-bold">0</div>
+          <div class="font-bold">{{ networkStats.unstakingCount.toLocaleString() }}</div>
         </span>
       </div>
       <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
         <span>
           <div class="text-xs text-[#64748B]">Unstaking Tokens</div>
-          <div class="font-bold">0 POKT</div>
+          <div class="font-bold">{{ format.formatToken({ denom: 'upokt', amount: networkStats.totalUnstakingTokens.toString() }) }}</div>
         </span>
       </div>
     </div>
 
-    <!-- ✅ Scroll hataya gaya -->
+    <!-- Scroll hataya gaya -->
     <div
       class="bg-base-200 dark:bg-base-100 rounded-xl p-3"
     >
