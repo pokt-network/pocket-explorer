@@ -4,6 +4,8 @@ import { useBaseStore, useBlockchain, useFormatter } from '@/stores'
 import { useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
 import { fetchTransactions, type ApiTransaction, type TransactionFilters } from '@/libs/transactions'
+import { secp256k1PubKeyToAccountAddress } from '@/libs/address'
+import { isBech32Address } from '@/libs/utils'
 
 const props = defineProps(['chain'])
 const router = useRouter()
@@ -20,7 +22,6 @@ const hash = ref('')
 const getApiChainName = (chainName: string) => {
   const chainMap: Record<string, string> = {
     'pocket-beta': 'pocket-testnet-beta',
-    'pocket-alpha': 'pocket-testnet-alpha',
     'pocket-mainnet': 'pocket-mainnet'
   }
   return chainMap[chainName] || chainName || 'pocket-testnet-beta'
@@ -230,6 +231,21 @@ function changePageSize(newSize: number) {
   itemsPerPage.value = newSize
 }
 
+// 🔹 Helper function to get account address from sender
+// The sender might be a public key (base64) or already an address
+function getSenderAddress(sender: string): string {
+  if (!sender) return '';
+  
+  // Check if it's already a bech32 address
+  if (isBech32Address(sender)) {
+    return sender;
+  }
+  
+  // Otherwise, treat it as a public key and convert to address
+  const prefix = chainStore?.current?.bech32Prefix || 'pokt';
+  return secp256k1PubKeyToAccountAddress(sender, prefix) || sender;
+}
+
 // 🔹 Mounted hook
 onMounted(async () => {
   tab.value = String(router.currentRoute.value.query.tab || 'recent')
@@ -432,6 +448,7 @@ onMounted(async () => {
               <th>{{ $t('account.type') }}</th>
               <th>{{ $t('block.fees') }}</th>
               <th>{{ $t('account.time') }}</th>
+              <th>{{ $t('account.signer') }}</th>
             </tr>
           </thead>
 
@@ -492,6 +509,13 @@ onMounted(async () => {
               </td>
               <td class="dark:bg-base-200 bg-white">
                 {{ format.toDay(item.timestamp, 'from') }}
+              </td>
+              <td class="dark:bg-base-200 bg-white">
+                <RouterLink
+                  :to="`/${props.chain}/account/${getSenderAddress(item.sender)}`"
+                  class="text-sm text-[#09279F] dark:invert font-mono hover:underline"
+                  >{{ getSenderAddress(item.sender) }}</RouterLink
+                >
               </td>
             </tr>
           </tbody>

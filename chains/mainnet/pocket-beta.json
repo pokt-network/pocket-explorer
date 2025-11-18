@@ -1,0 +1,24 @@
+{
+    "chain_name": "pocket-beta",
+    "registry_name": "Beta",
+    "api": [
+        {"provider": "Pocket-Testnet-Beta", "address": "https://shannon-testnet-grove-api.beta.poktroll.com"}
+    ],
+    "rpc": [
+        {"provider": "Pocket-Testnet-Beta", "address": "https://shannon-testnet-grove-rpc.beta.poktroll.com"}
+    ],
+    "transaction_service": "pocket-testnet-beta",
+    "features": ["dashboard", "blocks", "tx", "applications", "suppliers", "gateways", "services", "validators", "parameters"],
+    "sdk_version": "0.45.1",
+    "coin_type": "118",
+    "min_tx_fee": "800",
+    "addr_prefix": "pokt",
+    "logo": "https://assets-global.website-files.com/651fe0a9a906d151784935f8/65c62e2727ed4e265bc9911a_universal-logo.png",
+    "assets": [{
+        "base": "upokt",
+        "symbol": "pokt",
+        "exponent": "6",
+        "coingecko_id": "pocket-network", 
+        "logo": "https://assets-global.website-files.com/651fe0a9a906d151784935f8/65c62e2727ed4e265bc9911a_universal-logo.png"
+    }]
+}

@@ -74,7 +74,6 @@ interface ApiBlockItem {
 const getApiChainName = (chainName: string) => {
   const chainMap: Record<string, string> = {
     'pocket-beta': 'pocket-testnet-beta',
-    'pocket-alpha': 'pocket-testnet-alpha',
     'pocket-mainnet': 'pocket-mainnet'
   }
   return chainMap[chainName] || chainName || 'pocket-testnet-beta'
@@ -254,22 +253,6 @@ onMounted(() => {
           <div class="font-bold">{{ avgBlockSize !== null ? formatBytes(avgBlockSize) : '-' }}</div>
         </span>
       </div>
-    </div>
-
-    <div class="tabs tabs-boxed bg-transparent mb-4">
-      <a
-        class="tab text-gray-400 uppercase"
-        :class="{ 'tab-active': tab === 'blocks' }"
-        @click="tab = 'blocks'"
-      >
-        {{ $t('block.recent') }}
-      </a>
-      <RouterLink
-        class="tab text-gray-400 uppercase"
-        :to="`/${props.chain}/blocks/${Number(base.latest?.block?.header.height || 0) + 10000}`"
-      >
-        {{ $t('block.future') }}
-      </RouterLink>
     </div>
 
     <div

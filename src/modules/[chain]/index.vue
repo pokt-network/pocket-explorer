@@ -195,7 +195,6 @@ interface ApiBlockItem {
 const getApiChainName = (chainName: string) => {
   const chainMap: Record<string, string> = {
     'pocket-beta': 'pocket-testnet-beta',
-    'pocket-alpha': 'pocket-testnet-alpha',
     'pocket-mainnet': 'pocket-mainnet'
   };
   return chainMap[chainName] || chainName || 'pocket-testnet-beta';
@@ -518,10 +517,10 @@ const historicalData = ref({
 });
 
 // Chart state for Network Growth
-const networkGrowthTab = ref<'core-services' | 'performance'>('core-services');
+const networkGrowthTab = ref<'core-services' | 'performance'>('performance');
 const networkGrowthChartType = ref<'bar' | 'area' | 'line'>('area');
 const chartCategories = ref<string[]>([]);
-const performanceMetric = ref<'relays' | 'compute-units'>('relays');
+const performanceMetric = ref<'relays' | 'compute-units'>('compute-units');
 
 // Computed series based on active tab
 const activeNetworkGrowthSeries = computed(() => {
