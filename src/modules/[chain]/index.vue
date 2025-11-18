@@ -518,10 +518,10 @@ const historicalData = ref({
 });
 
 // Chart state for Network Growth
-const networkGrowthTab = ref<'core-services' | 'performance'>('core-services');
+const networkGrowthTab = ref<'core-services' | 'performance'>('performance');
 const networkGrowthChartType = ref<'bar' | 'area' | 'line'>('area');
 const chartCategories = ref<string[]>([]);
-const performanceMetric = ref<'relays' | 'compute-units'>('relays');
+const performanceMetric = ref<'relays' | 'compute-units'>('compute-units');
 
 // Computed series based on active tab
 const activeNetworkGrowthSeries = computed(() => {

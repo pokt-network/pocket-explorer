@@ -256,22 +256,6 @@ onMounted(() => {
       </div>
     </div>
 
-    <div class="tabs tabs-boxed bg-transparent mb-4">
-      <a
-        class="tab text-gray-400 uppercase"
-        :class="{ 'tab-active': tab === 'blocks' }"
-        @click="tab = 'blocks'"
-      >
-        {{ $t('block.recent') }}
-      </a>
-      <RouterLink
-        class="tab text-gray-400 uppercase"
-        :to="`/${props.chain}/blocks/${Number(base.latest?.block?.header.height || 0) + 10000}`"
-      >
-        {{ $t('block.future') }}
-      </RouterLink>
-    </div>
-
     <div
       v-show="tab === 'blocks'"
       class="bg-[#EFF2F5] dark:bg-base-100 px-0.5 pt-0.5 pb-4 rounded-xl shadow-md mb-4"
