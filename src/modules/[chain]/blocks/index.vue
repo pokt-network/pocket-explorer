@@ -3,6 +3,7 @@ import { computed, ref, onMounted, watch } from 'vue'
 import { useStakingStore, useBaseStore, useFormatter } from '@/stores'
 import { PageRequest } from '@/types'
 import { useBlockchain } from '@/stores'
+import { Icon } from '@iconify/vue';
 
 const props = defineProps(['chain'])
 const tab = ref('blocks')
@@ -12,7 +13,16 @@ stakingStore.init()
 const format = useFormatter()
 const blockchain = useBlockchain()
 
-// ✅ Network Stats
+const currentBlockHeight = computed(() => {
+  return base.latest?.block?.header?.height ?? 0
+})
+
+const currentTxCount = computed(() => {
+  return base.latest?.block?.data?.txs?.length ?? 0
+})
+
+
+// Network Stats
 const networkStats = ref({
   wallets: 0,
   applications: 0,
@@ -20,27 +30,24 @@ const networkStats = ref({
   gateways: 0,
 })
 
-// ✅ Cache control
+// Cache control
 const networkStatsCacheTime = ref(0)
 const CACHE_EXPIRATION_MS = 60000
 
-// ✅ Load network stats
+// Load network stats
 async function loadNetworkStats() {
   const now = Date.now()
   if (now - networkStatsCacheTime.value < CACHE_EXPIRATION_MS && networkStats.value.wallets > 0) {
     return
   }
-
   const pageRequest = new PageRequest()
   pageRequest.limit = 1
-
   try {
     const [applicationsData, suppliersData, gatewaysData] = await Promise.all([
       blockchain.rpc.getApplications(pageRequest),
       blockchain.rpc.getSuppliers(pageRequest),
       blockchain.rpc.getGateways(pageRequest),
     ])
-
     networkStats.value.applications = parseInt(applicationsData.pagination?.total || '0')
     networkStats.value.suppliers = parseInt(suppliersData.pagination?.total || '0')
     networkStats.value.gateways = parseInt(gatewaysData.pagination?.total || '0')
@@ -50,7 +57,7 @@ async function loadNetworkStats() {
   }
 }
 
-// ✅ API blocks interface
+// API blocks interface
 interface ApiBlockItem {
   id: string
   height: number
@@ -86,7 +93,28 @@ const totalBlocks = ref(0)
 const totalPages = ref(0)
 const pageSizeOptions = [10, 25, 50, 100]
 
-// ✅ Fetch blocks
+// Block statistics from API meta
+const avgBlockProductionTime = ref<number | null>(null)
+const avgBlockSize = ref<number | null>(null)
+
+function updateCurrentBlockProductionTime() {
+  const height = currentBlockHeight.value
+  // Ensure both values are of the same type for comparison
+  const block = blocks.value.find(b => String(b.height) === String(height))
+}
+
+// ⭐ Watch block list changed
+watch(blocks, () => {
+  updateCurrentBlockProductionTime()
+})
+
+// ⭐ Watch current block height changed
+watch(currentBlockHeight, () => {
+  updateCurrentBlockProductionTime()
+})
+
+
+// Fetch blocks
 async function loadBlocks() {
   loading.value = true
   try {
@@ -101,67 +129,93 @@ async function loadBlocks() {
       }))
       totalBlocks.value = data.meta?.total || 0
       totalPages.value = data.meta?.totalPages || 0
+      // Store average statistics from API meta
+      avgBlockProductionTime.value = data.meta?.avgBlockProductionTime ?? null
+      avgBlockSize.value = data.meta?.avgBlockSize ?? null
     } else {
       console.error('Error loading blocks:', data)
       blocks.value = []
       totalBlocks.value = 0
       totalPages.value = 0
+      avgBlockProductionTime.value = null
+      avgBlockSize.value = null
     }
   } catch (e) {
     console.error('Error loading blocks:', e)
     blocks.value = []
     totalBlocks.value = 0
     totalPages.value = 0
+    avgBlockProductionTime.value = null
+    avgBlockSize.value = null
   } finally {
     loading.value = false
   }
 }
 
-// ✅ Watchers
+// Watchers
 watch(itemsPerPage, () => { currentPage.value = 1; loadBlocks() })
 watch(currentPage, () => loadBlocks())
 watch(apiChainName, (n, o) => { if(n!==o){ currentPage.value=1; loadBlocks() } })
 
-// ✅ Convert bytes → largest appropriate unit (B, KB, MB, GB, TB, PB)
+// Convert bytes → largest appropriate unit (B, KB, MB, GB, TB, PB)
 function formatBytes(bytes?: number): string {
   if (!bytes || bytes === 0) return '0 B'
-  
   const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
   const k = 1024
   const i = Math.floor(Math.log(bytes) / Math.log(k))
-  
   // Clamp i to valid unit index
   const unitIndex = Math.min(i, units.length - 1)
   const value = bytes / Math.pow(k, unitIndex)
-  
   // Format with appropriate decimal places
   const decimals = unitIndex === 0 ? 0 : value < 10 ? 2 : 1
   return `${value.toFixed(decimals)} ${units[unitIndex]}`
 }
 
+// ✅ Format production time for single block
+function formatProductionTime(secondsStr?: string | number) {
+  if (!secondsStr) return "0s"
+  const totalSeconds =
+    typeof secondsStr === "string" ? parseFloat(secondsStr) : secondsStr
+  if (!totalSeconds || isNaN(totalSeconds)) return "0s"
+  if (totalSeconds < 60) {
+    return `${Math.round(totalSeconds)}s`  // 0-59s ke liye direct seconds
+  }
+  const minutes = Math.floor(totalSeconds / 60)  // total seconds ko minutes me convert
+  const seconds = Math.round(totalSeconds % 60)  // remaining seconds
+  return `${minutes}m ${seconds}s`  // 60s ya us se upar ko minutes + seconds format me
+}
 
-// ✅ Convert seconds → "Xs" or "Xm Ys" without decimal in seconds
+// ✅ Compute average production time of all loaded blocks
+const averageBlockProductionTime = computed(() => {
+  if (!blocks.value.length) return "0s"
+  const total = blocks.value.reduce((sum, block) => {
+    const time = block.block_production_time ? parseFloat(block.block_production_time as any) : 0
+    return sum + time
+  }, 0)
+  const avgSeconds = total / blocks.value.length
+  return formatProductionTime(avgSeconds) // yaha pe same function use ho raha hai
+})
+
+// Convert seconds → "Xs" or "Xm Ys" without decimal in seconds
 function formatBlockTime(secondsStr?: string | number) {
   if (!secondsStr) return '0s'
   const totalSeconds = typeof secondsStr === 'string' ? parseFloat(secondsStr) : secondsStr
-
   if (totalSeconds < 60) {
     return `${Math.round(totalSeconds)}s` // sirf seconds, rounded
   }
-
   const minutes = Math.floor(totalSeconds / 60)
   const seconds = Math.round(totalSeconds % 60) // seconds rounded to integer
   return `${minutes}m ${seconds}s` // minutes aur seconds, no decimal
 }
 
 
-// ✅ Pagination
+// Pagination
 function goToFirst() { if (currentPage.value !== 1) currentPage.value = 1 }
 function goToLast() { if (currentPage.value !== totalPages.value) currentPage.value = totalPages.value }
 function nextPage() { if (currentPage.value < totalPages.value) currentPage.value++ }
 function prevPage() { if (currentPage.value > 1) currentPage.value-- }
 
-// ✅ Auto-load on mount
+// Auto-load on mount
 onMounted(() => {
   loadNetworkStats()
   loadBlocks()
@@ -170,9 +224,37 @@ onMounted(() => {
 
 <template>
   <div>
-    <p class="bg-[#09279F] dark:bg-base-100 text-2xl rounded-xl px-4 py-4 my-4 font-bold text-white">
-      Blocks
-    </p>
+    <p class="bg-[#09279F] dark:bg-base-100 text-2xl rounded-xl px-4 py-4 my-4 font-bold text-white">Blocks</p>
+
+    <div class="grid sm:grid-cols-1 md:grid-cols-4 py-4 gap-4 mb-4">
+      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+        <span>
+          <div class="text-xs text-[#64748B]">Latest Blocks</div>
+          <div class="flex justify-center items-center">
+            <div class="font-bold">{{ currentBlockHeight }}</div>
+            <Icon icon="mdi:content-copy" class="ml-2 cursor-pointer text-[#64748B]" />
+          </div>
+        </span>
+      </div>
+      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+        <span>
+          <div class="text-xs text-[#64748B]">Transactions</div>
+          <div class="font-bold">{{ currentTxCount }}</div>
+        </span>
+      </div>
+      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+        <span>
+          <div class="text-xs text-[#64748B]">Production Time (Avg. 24H)</div>
+          <div class="font-bold">{{ avgBlockProductionTime !== null ? formatProductionTime(avgBlockProductionTime) : '-' }}</div>
+        </span>
+      </div>
+      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+        <span>
+          <div class="text-xs text-[#64748B]">Total Size (Avg. 24H)</div>
+          <div class="font-bold">{{ avgBlockSize !== null ? formatBytes(avgBlockSize) : '-' }}</div>
+        </span>
+      </div>
+    </div>
 
     <div class="tabs tabs-boxed bg-transparent mb-4">
       <a
@@ -256,7 +338,7 @@ onMounted(() => {
           </tbody>
         </table>
 
-        <!-- ✅ Pagination Bar -->
+        <!-- Pagination Bar -->
         <div class="flex justify-between items-center gap-4 my-6 px-6">
           <div class="flex items-center gap-2">
             <span class="text-sm text-gray-600">Show:</span>

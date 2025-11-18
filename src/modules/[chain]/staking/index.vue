@@ -398,7 +398,7 @@ function goToLast() {
             <span class="loading loading-spinner loading-lg"></span>
             </div>
 
-            <!-- ✅ scroll hataya -->
+            <!-- scroll hataya -->
             <div
             v-else
             class="bg-base-200 dark:bg-base-100 rounded-xl dark:border-base-200 px-4 pt-2 pb-2"
@@ -517,7 +517,7 @@ function goToLast() {
                 </tbody>
             </table>
 
-            <!-- ✅ Pagination Section -->
+            <!-- Pagination Section -->
             <div class="flex justify-between items-center gap-4 my-6 px-6">
                 <!-- Page Size Dropdown -->
                 <div class="flex items-center gap-2">
