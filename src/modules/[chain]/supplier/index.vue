@@ -131,7 +131,6 @@ const CACHE_EXPIRATION_MS = 60000
 const getApiChainName = (chainName: string) => {
   const chainMap: Record<string, string> = {
     'pocket-beta': 'pocket-testnet-beta',
-    'pocket-alpha': 'pocket-testnet-alpha',
     'pocket-mainnet': 'pocket-mainnet'
   }
   return chainMap[chainName] || chainName || 'pocket-testnet-beta'
