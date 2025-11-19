@@ -185,11 +185,6 @@ onMounted(() => {
   loadNetworkStats();
 });
 
-// ...existing code...
-// Toggle expanded state for delegatee addresses
-function toggleDelegateeExpanded(address: string) {
-  expandedDelegateeRows.value[address] = !expandedDelegateeRows.value[address]
-}
 
 // add this helper for supplier status (Staked / Unstaked) with classes
 function getSupplierStatus(item: any) {
