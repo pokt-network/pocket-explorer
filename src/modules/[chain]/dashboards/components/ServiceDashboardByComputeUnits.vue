@@ -160,6 +160,7 @@ const currentPage = ref(1);
 const currentPages = ref(1);
 const itemsPerPage = ref(25);
 const itemsPerPages = ref(10); // For performance tab
+const itemPerPage = ref(10);
 const totalPages = ref(0);
 const selectedService = ref('');
 const selectedSupplier = ref('');
@@ -526,6 +527,8 @@ async function loadTopServicesByPerformance() {
     const data = await fetchApi('/api/v1/services/top-by-performance', params);
       topServicesByPerformance.value = data.data || [];
       totalComputeUnits.value = data.total_compute_units || 0;
+    // Update the chart data based on the new top services
+    updateTopServicesChart();
   } catch (error: any) {
     console.error('Error loading top services by performance:', error);
     topServicesByPerformance.value = [];
@@ -619,7 +622,7 @@ async function loadRewardShareData() {
 }
 
 function updateTopServicesChart() {
-  const sorted = [...topServicesByComputeUnits.value].sort((a, b) => 
+  const sorted = [...topServicesByPerformance.value].sort((a, b) => 
     parseInt(b.total_claimed_compute_units) - parseInt(a.total_claimed_compute_units)
   );
   const labels = sorted.map(s => s.service_id);
@@ -628,6 +631,11 @@ function updateTopServicesChart() {
   topServicesChartSeries.value = [{ name: 'Compute Units', data }];
   topServicesChartCategories.value = labels;
 }
+
+// Watch for changes in itemPerPage and performanceDays to reload data
+watch([itemPerPage, performanceDays], () => {
+  loadTopServicesByPerformance();
+});
 
 function formatNumber(num: number | string): string { return new Intl.NumberFormat().format(typeof num === 'string' ? parseInt(num) : num); }
 function formatComputeUnits(units: number | string): string {
@@ -895,7 +903,30 @@ onMounted(() => {
 
       <!-- Right Column: Services Chart -->
       <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3 h-full">
-        <div class="text-sm font-semibold mb-2">Services</div>
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-sm font-semibold mb-2">Services</div>
+          <div class="flex justify-end gap-4">
+          <!-- LIMIT DROPDOWN -->
+          <div class="flex items-center justify-end gap-2">
+            <span class="text-xs text-secondary"> Limit:</span>
+            <select v-model="itemsPerPages" @change="loadTopServicesByPerformance()"  class="select select-bordered select-xs w-full text-xs">
+              <option :value="10">10</option>
+              <option :value="20">20</option>
+              <option :value="30">30</option>
+              <option :value="50">50</option>
+            </select>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-secondary">Days:</span>
+            <select v-model="performanceDays" @change="loadTopServicesByPerformance()" class="select select-bordered select-xs w-full text-xs">
+              <option :value="7">7</option>
+              <option :value="15">15</option>
+              <option :value="30">30</option>
+            </select>
+          </div>
+        </div>
+        </div>
+        
         <div class="dark:bg-base-200 bg-base-100 p-2 rounded-md relative">
           <div v-if="loadingTopServices" class="flex justify-center items-center h-64">
             <div class="loading loading-spinner loading-sm"></div>

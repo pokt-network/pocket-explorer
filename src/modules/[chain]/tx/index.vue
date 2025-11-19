@@ -234,17 +234,37 @@ function changePageSize(newSize: number) {
 // 🔹 Helper function to get account address from sender
 // The sender might be a public key (base64) or already an address
 function getSenderAddress(sender: string): string {
-  if (!sender) return '';
-  
-  // Check if it's already a bech32 address
-  if (isBech32Address(sender)) {
-    return sender;
-  }
-  
-  // Otherwise, treat it as a public key and convert to address
-  const prefix = chainStore?.current?.bech32Prefix || 'pokt';
-  return secp256k1PubKeyToAccountAddress(sender, prefix) || sender;
 }
+
+// add this helper (paste near other helper functions)
+function isTxSuccess(item: any): boolean {
+  if (!item) return false;
+  // prefer explicit code field
+  if (typeof item.code !== 'undefined' && item.code !== null) {
+    return Number(item.code) === 0;
+  }
+  // boolean status
+  if (typeof item.status === 'boolean') return item.status === true;
+  // string status (API may return "true"/"false" or "success")
+  if (typeof item.status === 'string') {
+    const s = item.status.toLowerCase();
+    return s === 'true' || s === 'success' || s === 'ok';
+  }
+  return false;
+}
+
+// function getSenderAddress(sender: string): string {
+//   if (!sender) return '';
+  
+//   // Check if it's already a bech32 address
+//   if (isBech32Address(sender)) {
+//     return sender;
+//   }
+  
+//   // Otherwise, treat it as a public key and convert to address
+//   const prefix = chainStore?.current?.bech32Prefix || 'pokt';
+//   return secp256k1PubKeyToAccountAddress(sender, prefix) || sender;
+// }
 
 // 🔹 Mounted hook
 onMounted(async () => {
@@ -489,13 +509,10 @@ onMounted(async () => {
                 >
               </td>
               <td class="dark:bg-base-200 bg-white">
-                <span
-                  class="text-xs truncate py-1 px-3 rounded-full"
-                  :class="item.status
-                      ? 'bg-[#60BC29]/10 text-[#60BC29]'
-                      : 'bg-[#E03834]/10 text-[#E03834]'"
-                >
-                  {{ item.status ? 'Success' : 'Failed' }}
+                <span class="text-xs truncate py-1 px-3 rounded-full inline-flex items-center gap-2"
+                  :class="isTxSuccess(item) ? 'bg-[#60BC29]/10 text-[#60BC29]' : 'bg-[#E03834]/10 text-[#E03834]'">
+                  <!-- <Icon :icon="isTxSuccess(item) ? 'mdi-check' : 'mdi-multiply'" class="text-sm" /> -->
+                  {{ isTxSuccess(item) ? 'Staked' : 'Unstaked' }}
                 </span>
               </td>
               <td class="dark:bg-base-200 bg-white">

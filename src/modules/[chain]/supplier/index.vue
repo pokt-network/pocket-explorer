@@ -185,6 +185,30 @@ onMounted(() => {
   loadNetworkStats();
 });
 
+// ...existing code...
+// Toggle expanded state for delegatee addresses
+function toggleDelegateeExpanded(address: string) {
+  expandedDelegateeRows.value[address] = !expandedDelegateeRows.value[address]
+}
+
+// add this helper for supplier status (Staked / Unstaked) with classes
+function getSupplierStatus(item: any) {
+  if (!item) return { label: '-', classes: '' }
+  const raw = (item.status || item.state || '').toString()
+  const s = raw.toLowerCase()
+  // explicit indicators for unbonding/unstaking
+  if (s.includes('unbond') || s.includes('unstak') || item.unbonding_time || item.unbonding_height) {
+    return { label: 'Unstaked', classes: 'bg-[#E03834]/10 text-[#E03834]' }
+  }
+  // treat as staked if status mentions bond/stake or stake amount > 0
+  const stakeAmt = Number(item.stake?.amount || '0')
+  if (s.includes('bond') || s.includes('stake') || stakeAmt > 0) {
+    return { label: 'Staked', classes: 'bg-[#60BC29]/10 text-[#60BC29]' }
+  }
+  return { label: '-', classes: '' }
+}
+// ...existing code...
+
 // 🔹 Computed status
 const value = ref('stake');
 const statusText = computed(() => (value.value === 'stake' ? 'Staked' : 'Unstaked'));
@@ -274,7 +298,12 @@ const statusText = computed(() => (value.value === 'stake' ? 'Staked' : 'Unstake
                 </span>
               </div>
             </td>
-            <td class="text-success">{{ statusText }}</td>
+            <td class="">
+              <span class="text-xs truncate py-1 px-3 rounded-full inline-flex items-center gap-2"
+                :class="getSupplierStatus(item).classes">
+                {{ getSupplierStatus(item).label }}
+              </span>
+            </td>
             <td class="font-bold dark:text-secondary">
               {{ format.formatToken(item.stake) }}
             </td>
