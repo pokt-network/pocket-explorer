@@ -475,8 +475,8 @@ function formatCompact(value: number) {
 const networkStats = ref({
   wallets: 0,
   applications: 0,
-  suppliers: 0,
   gateways: 0,
+  suppliers: 0,
   services: 0
 });
 
@@ -508,8 +508,8 @@ async function loadServicesSummary24h() {
 const historicalData = ref({
   series: [
     { name: 'Applications', data: [], yAxisIndex: 0 },
-    { name: 'Suppliers', data: [], yAxisIndex: 0 },
     { name: 'Gateways', data: [], yAxisIndex: 0 },
+    { name: 'Suppliers', data: [], yAxisIndex: 0 },
     { name: 'Services', data: [], yAxisIndex: 0 },
     { name: 'Relays', data: [], yAxisIndex: 1 },
     { name: 'Compute Units', data: [], yAxisIndex: 1 }
@@ -1578,20 +1578,20 @@ function formatBlockTime(secondsStr?: string | number) {
             <!-- Tabs -->
             <div class="flex tabs tabs-boxed bg-base-200 dark:bg-base-300">
               <button
-                @click="networkGrowthTab = 'core-services'"
-                :class="[
-                  'tab',
-                  networkGrowthTab === 'core-services' ? 'tab-active bg-[#09279F] text-white' : ''
-                ]">
-                Core Services
-              </button>
-              <button
                 @click="networkGrowthTab = 'performance'"
                 :class="[
                   'tab',
                   networkGrowthTab === 'performance' ? 'tab-active bg-[#09279F] text-white' : ''
                 ]">
                 Performance
+              </button>
+              <button
+                @click="networkGrowthTab = 'core-services'"
+                :class="[
+                  'tab',
+                  networkGrowthTab === 'core-services' ? 'tab-active bg-[#09279F] text-white' : ''
+                ]">
+                Core Services
               </button>
             </div>
           </div>
@@ -1615,18 +1615,6 @@ function formatBlockTime(secondsStr?: string | number) {
           <!-- Performance Metric Selector - Bottom Left (only shown when Performance tab is active) -->
           <div v-if="networkGrowthTab === 'performance'" class="absolute bottom-2 left-2 tabs tabs-boxed bg-base-200 dark:bg-base-300">
             <button
-              @click="performanceMetric = 'relays'"
-              :class="[
-                'tab',
-                performanceMetric === 'relays' 
-                  ? 'tab-active bg-[#A855F7] text-white' 
-                  : 'hover:bg-base-300'
-              ]"
-              title="Relays">
-              <Icon icon="mdi:network" class="text-sm mr-1" />
-              Relays
-            </button>
-            <button
               @click="performanceMetric = 'compute-units'"
               :class="[
                 'tab',
@@ -1637,6 +1625,18 @@ function formatBlockTime(secondsStr?: string | number) {
               title="Compute Units">
               <Icon icon="mdi:cpu-64-bit" class="text-sm mr-1" />
               Compute Units
+            </button>
+            <button
+              @click="performanceMetric = 'relays'"
+              :class="[
+                'tab',
+                performanceMetric === 'relays' 
+                  ? 'tab-active bg-[#A855F7] text-white' 
+                  : 'hover:bg-base-300'
+              ]"
+              title="Relays">
+              <Icon icon="mdi:network" class="text-sm mr-1" />
+              Relays
             </button>
           </div>
           <!-- Chart Type Selector - Bottom Right -->

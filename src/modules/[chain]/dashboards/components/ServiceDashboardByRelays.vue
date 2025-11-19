@@ -132,7 +132,10 @@ const summaryStats = ref<SummaryStats | null>(null);
 const submissions = ref<ProofSubmission[]>([]);
 const rewardAnalytics = ref<RewardAnalytics[]>([]);
 const currentPage = ref(1);
-const itemsPerPage = ref(25);
+const itemsPerPage = ref(10);
+const performanceDays = ref(30);
+const topServicesLimit = ref(10);
+const topServicesDays = ref(30);
 const totalPages = ref(0);
 const selectedService = ref('');
 const selectedSupplier = ref('');
@@ -217,15 +220,15 @@ async function loadRewardAnalytics() {
     const params = new URLSearchParams();
     params.append('chain', apiChainName.value);
     if (selectedService.value) params.append('service_id', selectedService.value);
-    // Use filters from props if provided, otherwise use internal selectedSupplier
     const supplierFilter = props.filters?.supplier_address || selectedSupplier.value;
     if (supplierFilter) params.append('supplier_address', supplierFilter);
     if (props.filters?.owner_address) params.append('owner_address', props.filters.owner_address);
     if (selectedApplication.value) params.append('application_address', selectedApplication.value);
     if (startDate.value) params.append('start_date', startDate.value);
     if (endDate.value) params.append('end_date', endDate.value);
-    params.append('limit', '100');
-    
+
+    params.append('limit', itemsPerPage.value.toString());
+
     const data = await fetchApi('/api/v1/proof-submissions/rewards', params);
     rewardAnalytics.value = data.data || [];
     updateCharts();
@@ -238,55 +241,62 @@ async function loadRewardAnalytics() {
 }
 
 function updateCharts() {
-  if (rewardAnalytics.value.length === 0) return;
+  if (rewardAnalytics.value.length === 0) {
+    // clear chart & table if no data
+    topServicesChartSeries.value = [{ name: 'Rewards (upokt)', data: [] }];
+    topServicesChartCategories.value = [];
+    topServicesData.value = [];
+    return;
+  }
   
   // Get the most recent hour bucket
-  const sortedByTime = [...rewardAnalytics.value].sort((a, b) => 
+  const sortedByTime = [...rewardAnalytics.value].sort((a, b) =>
     new Date(b.hour_bucket).getTime() - new Date(a.hour_bucket).getTime()
   );
   const latestHourBucket = sortedByTime[0]?.hour_bucket;
   
   if (!latestHourBucket) return;
-  
-  // Get all entries for the most recent hour bucket
-  const latestHourData = rewardAnalytics.value.filter(
-    d => d.hour_bucket === latestHourBucket
-  );
-  
-  // Group by service_id and sum rewards, also track top supplier and application for each service
+
+  // entries for the most recent hour bucket
+  const latestHourData = rewardAnalytics.value.filter(d => d.hour_bucket === latestHourBucket);
+
+  // aggregate by service_id
   const serviceRewards: Record<string, number> = {};
   const serviceData: Record<string, { rewards: number; efficiency: number; relays: number; count: number; topSupplier: string; topApplication: string }> = {};
-  
+
   latestHourData.forEach(d => {
     const serviceId = d.service_id || 'unknown';
     const supplierAddress = d.supplier_operator_address || 'unknown';
     const applicationAddress = d.application_address || 'unknown';
-    
+
     if (!serviceRewards[serviceId]) {
       serviceRewards[serviceId] = 0;
       serviceData[serviceId] = { rewards: 0, efficiency: 0, relays: 0, count: 0, topSupplier: supplierAddress, topApplication: applicationAddress };
     }
-    serviceRewards[serviceId] += parseInt(d.total_rewards_upokt);
-    serviceData[serviceId].rewards += parseInt(d.total_rewards_upokt);
-    serviceData[serviceId].efficiency += parseInt(d.avg_efficiency_percent) * parseInt(d.total_rewards_upokt);
-    serviceData[serviceId].relays += parseInt(d.total_relays);
-    serviceData[serviceId].count += parseInt(d.submission_count);
-    // Track most frequent supplier and application (can be improved to track highest reward ones)
+    serviceRewards[serviceId] += parseInt(d.total_rewards_upokt || '0');
+    serviceData[serviceId].rewards += parseInt(d.total_rewards_upokt || '0');
+    serviceData[serviceId].efficiency += (parseFloat(d.avg_efficiency_percent || '0') * parseInt(d.total_rewards_upokt || '0'));
+    serviceData[serviceId].relays += parseInt(d.total_relays || '0');
+    serviceData[serviceId].count += parseInt(d.submission_count || '0');
+
     if (supplierAddress !== 'unknown') serviceData[serviceId].topSupplier = supplierAddress;
     if (applicationAddress !== 'unknown') serviceData[serviceId].topApplication = applicationAddress;
   });
-  
-  // Calculate weighted averages for efficiency
+
+  // weighted efficiency
   Object.keys(serviceData).forEach(serviceId => {
     if (serviceData[serviceId].rewards > 0) {
       serviceData[serviceId].efficiency = serviceData[serviceId].efficiency / serviceData[serviceId].rewards;
+    } else {
+      serviceData[serviceId].efficiency = 0;
     }
   });
-  
-  // Get top 10 services by rewards
+
+  // sort and limit using itemsPerPage.value
+  const limit = Number(itemsPerPage.value) || 10;
   const topServices = Object.entries(serviceRewards)
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 10)
+    .slice(0, limit)
     .map(([serviceId]) => ({
       serviceId,
       rewards: serviceRewards[serviceId],
@@ -296,24 +306,29 @@ function updateCharts() {
       topSupplier: serviceData[serviceId].topSupplier,
       topApplication: serviceData[serviceId].topApplication
     }));
-  
-  // Update bar chart for top services
+
+  // update chart + categories
   topServicesChartSeries.value = [{ name: 'Rewards (upokt)', data: topServices.map(s => s.rewards) }];
   topServicesChartCategories.value = topServices.map(s => s.serviceId);
-  
-  // Store latest hour bucket time for display
+
+  // update table data (already limited)
   latestHourBucketTime.value = latestHourBucket;
   topServicesData.value = topServices;
 
-  // Compute last-hour summary metrics
-  lastHourTotalRewards.value = latestHourData.reduce((sum, d) => sum + parseInt(d.total_rewards_upokt), 0);
-  lastHourTotalRelays.value = latestHourData.reduce((sum, d) => sum + parseInt(d.total_relays), 0);
-  const totalEfficiencyWeight = latestHourData.reduce((sum, d) => sum + parseInt(d.total_rewards_upokt), 0);
-  const weightedEfficiencySum = latestHourData.reduce((sum, d) => sum + (parseInt(d.avg_efficiency_percent) * parseInt(d.total_rewards_upokt)), 0);
+  // last-hour summary
+  lastHourTotalRewards.value = latestHourData.reduce((sum, d) => sum + parseInt(d.total_rewards_upokt || '0'), 0);
+  lastHourTotalRelays.value = latestHourData.reduce((sum, d) => sum + parseInt(d.total_relays || '0'), 0);
+  const totalEfficiencyWeight = latestHourData.reduce((sum, d) => sum + parseInt(d.total_rewards_upokt || '0'), 0);
+  const weightedEfficiencySum = latestHourData.reduce((sum, d) => sum + (parseFloat(d.avg_efficiency_percent || '0') * parseInt(d.total_rewards_upokt || '0')), 0);
   lastHourAvgEfficiency.value = totalEfficiencyWeight > 0 ? (weightedEfficiencySum / totalEfficiencyWeight) : 0;
-  lastHourSubmissions.value = latestHourData.reduce((sum, d) => sum + parseInt(d.submission_count), 0);
+  lastHourSubmissions.value = latestHourData.reduce((sum, d) => sum + parseInt(d.submission_count || '0'), 0);
   lastHourTopService.value = topServices.length > 0 ? topServices[0].serviceId : '';
 }
+// ...existing code...
+// add watch to reload when user changes limit (optional if template already calls loadRewardAnalytics on change)
+watch(itemsPerPage, () => {
+  loadRewardAnalytics();
+});
 
 const latestHourBucketTime = ref<string>('');
 const topServicesData = ref<Array<{ serviceId: string; rewards: number; efficiency: number; relays: number; count: number; topSupplier: string; topApplication: string }>>([]);
@@ -496,9 +511,31 @@ onMounted(() => {
       <div v-if="topServicesData.length > 0" class="dark:bg-base-100 bg-base-200 pt-3 rounded-lg border-[3px] border-solid border-base-200 dark:border-base-100 mb-3">
         <div class="flex items-center justify-between mb-3 ml-4 mr-4">
           <div class="text-base font-semibold text-main">Rewards Distribution</div>
-          <span v-if="latestHourBucketTime" class="text-xs text-secondary bg-base-200 dark:bg-base-300 px-2 py-1 rounded-full">
-            {{ new Date(latestHourBucketTime).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) }}
-          </span>
+          <div class="flex items-center justify-between">
+            <span v-if="latestHourBucketTime" class="text-xs text-secondary bg-base-200 dark:bg-base-300 px-2 py-1 rounded-full">
+              {{ new Date(latestHourBucketTime).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) }}
+            </span>
+            <div class="flex justify-end gap-4">
+              <!-- LIMIT DROPDOWN -->
+              <div class="flex items-center justify-end gap-2">
+                <span class="text-xs text-secondary"> Limit:</span>
+                <select v-model="itemsPerPage" @change="loadRewardAnalytics()"  class="select select-bordered select-xs w-full text-xs">
+                  <option :value="10">10</option>
+                  <option :value="20">20</option>
+                  <option :value="30">30</option>
+                  <option :value="50">50</option>
+                </select>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-secondary">Days:</span>
+                <select v-model="performanceDays" @change="loadRewardAnalytics()" class="select select-bordered select-xs w-full text-xs">
+                  <option :value="7">7</option>
+                  <option :value="15">15</option>
+                  <option :value="30">30</option>
+                </select>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="dark:bg-base-200 bg-base-100 p-2 rounded-md">
           <div class="overflow-auto">
@@ -562,7 +599,24 @@ onMounted(() => {
 
       <!-- Right Column: Services Chart -->
       <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3">
-        <div class="text-sm font-semibold mb-2">Services</div>
+        <div class="flex items-center justify-between mb-3 ml-4 mr-4">
+          <div class="text-base font-semibold text-main">Services</div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-secondary">Limit:</span>
+            <select v-model="topServicesLimit" @change="loadRewardAnalytics()" class="select select-bordered select-xs w-full text-xs">
+              <option :value="5">5</option>
+              <option :value="10">10</option>
+              <option :value="25">25</option>
+              <option :value="50">50</option>
+            </select>
+            <span class="text-xs text-secondary">Days:</span>
+            <select v-model="topServicesDays" @change="loadRewardAnalytics()" class="select select-bordered select-xs w-full text-xs">
+              <option :value="7">7</option>
+              <option :value="15">15</option>
+              <option :value="30">30</option>
+            </select>
+          </div>
+        </div>
         <div class="dark:bg-base-200 bg-base-100 p-2 rounded-md">
           <div v-if="topServicesData.length === 0" class="flex justify-center items-center h-64 text-gray-500 text-xs">
             No data

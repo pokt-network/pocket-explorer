@@ -89,6 +89,23 @@ async function waitForRpc() {
   }
 }
 
+// add this helper to compute gateway status (Staked / Unstaked) with classes
+function getGatewayStatus(item: any) {
+  if (!item) return { label: '-', classes: '' }
+  const raw = (item.status || item.state || '').toString()
+  const s = raw.toLowerCase()
+  // explicit indicators for unbonding/unstaking
+  if (s.includes('unbond') || s.includes('unstak') || item.unbonding_time || item.unbonding_height) {
+    return { label: 'Unstaked', classes: 'bg-[#E03834]/10 text-[#E03834]' }
+  }
+  // treat as staked if status mentions bond/stake or stake amount > 0
+  const stakeAmt = Number(item.stake?.amount || '0')
+  if (s.includes('bond') || s.includes('stake') || stakeAmt > 0) {
+    return { label: 'Staked', classes: 'bg-[#60BC29]/10 text-[#60BC29]' }
+  }
+  return { label: '-', classes: '' }
+}
+
 // 🔹 Pagination methods
 function goToFirst() {
   if (currentPage.value !== 1) {
@@ -167,8 +184,12 @@ onMounted(() => {
                 <span class="text-xs text-gray-500 truncate">{{ item.address }}</span>
               </div>
             </td>
-
-            <td class="text-success">{{ statusText }}</td>
+            <td class="">
+              <span class="text-xs truncate py-1 px-3 rounded-full inline-flex items-center gap-2"
+                :class="getGatewayStatus(item).classes">
+                {{ getGatewayStatus(item).label }}
+              </span>
+            </td>
             <td class="font-bold dark:text-secondary">{{ format.formatToken(item.stake) }}</td>
             <td class="dark:text-secondary">{{ item.balance ? format.formatToken(item.balance) : '-' }}</td>
           </tr>
