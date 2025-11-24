@@ -133,10 +133,10 @@ const submissions = ref<ProofSubmission[]>([]);
 const rewardAnalytics = ref<RewardAnalytics[]>([]);
 const currentPage = ref(1);
 const itemsPerPage = ref(10);
-const performanceDays = ref(30);
+const performanceDays = ref(7);
 const topServicesLimit = ref(10);
-const topServicesDays = ref(30);
-const totalPages = ref(0);
+const topServicesDays = ref(7);
+const totalPages = computed(() => Math.ceil(totalItems.value / itemsPerPage.value)); // Total pages based on items per page
 const selectedService = ref('');
 const selectedSupplier = ref('');
 const selectedApplication = ref('');
@@ -177,7 +177,7 @@ const topServicesChartOptions = computed(() => {
       };
 
   return {
-    chart: { type: chartType, height: 350, toolbar: { show: false } },
+    chart: { type: chartType, height: 360, toolbar: { show: false } },
     colors: ['#A3E635'],
     dataLabels: { enabled: chartType === 'bar', formatter: (v: number) => (v / 1000000).toFixed(2) + 'M', style: { colors: ['#000'] } },
     plotOptions: chartType === 'bar' ? { bar: { horizontal: false, columnWidth: '55%', borderRadius: 4 } } : {},
@@ -242,87 +242,54 @@ async function loadRewardAnalytics() {
 
 function updateCharts() {
   if (rewardAnalytics.value.length === 0) {
-    // clear chart & table if no data
+        // clear chart & table if no data
     topServicesChartSeries.value = [{ name: 'Rewards (upokt)', data: [] }];
     topServicesChartCategories.value = [];
     topServicesData.value = [];
     return;
   }
-  
+
   // Get the most recent hour bucket
   const sortedByTime = [...rewardAnalytics.value].sort((a, b) =>
     new Date(b.hour_bucket).getTime() - new Date(a.hour_bucket).getTime()
   );
   const latestHourBucket = sortedByTime[0]?.hour_bucket;
-  
+
   if (!latestHourBucket) return;
 
   // entries for the most recent hour bucket
   const latestHourData = rewardAnalytics.value.filter(d => d.hour_bucket === latestHourBucket);
 
-  // aggregate by service_id
-  const serviceRewards: Record<string, number> = {};
-  const serviceData: Record<string, { rewards: number; efficiency: number; relays: number; count: number; topSupplier: string; topApplication: string }> = {};
+  // Table data
+  topServicesData.value = latestHourData.map(d => ({
+    serviceId: d.service_id,
+    rewards: parseInt(d.total_rewards_upokt || '0'),
+    efficiency: parseFloat(d.avg_efficiency_percent || '0'),
+    relays: parseInt(d.total_relays || '0'),
+    supplier: d.supplier_operator_address,
+    application: d.application_address
+  }));
 
-  latestHourData.forEach(d => {
-    const serviceId = d.service_id || 'unknown';
-    const supplierAddress = d.supplier_operator_address || 'unknown';
-    const applicationAddress = d.application_address || 'unknown';
+  // Chart categories = each row (service + supplier + app) for uniqueness
+  topServicesChartCategories.value = latestHourData.map(
+    d => `${d.service_id || 'unknown'}-${d.supplier_operator_address?.slice(0,6) || 'unknown'}`
+  );
 
-    if (!serviceRewards[serviceId]) {
-      serviceRewards[serviceId] = 0;
-      serviceData[serviceId] = { rewards: 0, efficiency: 0, relays: 0, count: 0, topSupplier: supplierAddress, topApplication: applicationAddress };
-    }
-    serviceRewards[serviceId] += parseInt(d.total_rewards_upokt || '0');
-    serviceData[serviceId].rewards += parseInt(d.total_rewards_upokt || '0');
-    serviceData[serviceId].efficiency += (parseFloat(d.avg_efficiency_percent || '0') * parseInt(d.total_rewards_upokt || '0'));
-    serviceData[serviceId].relays += parseInt(d.total_relays || '0');
-    serviceData[serviceId].count += parseInt(d.submission_count || '0');
+  // Chart data = rewards per row (no sum)
+  topServicesChartSeries.value = [{
+    name: 'Rewards (upokt)',
+    data: latestHourData.map(d => parseInt(d.total_rewards_upokt || '0'))
+  }];
 
-    if (supplierAddress !== 'unknown') serviceData[serviceId].topSupplier = supplierAddress;
-    if (applicationAddress !== 'unknown') serviceData[serviceId].topApplication = applicationAddress;
-  });
-
-  // weighted efficiency
-  Object.keys(serviceData).forEach(serviceId => {
-    if (serviceData[serviceId].rewards > 0) {
-      serviceData[serviceId].efficiency = serviceData[serviceId].efficiency / serviceData[serviceId].rewards;
-    } else {
-      serviceData[serviceId].efficiency = 0;
-    }
-  });
-
-  // sort and limit using itemsPerPage.value
-  const limit = Number(itemsPerPage.value) || 10;
-  const topServices = Object.entries(serviceRewards)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, limit)
-    .map(([serviceId]) => ({
-      serviceId,
-      rewards: serviceRewards[serviceId],
-      efficiency: serviceData[serviceId].efficiency,
-      relays: serviceData[serviceId].relays,
-      count: serviceData[serviceId].count,
-      topSupplier: serviceData[serviceId].topSupplier,
-      topApplication: serviceData[serviceId].topApplication
-    }));
-
-  // update chart + categories
-  topServicesChartSeries.value = [{ name: 'Rewards (upokt)', data: topServices.map(s => s.rewards) }];
-  topServicesChartCategories.value = topServices.map(s => s.serviceId);
-
-  // update table data (already limited)
-  latestHourBucketTime.value = latestHourBucket;
-  topServicesData.value = topServices;
-
-  // last-hour summary
+  // Last hour summary (optional)
   lastHourTotalRewards.value = latestHourData.reduce((sum, d) => sum + parseInt(d.total_rewards_upokt || '0'), 0);
   lastHourTotalRelays.value = latestHourData.reduce((sum, d) => sum + parseInt(d.total_relays || '0'), 0);
   const totalEfficiencyWeight = latestHourData.reduce((sum, d) => sum + parseInt(d.total_rewards_upokt || '0'), 0);
   const weightedEfficiencySum = latestHourData.reduce((sum, d) => sum + (parseFloat(d.avg_efficiency_percent || '0') * parseInt(d.total_rewards_upokt || '0')), 0);
   lastHourAvgEfficiency.value = totalEfficiencyWeight > 0 ? (weightedEfficiencySum / totalEfficiencyWeight) : 0;
   lastHourSubmissions.value = latestHourData.reduce((sum, d) => sum + parseInt(d.submission_count || '0'), 0);
-  lastHourTopService.value = topServices.length > 0 ? topServices[0].serviceId : '';
+  lastHourTopService.value = latestHourData[0]?.service_id || '';
+  latestHourBucketTime.value = latestHourBucket;
 }
 // ...existing code...
 // add watch to reload when user changes limit (optional if template already calls loadRewardAnalytics on change)
@@ -338,6 +305,20 @@ const lastHourTotalRelays = ref<number>(0);
 const lastHourAvgEfficiency = ref<number>(0);
 const lastHourSubmissions = ref<number>(0);
 const lastHourTopService = ref<string>('');
+
+// Computed property to get the current page items
+const paginatedRewardAnalytics = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value;
+  const end = start + itemsPerPage.value;
+  return rewardAnalytics.value.slice(start, end);
+});
+
+// Computed property to get the current page items
+const paginateRewardAnalytics = computed(() => {
+  const start = (currentPages.value - 1) * itemsPerPages.value;
+  const end = start + itemsPerPages.value;
+  return rewardAnalytics.value.slice(start, end);
+});
 
 function applyFilters() {
   currentPage.value = 1;
@@ -447,7 +428,7 @@ onMounted(() => {
     </div>
 
     <!-- Bottom Section: 3 Columns -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-2 mb-3">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-2 mb-3 max-h-max">
       <!-- <div>
 
         <div class="space-y-3 mb-3">
@@ -508,7 +489,8 @@ onMounted(() => {
       </div> -->
 
       <!-- Middle Section: Rewards Distribution Table (Large) -->
-      <div v-if="topServicesData.length > 0" class="dark:bg-base-100 bg-base-200 pt-3 rounded-lg border-[3px] border-solid border-base-200 dark:border-base-100 mb-3">
+      <!-- Rewards Distribution Table -->
+      <div v-if="topServicesData.length > 0" class="dark:bg-base-100 bg-base-200 pt-3 rounded-lg border-[3px] border-solid border-base-200 dark:border-base-100 mb-3 h-full">
         <div class="flex items-center justify-between mb-3 ml-4 mr-4">
           <div class="text-base font-semibold text-main">Rewards Distribution</div>
           <div class="flex items-center justify-between">
@@ -538,58 +520,58 @@ onMounted(() => {
           </div>
         </div>
         <div class="dark:bg-base-200 bg-base-100 p-2 rounded-md">
-          <div class="overflow-auto">
+          <div class="overflow-auto max-h-96">
             <table class="table table-compact w-full text-xs">
-              <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
+              <thead class="bg-white sticky top-0">
                 <tr class="border-b-[0px]">
-                  <th class="py-1">Rank</th>
-                  <th class="py-1">Service</th>
-                  <th class="py-1">Supplier</th>
-                  <th class="py-1">Application</th>
-                  <th class="py-1">Rewards (upokt)</th>
-                  <th class="py-1">Efficiency</th>
-                  <th class="py-1">Relays</th>
+                  <th>Rank</th>
+                  <th>Service</th>
+                  <th>Supplier</th>
+                  <th>Application</th>
+                  <th>Rewards (upokt)</th>
+                  <th>Efficiency</th>
+                  <th>Relays</th>
                 </tr>
               </thead>
-              <tbody class="bg-base-100 relative">
-                <tr v-for="(service, index) in topServicesData" :key="service.serviceId" class="hover:bg-base-300 transition-colors duration-200 border-b-[0px]">
+              <tbody>
+                <tr v-for="(item, index) in paginatedRewardAnalytics" :key="item.supplier_operator_address + item.application_address">
                   <td class="dark:bg-base-200 bg-white font-bold py-1">
                     <span class="badge badge-sm" :class="index === 0 ? 'badge-primary' : index === 1 ? 'badge-secondary' : index === 2 ? 'badge-accent' : 'badge-ghost'">
                       #{{ index + 1 }}
                     </span>
                   </td>
                   <td class="dark:bg-base-200 bg-white py-1">
-                    <span class="badge badge-primary badge-xs">{{ service.serviceId }}</span>
+                    <span class="badge badge-primary badge-xs">{{ item.service_id || '-' }}</span>
                   </td>
                   <td class="dark:bg-base-200 bg-white truncate py-1 text-xs" style="max-width:120px">
                     <RouterLink
-                      v-if="service.topSupplier && service.topSupplier !== 'unknown'"
+                      v-if="item.supplier_operator_address && item.supplier_operator_address !== 'unknown'"
                       class="truncate hover:underline font-mono dark:text-warning text-[#153cd8]"
-                      :to="`/${chain}/account/${service.topSupplier}`"
-                      :title="service.topSupplier"
+                      :to="`/${chain}/account/${item.supplier_operator_address}`"
+                      :title="item.supplier_operator_address"
                     >
-                      {{ service.topSupplier.length > 15 ? service.topSupplier.substring(0, 12) + '...' : service.topSupplier }}
+                      {{ item.supplier_operator_address.length > 12 ? item.supplier_operator_address.substring(0, 12) + '...' : item.supplier_operator_address }}
                     </RouterLink>
                     <span v-else class="font-mono text-gray-500">-</span>
                   </td>
                   <td class="dark:bg-base-200 bg-white truncate py-1 text-xs" style="max-width:120px">
                     <RouterLink
-                      v-if="service.topApplication && service.topApplication !== 'unknown'"
+                      v-if="item.application_address && item.application_address !== 'unknown'"
                       class="truncate hover:underline font-mono dark:text-warning text-[#153cd8]"
-                      :to="`/${chain}/account/${service.topApplication}`"
-                      :title="service.topApplication"
+                      :to="`/${chain}/account/${item.application_address}`"
+                      :title="item.application_address"
                     >
-                      {{ service.topApplication.length > 15 ? service.topApplication.substring(0, 12) + '...' : service.topApplication }}
+                      {{ item.application_address.length > 12 ? item.application_address.substring(0, 12) + '...' : item.application_address }}
                     </RouterLink>
                     <span v-else class="font-mono text-gray-500">-</span>
                   </td>
-                  <td class="dark:bg-base-200 bg-white py-1 text-xs">{{ formatNumber(service.rewards) }}</td>
+                  <td class="dark:bg-base-200 bg-white py-1 text-xs">{{ parseInt(item.total_rewards_upokt || '0').toLocaleString() }}</td>
                   <td class="dark:bg-base-200 bg-white py-1">
-                    <span :class="service.efficiency >= 95 ? 'text-success' : service.efficiency >= 80 ? 'text-warning' : 'text-error'" class="text-xs">
-                      {{ service.efficiency.toFixed(2) }}%
+                    <span :class="item.avg_efficiency_percent >= 95 ? 'text-success' : item.avg_efficiency_percent >= 80 ? 'text-warning' : 'text-error'" class="text-xs">
+                      {{ parseFloat(item.avg_efficiency_percent || '0').toFixed(2) }}%
                     </span>
                   </td>
-                  <td class="dark:bg-base-200 bg-white py-1 text-xs">{{ formatNumber(service.relays) }}</td>
+                  <td class="dark:bg-base-200 bg-white py-1 text-xs">{{ parseInt(item.total_relays || '0').toLocaleString() }}</td>
                 </tr>
               </tbody>
             </table>
@@ -598,33 +580,41 @@ onMounted(() => {
       </div>
 
       <!-- Right Column: Services Chart -->
-      <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3">
-        <div class="flex items-center justify-between mb-3 ml-4 mr-4">
-          <div class="text-base font-semibold text-main">Services</div>
-          <div class="flex items-center gap-2">
-            <span class="text-xs text-secondary">Limit:</span>
-            <select v-model="topServicesLimit" @change="loadRewardAnalytics()" class="select select-bordered select-xs w-full text-xs">
-              <option :value="5">5</option>
-              <option :value="10">10</option>
-              <option :value="25">25</option>
-              <option :value="50">50</option>
-            </select>
-            <span class="text-xs text-secondary">Days:</span>
-            <select v-model="topServicesDays" @change="loadRewardAnalytics()" class="select select-bordered select-xs w-full text-xs">
-              <option :value="7">7</option>
-              <option :value="15">15</option>
-              <option :value="30">30</option>
-            </select>
+      <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3 mb-2 h-full">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-sm font-semibold mb-2">Services</div>
+          <div class="flex justify-end gap-4">
+            <!-- LIMIT DROPDOWN -->
+            <div class="flex items-center justify-end gap-2">
+              <span class="text-xs text-secondary">Limit:</span>
+              <select v-model="itemsPerPage" @change="loadRewardAnalytics()" class="select select-bordered select-xs w-full text-xs">
+                <option :value="10">10</option>
+                <option :value="20">20</option>
+                <option :value="30">30</option>
+                <option :value="50">50</option>
+              </select>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-secondary">Days:</span>
+              <select v-model="topServicesDays" @change="loadRewardAnalytics()" class="select select-bordered select-xs w-full text-xs">
+                <option :value="7">7</option>
+                <option :value="15">15</option>
+                <option :value="30">30</option>
+              </select>
+            </div>
           </div>
         </div>
-        <div class="dark:bg-base-200 bg-base-100 p-2 rounded-md">
-          <div v-if="topServicesData.length === 0" class="flex justify-center items-center h-64 text-gray-500 text-xs">
+        <div class="dark:bg-base-200 bg-base-100 p-2 rounded-md relative">
+          <div v-if="loading" class="flex justify-center items-center h-64">
+            <div class="loading loading-spinner loading-sm"></div>
+          </div>
+          <div v-else-if="topServicesData.length === 0" class="flex justify-center items-center h-64 text-gray-500 text-xs">
             No data
           </div>
-          <div v-else class="h-64 relative">
+          <div v-else class="h-100">
             <ApexCharts 
               :type="topServicesChartType" 
-              height="250" 
+              height="360" 
               :options="topServicesChartOptions" 
               :series="topServicesChartSeries"
               :key="`topServices-${topServicesChartType}`"
@@ -669,7 +659,7 @@ onMounted(() => {
         </div>
       </div>
     </div>
-
+    
   </div>
 </template>
 
