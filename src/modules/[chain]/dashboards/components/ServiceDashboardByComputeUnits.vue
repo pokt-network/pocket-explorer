@@ -143,8 +143,8 @@ interface TopServiceByPerformance {
   rank: number;
   service_id: string;
   chain: string;
-  total_claimed_compute_units: number;
-  total_estimated_compute_units: number;
+  total_claimed_compute_units: string;
+  total_estimated_compute_units: string;
   submission_count: number;
   avg_efficiency_percent: number;
   percentage_of_total: number;
