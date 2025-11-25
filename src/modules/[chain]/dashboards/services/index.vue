@@ -6,7 +6,7 @@ import ServiceDashboardByRelays from '../components/ServiceDashboardByRelays.vue
 
 const props = defineProps(['chain']);
 const chainStore = useBlockchain();
-const selectedDashboard = ref<'computeunits' | 'relays'>('computeunits');
+const selectedDashboard = ref<'computeunits' | 'rewards'>('rewards');
 </script>
 
 <template>
@@ -19,7 +19,7 @@ const selectedDashboard = ref<'computeunits' | 'relays'>('computeunits');
         <span class="text-sm text-secondary">Stats Type:</span>
         <select v-model="selectedDashboard" class="select select-bordered select-sm">
           <option value="computeunits">Compute Units</option>
-          <option value="relays">Relays</option>
+          <option value="rewards">Rewards</option>
           </select>
       </div>
     </div>

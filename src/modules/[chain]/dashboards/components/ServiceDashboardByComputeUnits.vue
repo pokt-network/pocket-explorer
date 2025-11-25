@@ -175,8 +175,8 @@ const totalComputeUnits = ref(0);
 const loadingTopServices = ref(false);
 const loadingPerformanceTable = ref(false);
 const topServicesLimit = ref(10);
-const topServicesDays = ref(30);
-const performanceDays = ref(30);
+const topServicesDays = ref(7);
+const performanceDays = ref(7);
 
 // Reward Share tab data
 const delegatedRewards = ref<Array<{ account: string; rewards: number; share: number; nodes: number }>>([]);
@@ -676,6 +676,25 @@ onMounted(() => {
     loadRewardShareData();
   }
 });
+
+const perfCurrentPage = ref(1);
+watch(itemsPerPages, () => {
+  perfCurrentPage.value = 1;
+  // reload remote data (already done by existing @change), local page reset only
+});
+const perfTotalPages = computed(() => {
+  const total = topServicesByPerformance.value?.length || 0;
+  return total === 0 ? 0 : Math.ceil(total / itemsPerPages.value);
+});
+const paginatedTopServices = computed(() => {
+  const start = (perfCurrentPage.value - 1) * itemsPerPages.value;
+  return topServicesByPerformance.value.slice(start, start + itemsPerPages.value);
+});
+
+function perfNext() { if (perfCurrentPage.value < perfTotalPages.value) perfCurrentPage.value++; }
+function perfPrev() { if (perfCurrentPage.value > 1) perfCurrentPage.value--; }
+function perfGoFirst() { if (perfCurrentPage.value !== 1) perfCurrentPage.value = 1; }
+function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && perfTotalPages.value > 0) perfCurrentPage.value = perfTotalPages.value; }
 </script>
 
 <template>
@@ -751,7 +770,7 @@ onMounted(() => {
         <div v-else-if="topServicesByPerformance.length === 0" class="text-center py-4 text-gray-500 text-xs">
           No data found
         </div>
-        <div v-else class="overflow-auto">
+        <div v-else class="overflow-auto max-h-96">
           <table class="table table-compact w-full text-xs">
             <thead class="bg-white sticky top-0">
               <tr class="border-b-[0px]">
@@ -764,7 +783,7 @@ onMounted(() => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="service in topServicesByPerformance" :key="service.service_id" class="hover:bg-base-300 transition-colors duration-200 border-b-[0px]">
+              <tr v-for="service in paginatedTopServices" :key="service.service_id" class="hover:bg-base-300 transition-colors duration-200 border-b-[0px]">
                 <td class="dark:bg-base-200 bg-white font-bold py-1">
                   <span class="badge badge-sm" :class="service.rank === 1 ? 'badge-primary' : service.rank === 2 ? 'badge-secondary' : service.rank === 3 ? 'badge-accent' : 'badge-ghost'">
                     #{{ service.rank }}
@@ -906,28 +925,28 @@ onMounted(() => {
         <div class="flex items-center justify-between mb-3">
           <div class="text-sm font-semibold mb-2">Services</div>
           <div class="flex justify-end gap-4">
-          <!-- LIMIT DROPDOWN -->
-          <div class="flex items-center justify-end gap-2">
-            <span class="text-xs text-secondary"> Limit:</span>
-            <select v-model="itemsPerPages" @change="loadTopServicesByPerformance()"  class="select select-bordered select-xs w-full text-xs">
-              <option :value="10">10</option>
-              <option :value="20">20</option>
-              <option :value="30">30</option>
-              <option :value="50">50</option>
-            </select>
+            <!-- LIMIT DROPDOWN -->
+            <div class="flex items-center justify-end gap-2">
+              <span class="text-xs text-secondary"> Limit:</span>
+              <select v-model="itemsPerPages" @change="loadTopServicesByPerformance()"  class="select select-bordered select-xs w-full text-xs">
+                <option :value="10">10</option>
+                <option :value="20">20</option>
+                <option :value="30">30</option>
+                <option :value="50">50</option>
+              </select>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-secondary">Days:</span>
+              <select v-model="performanceDays" @change="loadTopServicesByPerformance()" class="select select-bordered select-xs w-full text-xs">
+                <option :value="7">7</option>
+                <option :value="15">15</option>
+                <option :value="30">30</option>
+              </select>
+            </div>
           </div>
-          <div class="flex items-center gap-2">
-            <span class="text-xs text-secondary">Days:</span>
-            <select v-model="performanceDays" @change="loadTopServicesByPerformance()" class="select select-bordered select-xs w-full text-xs">
-              <option :value="7">7</option>
-              <option :value="15">15</option>
-              <option :value="30">30</option>
-            </select>
-          </div>
-        </div>
         </div>
         
-        <div class="dark:bg-base-200 bg-base-100 p-2 rounded-md relative">
+        <div class="dark:bg-base-200 bg-base-100 p-2 rounded-md relative max-h-9/10">
           <div v-if="loadingTopServices" class="flex justify-center items-center h-64">
             <div class="loading loading-spinner loading-sm"></div>
           </div>
