@@ -2,10 +2,10 @@
     "chain_name": "poktroll-mainnet",
     "registry_name": "Poktroll-Mainnet",
     "api": [
-        {"provider": "Poktroll-Mainnet", "address": "https://shannon-grove-api.mainnet.poktroll.com"}
+        {"provider": "Poktroll-Mainnet", "address": "https://pocket-mainnet-api.pn.stakenodes.org"}
     ],
     "rpc": [
-        {"provider": "Poktroll-Mainnet", "address": "https://shannon-grove-rpc.mainnet.poktroll.com"}
+        {"provider": "Poktroll-Mainnet", "address": "https://pocket-mainnet-rpc.pn.stakenodes.org"}
     ],
     "features": ["dashboard", "blocks", "tx", "applications", "suppliers", "gateways", "services", "validators", "parameters"],
     "sdk_version": "0.45.1",

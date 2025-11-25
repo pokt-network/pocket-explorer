@@ -218,7 +218,7 @@ const formattedJson = computed(() => {
             <div v-if="Object.keys(formattedTxData).length > 0"
                  class="bg-base-200 p-4 rounded-xl overflow-auto max-h-[600px]">
                 
-                <!-- ✅ Interactive JSON Viewer -->
+                <!-- Interactive JSON Viewer -->
                 <JsonTreeViewer :data="formattedTxData" />
             </div>
 

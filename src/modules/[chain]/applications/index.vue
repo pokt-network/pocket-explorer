@@ -1,10 +1,12 @@
 <script lang="ts" setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useBlockchain, useFormatter } from '@/stores'
-import { PageRequest, type Pagination, type Application } from '@/types'
+import { PageRequest, type Pagination, type Application, type Coin } from '@/types'
+import type { PaginatedBalances } from '@/types/bank'
 
 const props = defineProps<{ chain: string }>()
 
+const blockchain = useBlockchain()
 const chainStore = useBlockchain()
 const format = useFormatter()
 // Main data list
@@ -20,11 +22,11 @@ const itemsPerPage = ref(25)
 // Track expanded rows for delegatee addresses
 const expandedDelegateeRows = ref<Record<string, boolean>>({})
 
-// ✅ Status text
+// Status text
 const value = ref('stake')
 const statusText = computed(() => (value.value === 'stake' ? 'Staked' : 'Unstaked'))
 
-// ✅ Server-side pagination logic
+// Server-side pagination logic
 const totalPages = computed(() => {
   const total = parseInt(pageResponse.value.total || '0')
   if (total === 0) return 0
@@ -33,7 +35,7 @@ const totalPages = computed(() => {
 
 const totalApplications = computed(() => parseInt(pageResponse.value.total || '0'))
 
-// ✅ Client-side sorting (applied after server returns page data)
+// Client-side sorting (applied after server returns page data)
 const sortedList = computed(() => {
   return [...list.value].sort((a, b) => {
     const aStake = parseInt(a.stake.amount || '0')
@@ -53,7 +55,7 @@ watch(itemsPerPage, () => {
   loadApplications()
 })
 
-// ✅ Load data from RPC
+// Load data from RPC
 async function loadApplications() {
   if (!chainStore.rpc) {
     await waitForRpc()
@@ -68,6 +70,20 @@ async function loadApplications() {
     const response = await chainStore.rpc.getApplications(pageRequest.value)
     list.value = response.applications || []
     pageResponse.value = response.pagination || {}
+
+    // 🔹 Fallback fetch for missing balances
+    for (const app of list.value) {
+      if (!app.balance || !app.balance.amount) {
+        try {
+          const bal: PaginatedBalances = await chainStore.rpc.getBankBalances(app.address)
+          app.balance = bal.balances.find(b => b.denom === 'upokt') || { denom: 'upokt', amount: '0' }
+        } catch (e) {
+          console.error('Error fetching balance for', app.address, e)
+          app.balance = { denom: 'TOKEN', amount: '0' }
+        }
+      }
+    }
+
   } catch (error) {
     console.error('Error loading applications:', error)
     list.value = []
@@ -84,7 +100,7 @@ async function waitForRpc() {
   }
 }
 
-// ✅ Pagination methods
+// Pagination methods
 function goToFirst() {
   if (currentPage.value !== 1) {
     currentPage.value = 1
@@ -120,15 +136,126 @@ function toggleDelegateeExpanded(address: string) {
   expandedDelegateeRows.value[address] = !expandedDelegateeRows.value[address]
 }
 
-// ✅ Mounted
+// add this helper to compute application status (Staked / Unstaked) with classes
+function getApplicationStatus(item: any) {
+  if (!item) return { label: '-', classes: '' }
+  const raw = (item.status || item.state || '').toString()
+  const s = raw.toLowerCase()
+  // explicit indicators for unbonding/unstaking
+  if (s.includes('unbond') || s.includes('unstak') || item.unbonding_time || item.unbonding_height) {
+    return { label: 'Unstaked', classes: 'bg-[#E03834]/10 text-[#E03834]' }
+  }
+  // treat as staked if status mentions bond/stake or stake amount > 0
+  const stakeAmt = Number(item.stake?.amount || '0')
+  if (s.includes('bond') || s.includes('stake') || stakeAmt > 0) {
+    return { label: 'Staked', classes: 'bg-[#60BC29]/10 text-[#60BC29]' }
+  }
+  return { label: '-', classes: '' }
+}
+
+// Mounted
 onMounted(() => {
   loadApplications()
+  loadNetworkStats()
 })
+
+// Network Stats
+const networkStats = ref({
+  wallets: 0,
+  applications: 0,
+  totalStakedAmount: 0,
+  unstakingCount: 0,
+  totalUnstakingTokens: 0,
+})
+
+// Cache control
+const networkStatsCacheTime = ref(0)
+const CACHE_EXPIRATION_MS = 60000
+
+// Get API chain name helper
+const getApiChainName = (chainName: string) => {
+  const chainMap: Record<string, string> = {
+    'pocket-beta': 'pocket-testnet-beta',
+    'pocket-mainnet': 'pocket-mainnet'
+  }
+  return chainMap[chainName] || chainName || 'pocket-testnet-beta'
+}
+
+const apiChainName = computed(() =>
+  getApiChainName(chainStore.current?.chainName || props.chain || 'pocket-beta')
+)
+
+// Load network stats
+async function loadNetworkStats() {
+  const now = Date.now()
+  if (now - networkStatsCacheTime.value < CACHE_EXPIRATION_MS && networkStats.value.wallets > 0) {
+    return
+  }
+
+  const pageRequest = new PageRequest()
+  pageRequest.limit = 1
+
+  try {
+    // Fetch from RPC for total count
+    const [applicationsData] = await Promise.all([
+      blockchain.rpc.getApplications(pageRequest),
+    ])
+
+    networkStats.value.applications = parseInt(applicationsData.pagination?.total || '0')
+    
+    // Fetch from API for aggregate statistics
+    try {
+      const apiUrl = `/api/v1/applications?chain=${apiChainName.value}&page=1&limit=1`
+      const apiRes = await fetch(apiUrl)
+      const apiData = await apiRes.json()
+      
+      if (apiRes.ok && apiData.meta) {
+        networkStats.value.totalStakedAmount = apiData.meta.totalStakedAmount || 0
+        networkStats.value.unstakingCount = apiData.meta.unstakingCount || 0
+        networkStats.value.totalUnstakingTokens = apiData.meta.totalUnstakingTokens || 0
+      }
+    } catch (apiError) {
+      console.error('Error loading API stats:', apiError)
+    }
+    
+    networkStatsCacheTime.value = now
+  } catch (error) {
+    console.error('Error loading network stats:', error)
+  }
+}
 </script>
 
 <template>
   <div class="mb-[2vh]">
     <p class="bg-[#09279F] dark:bg-base-100 text-2xl rounded-xl px-4 py-4 my-4 font-bold text-white">Applications</p>
+
+    <div class="grid sm:grid-cols-1 md:grid-cols-4 py-4 gap-4 mb-4">
+      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+        <span>
+          <div class="text-xs text-[#64748B]">Staked Applications</div>
+          <div class="font-bold">{{ networkStats.applications.toLocaleString() }}</div>
+        </span>
+      </div>
+      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+        <span>
+          <div class="text-xs text-[#64748B]">Staked Tokens</div>
+          <div class="font-bold">{{ format.formatToken({ denom: 'upokt', amount: networkStats.totalStakedAmount.toString() }) }}</div>
+        </span>
+      </div>
+      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+        <span>
+          <div class="text-xs text-[#64748B]">Unstaking Applications</div>
+          <div class="font-bold">{{ networkStats.unstakingCount.toLocaleString() }}</div>
+        </span>
+      </div>
+      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+        <span>
+          <div class="text-xs text-[#64748B]">Unstaking Tokens</div>
+          <div class="font-bold">{{ format.formatToken({ denom: 'upokt', amount: networkStats.totalUnstakingTokens.toString() }) }}</div>
+        </span>
+      </div>
+    </div>
+
     <div class="bg-base-200 dark:bg-base-100 rounded-xl p-2">
       <table class="table w-full table-compact rounded-xl">
         <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
@@ -146,7 +273,7 @@ onMounted(() => {
 
         <tbody>
           <tr v-if="loading" class="text-center">
-            <td colspan="7" class="py-8">
+            <td colspan="8" class="py-8">
               <div class="flex justify-center items-center">
                 <div class="loading loading-spinner loading-md"></div>
                 <span class="ml-2">Loading applications...</span>
@@ -154,7 +281,7 @@ onMounted(() => {
             </td>
           </tr>
           <tr v-else-if="sortedList.length === 0" class="text-center">
-            <td colspan="7" class="py-8">
+            <td colspan="8" class="py-8">
               <div class="text-gray-500">No applications found</div>
             </td>
           </tr>
@@ -181,7 +308,7 @@ onMounted(() => {
             </td>
 
             <td class="font-bold dark:text-secondary">{{ format.formatToken(item.stake) }}</td>
-            <td class="dark:text-secondary">{{ item.balance ? format.formatToken(item.balance) : '-' }}</td>
+            <td class="dark:text-secondary">{{ item.balance ? format.formatToken(item.balance) : "-" }}</td>
             <td>{{ item.service_configs?.length || 0 }}</td>
             <td>
               {{
@@ -192,17 +319,24 @@ onMounted(() => {
                   .join(', ')
               }}
             </td>
-            <td class="text-success">{{ statusText }}</td>
+            <td class="">
+              <span
+                class="text-xs truncate py-1 px-3 rounded-full inline-flex items-center gap-2"
+                :class="getApplicationStatus(item).classes"
+              >
+                {{ getApplicationStatus(item).label }}
+              </span>
+            </td>
             <td>
               <div v-if="item.delegatee_gateway_addresses && item.delegatee_gateway_addresses.length > 0">
                 <div v-if="expandedDelegateeRows[item.address]">
                   <!-- Expanded view: show all addresses -->
                   <div class="flex flex-col gap-1">
                     <RouterLink
-                      v-for="(addr, idx) in item.delegatee_gateway_addresses" 
+                      v-for="(addr, idx) in item.delegatee_gateway_addresses"
                       :key="idx"
                       :to="`/${chainStore.chainName}/account/${addr}`"
-                      class="text-sm font-mono text-[#09279F] dark:text-warning hover:underline"
+                      class="text-sm text-[#09279F] dark:invert font-mono hover:underline"
                     >
                       {{ addr }}
                     </RouterLink>
@@ -219,8 +353,7 @@ onMounted(() => {
                   <div class="flex items-center gap-2">
                     <RouterLink
                       :to="`/${chainStore.chainName}/account/${item.delegatee_gateway_addresses[0]}`"
-                      class="text-sm font-mono text-[#09279F] dark:text-warning hover:underline"
-                      :title="item.delegatee_gateway_addresses[0]"
+                      class="text-sm text-[#09279F] dark:invert font-mono hover:underline"
                     >
                       {{ truncateAddress(item.delegatee_gateway_addresses[0]) }}
                     </RouterLink>
@@ -240,7 +373,7 @@ onMounted(() => {
         </tbody>
       </table>
 
-      <!-- ✅ Pagination Bar -->
+      <!-- Pagination Bar -->
       <div class="flex justify-between items-center gap-4 my-6 px-6">
         <!-- Page Size Dropdown -->
         <div class="flex items-center gap-2">
@@ -303,16 +436,14 @@ onMounted(() => {
     </div>
   </div>
 </template>
-
 <route>
-{
-  meta: {
-    i18n: 'applications',
-    order: 4
+  {
+    meta: {
+      i18n: 'applications',
+      order: 4
+    }
   }
-}
-</route>
-
+  </route>
 <style scoped>
 .page-btn:hover {
   background-color: #e9ecef;

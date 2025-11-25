@@ -72,7 +72,6 @@ const showAdvancedTxFilters = ref(false);
 const getApiChainName = (chainName: string) => {
   const chainMap: Record<string, string> = {
     'pocket-beta': 'pocket-testnet-beta',
-    'pocket-alpha': 'pocket-testnet-alpha',
     'pocket-mainnet': 'pocket-mainnet'
   };
   return chainMap[chainName] || chainName || 'pocket-testnet-beta';
@@ -363,7 +362,18 @@ async function loadTransactions(address: string) {
     // Add type filter based on selected tab
     const selectedTypes = typeTabMap[selectedTypeTab.value];
     if (selectedTypes.length > 0) {
-      filters.type = selectedTypes[0];
+      // if the account is an application, add the MsgStakeApplication type
+      if (selectedTypeTab.value === 'staking') {
+        if (applications.value.address === address) {
+          filters.type = 'MsgStakeApplication (application)';
+        } else if (gateways.value.address === address) {
+          filters.type = 'MsgStakeGateway (gateway)';
+        } else if (suppliers.value.operator_address === address) {
+          filters.type = 'MsgStakeSupplier (supplier)';
+        }
+      } else {
+        filters.type = selectedTypes[0];
+      }
     }
 
     if (txStatusFilter.value) {
@@ -802,9 +812,9 @@ async function loadAddressPerformance(address: string) {
           <!-- content -->
           <div class="flex items-center flex-1 space-x-3">
             <h2 class="text-2xl card-title">{{ $t('account.address') }}</h2>
-            <span class="text-[10px] truncate flex items-center" style="width:max-content"> {{ address }} {{ "&nbsp;&nbsp;&nbsp;" }}
-              <span class="float-right" style="width:max-content" v-if="copied">&nbsp;&nbsp;Copied!</span>
-              <Icon class="float-right" icon="ic:round-content-copy" @click="copy(address)" />
+            <span class="text-[16px] truncate flex items-center" style="width:max-content"> {{ address }} {{ "&nbsp;&nbsp;&nbsp;" }}
+              <span class="float-right cursor-pointer" style="width:max-content" v-if="copied">&nbsp;&nbsp;Copied!</span>
+              <Icon class="float-right cursor-pointer" icon="ic:round-content-copy" @click="copy(address)" />
             </span>
           </div>
         </div>
@@ -869,7 +879,7 @@ async function loadAddressPerformance(address: string) {
                     <div class="flex flex-col items-start px-4 mb-2 gap-4">
                       <!-- Items from donutData to match order -->
                       <div v-for="(item, index) in donutData" :key="`item-${index}`"
-                        class="text-xs font-semibold"
+                        class="text-sm font-semibold whitespace-nowrap"
                         :class="{ 'text-gray-400': item.isMACT }">
                         {{ item.type === 'balance' 
                           ? format.calculatePercent((item as any).balanceItem.amount, totalAmount) 

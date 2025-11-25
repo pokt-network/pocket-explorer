@@ -72,7 +72,7 @@
     "hash": "Hash",
     "messages": "Messages",
     "time": "Time",
-    "produced_at": "Produced At",
+    "production_time": "Production Time",
     "error": "Account does not exists on chain"
   },
   "block": {
@@ -82,6 +82,7 @@
     "countdown_for_block_input": "Input A New Target Block Number",
     "btn_update": "Update",
     "current_height": "Current Height",
+    "production_time": "Production Time",
     "remaining_blocks": "Remaining Blocks",
     "average_block_time": "Average Block Time",
     "block_header": "Block Header",
@@ -91,6 +92,9 @@
     "future": "Future",
     "fees": "Fees",
     "only_tx": "Only show txs in recent blocks",
+    "application": "Applications",
+    "supplier": "Suppliers",
+    "gateway": "Gateways",
     "relay": "Relays",
     "size": "Size"
   },

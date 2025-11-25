@@ -44,6 +44,7 @@ export interface TransactionsResponse {
     page: number;
     limit: number;
     totalPages: number;
+    failedLast24h?: number;
   };
 }
 

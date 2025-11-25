@@ -68,3 +68,44 @@ export function toETHAddress(cosmosAddress: string) {
 export function addressEnCode(prefix: string, pubkey: Uint8Array) {
   return toBech32(prefix, pubkey);
 }
+
+/**
+ * Convert a secp256k1 public key (base64 string) to a bech32 account address
+ * @param pubkey - Base64 encoded public key string or public key object
+ * @param prefix - Bech32 address prefix (e.g., "pokt")
+ * @returns Bech32 account address
+ */
+export function secp256k1PubKeyToAccountAddress(
+  pubkey: string | { '@type': string; key: string },
+  prefix: string
+): string {
+  if (!pubkey) return '';
+  
+  let keyString: string;
+  
+  // Handle both string and object formats
+  if (typeof pubkey === 'string') {
+    keyString = pubkey;
+  } else if (pubkey['@type'] === '/cosmos.crypto.secp256k1.PubKey' && pubkey.key) {
+    keyString = pubkey.key;
+  } else {
+    return '';
+  }
+  
+  try {
+    // Decode base64 public key
+    const pubkeyBytes = fromBase64(keyString);
+    if (!pubkeyBytes) return '';
+    
+    // For Cosmos SDK account addresses from secp256k1:
+    // SHA256 hash the public key, then take RIPEMD160 of that
+    const hash = sha256(pubkeyBytes);
+    const addressData = new Ripemd160().update(hash).digest();
+    
+    // Encode as bech32 with the account prefix
+    return toBech32(prefix, addressData);
+  } catch (error) {
+    console.error('Error converting public key to address:', error);
+    return '';
+  }
+}

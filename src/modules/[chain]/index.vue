@@ -185,6 +185,7 @@ interface ApiBlockItem {
   height: number;
   hash: string;
   timestamp: string;
+  block_production_time?: number;
   proposer: string;
   chain: string;
   transaction_count?: number;
@@ -194,7 +195,6 @@ interface ApiBlockItem {
 const getApiChainName = (chainName: string) => {
   const chainMap: Record<string, string> = {
     'pocket-beta': 'pocket-testnet-beta',
-    'pocket-alpha': 'pocket-testnet-alpha',
     'pocket-mainnet': 'pocket-mainnet'
   };
   return chainMap[chainName] || chainName || 'pocket-testnet-beta';
@@ -475,8 +475,8 @@ function formatCompact(value: number) {
 const networkStats = ref({
   wallets: 0,
   applications: 0,
-  suppliers: 0,
   gateways: 0,
+  suppliers: 0,
   services: 0
 });
 
@@ -508,8 +508,8 @@ async function loadServicesSummary24h() {
 const historicalData = ref({
   series: [
     { name: 'Applications', data: [], yAxisIndex: 0 },
-    { name: 'Suppliers', data: [], yAxisIndex: 0 },
     { name: 'Gateways', data: [], yAxisIndex: 0 },
+    { name: 'Suppliers', data: [], yAxisIndex: 0 },
     { name: 'Services', data: [], yAxisIndex: 0 },
     { name: 'Relays', data: [], yAxisIndex: 1 },
     { name: 'Compute Units', data: [], yAxisIndex: 1 }
@@ -517,10 +517,10 @@ const historicalData = ref({
 });
 
 // Chart state for Network Growth
-const networkGrowthTab = ref<'core-services' | 'performance'>('core-services');
-const networkGrowthChartType = ref<'bar' | 'area' | 'line'>('bar');
+const networkGrowthTab = ref<'core-services' | 'performance'>('performance');
+const networkGrowthChartType = ref<'bar' | 'area' | 'line'>('area');
 const chartCategories = ref<string[]>([]);
-const performanceMetric = ref<'relays' | 'compute-units'>('relays');
+const performanceMetric = ref<'relays' | 'compute-units'>('compute-units');
 
 // Computed series based on active tab
 const activeNetworkGrowthSeries = computed(() => {
@@ -1059,6 +1059,20 @@ watch(() => base.blocktime, (newVal, oldVal) => {
   }
 });
 
+// Convert seconds → "Xs" or "Xm Ys" without decimal in seconds
+function formatBlockTime(secondsStr?: string | number) {
+  if (!secondsStr) return '0s'
+  const totalSeconds = typeof secondsStr === 'string' ? parseFloat(secondsStr) : secondsStr
+
+  if (totalSeconds < 60) {
+    return `${Math.round(totalSeconds)}s` // sirf seconds, rounded
+  }
+
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = Math.round(totalSeconds % 60) // seconds rounded to integer
+  return `${minutes}m ${seconds}s` // minutes aur seconds, no decimal
+}
+
 </script>
 
 <template>
@@ -1564,20 +1578,20 @@ watch(() => base.blocktime, (newVal, oldVal) => {
             <!-- Tabs -->
             <div class="flex tabs tabs-boxed bg-base-200 dark:bg-base-300">
               <button
-                @click="networkGrowthTab = 'core-services'"
-                :class="[
-                  'tab',
-                  networkGrowthTab === 'core-services' ? 'tab-active bg-[#09279F] text-white' : ''
-                ]">
-                Core Services
-              </button>
-              <button
                 @click="networkGrowthTab = 'performance'"
                 :class="[
                   'tab',
                   networkGrowthTab === 'performance' ? 'tab-active bg-[#09279F] text-white' : ''
                 ]">
                 Performance
+              </button>
+              <button
+                @click="networkGrowthTab = 'core-services'"
+                :class="[
+                  'tab',
+                  networkGrowthTab === 'core-services' ? 'tab-active bg-[#09279F] text-white' : ''
+                ]">
+                Core Services
               </button>
             </div>
           </div>
@@ -1601,18 +1615,6 @@ watch(() => base.blocktime, (newVal, oldVal) => {
           <!-- Performance Metric Selector - Bottom Left (only shown when Performance tab is active) -->
           <div v-if="networkGrowthTab === 'performance'" class="absolute bottom-2 left-2 tabs tabs-boxed bg-base-200 dark:bg-base-300">
             <button
-              @click="performanceMetric = 'relays'"
-              :class="[
-                'tab',
-                performanceMetric === 'relays' 
-                  ? 'tab-active bg-[#A855F7] text-white' 
-                  : 'hover:bg-base-300'
-              ]"
-              title="Relays">
-              <Icon icon="mdi:network" class="text-sm mr-1" />
-              Relays
-            </button>
-            <button
               @click="performanceMetric = 'compute-units'"
               :class="[
                 'tab',
@@ -1623,6 +1625,18 @@ watch(() => base.blocktime, (newVal, oldVal) => {
               title="Compute Units">
               <Icon icon="mdi:cpu-64-bit" class="text-sm mr-1" />
               Compute Units
+            </button>
+            <button
+              @click="performanceMetric = 'relays'"
+              :class="[
+                'tab',
+                performanceMetric === 'relays' 
+                  ? 'tab-active bg-[#A855F7] text-white' 
+                  : 'hover:bg-base-300'
+              ]"
+              title="Relays">
+              <Icon icon="mdi:network" class="text-sm mr-1" />
+              Relays
             </button>
           </div>
           <!-- Chart Type Selector - Bottom Right -->
@@ -1747,7 +1761,7 @@ watch(() => base.blocktime, (newVal, oldVal) => {
                 <th class="dark:bg-base-100 bg-base-200">{{ $t('block.proposer') }}</th>
                 <th class="dark:bg-base-100 bg-base-200">{{ $t('module.tx') }}</th>
                 <th class="dark:bg-base-100 bg-base-200">{{ $t('account.time') }}</th>
-                <th class="dark:bg-base-100 bg-base-200 w-1/2">{{ $t('account.produced_at') }}</th>
+                <th class="dark:bg-base-100 bg-base-200">{{ $t('account.production_time') }}</th>
               </tr>
             </thead>
             <tbody v-if="loadingBlocks" >
@@ -1771,8 +1785,8 @@ watch(() => base.blocktime, (newVal, oldVal) => {
                 </td>
                 <td>{{ format.validator(block.proposer) }}</td>
                 <td>{{ (block.transaction_count ?? 0).toLocaleString() }}</td>
-                <td class="text-sm">{{ format.toDay(block?.timestamp, 'from') }}</td>
-                <td colspan="2">{{ new Date(block?.timestamp || '0').toLocaleString()}}</td>
+                <td class="text-sm">{{ format.toDay(block.timestamp, 'from') }}</td>
+                <td class="">{{ formatBlockTime(block.block_production_time || '0') }}</td>
               </tr>
             </tbody>
             <tbody v-else-if="!loadingBlocks && blocks.length === 0">

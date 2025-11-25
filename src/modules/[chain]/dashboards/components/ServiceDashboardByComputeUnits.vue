@@ -21,7 +21,6 @@ const format = useFormatter();
 const getApiChainName = (chainName: string) => {
   const chainMap: Record<string, string> = {
     'pocket-beta': 'pocket-testnet-beta',
-    'pocket-alpha': 'pocket-testnet-alpha',
     'pocket-mainnet': 'pocket-mainnet'
   };
   return chainMap[chainName] || chainName || 'pocket-testnet-beta';
@@ -170,8 +169,8 @@ interface TopServiceByPerformance {
   rank: number;
   service_id: string;
   chain: string;
-  total_claimed_compute_units: number;
-  total_estimated_compute_units: number;
+  total_claimed_compute_units: string;
+  total_estimated_compute_units: string;
   submission_count: number;
   avg_efficiency_percent: number;
   percentage_of_total: number;
@@ -184,7 +183,10 @@ const summaryStats = ref<SummaryStats | null>(null);
 const submissions = ref<ProofSubmission[]>([]);
 const rewardAnalytics = ref<RewardAnalytics[]>([]);
 const currentPage = ref(1);
+const currentPages = ref(1);
 const itemsPerPage = ref(25);
+const itemsPerPages = ref(10); // For performance tab
+const itemPerPage = ref(10);
 const totalPages = ref(0);
 const selectedService = ref('');
 const selectedSupplier = ref('');
@@ -199,8 +201,8 @@ const totalComputeUnits = ref(0);
 const loadingTopServices = ref(false);
 const loadingPerformanceTable = ref(false);
 const topServicesLimit = ref(10);
-const topServicesDays = ref(30);
-const performanceDays = ref(30);
+const topServicesDays = ref(7);
+const performanceDays = ref(7);
 
 // Reward Share tab data
 const delegatedRewards = ref<Array<{ account: string; rewards: number; share: number; nodes: number }>>([]);
@@ -284,7 +286,7 @@ const topServicesChartOptions = computed(() => {
       };
 
   return {
-    chart: { type: chartType, height: 350, toolbar: { show: false } },
+    chart: { type: chartType, height: 360, toolbar: { show: false } },
     colors: ['#A3E635'],
     dataLabels: { enabled: chartType === 'bar', formatter: (v: number) => (v / 1000000000).toFixed(2) + 'B', style: { colors: ['#000'] } },
     plotOptions: chartType === 'bar' ? { bar: { horizontal: false, columnWidth: '55%', borderRadius: 4 } } : {},
@@ -590,6 +592,7 @@ async function loadProofSubmissions() {
 
 function applyFilters() {
   currentPage.value = 1;
+  currentPages.value = 1;
   loadSummaryStats();
   loadProofSubmissions();
 }
@@ -598,6 +601,11 @@ function nextPage() { if (currentPage.value < totalPages.value) { currentPage.va
 function prevPage() { if (currentPage.value > 1) { currentPage.value--; loadProofSubmissions(); } }
 function goToFirst() { currentPage.value = 1; loadProofSubmissions(); }
 function goToLast() { currentPage.value = totalPages.value; loadProofSubmissions(); }
+
+function nPage() { if (currentPages.value < totalPages.value) { currentPages.value++; loadProofSubmissions(); } }
+function pPage() { if (currentPages.value > 1) { currentPages.value--; loadProofSubmissions(); } }
+function gTFirst() { currentPages.value = 1; loadProofSubmissions(); }
+function gTLast() { currentPages.value = totalPages.value; loadProofSubmissions(); }
 
 async function loadTopServicesByComputeUnits() {
   loadingTopServices.value = true;
@@ -626,6 +634,7 @@ async function loadTopServicesByPerformance() {
   loadingPerformanceTable.value = true;
   try {
     const params = new URLSearchParams();
+    params.append('limit', itemsPerPages.value.toString());
     params.append('days', performanceDays.value.toString());
     params.append('chain', apiChainName.value);
     // Add filter support
@@ -636,6 +645,8 @@ async function loadTopServicesByPerformance() {
     const data = await fetchApi('/api/v1/services/top-by-performance', params);
       topServicesByPerformance.value = data.data || [];
       totalComputeUnits.value = data.total_compute_units || 0;
+    // Update the chart data based on the new top services
+    updateTopServicesChart();
   } catch (error: any) {
     console.error('Error loading top services by performance:', error);
     topServicesByPerformance.value = [];
@@ -729,7 +740,7 @@ async function loadRewardShareData() {
 }
 
 function updateTopServicesChart() {
-  const sorted = [...topServicesByComputeUnits.value].sort((a, b) => 
+  const sorted = [...topServicesByPerformance.value].sort((a, b) => 
     parseInt(b.total_claimed_compute_units) - parseInt(a.total_claimed_compute_units)
   );
   const labels = sorted.map(s => s.service_id);
@@ -738,6 +749,11 @@ function updateTopServicesChart() {
   topServicesChartSeries.value = [{ name: 'Compute Units', data }];
   topServicesChartCategories.value = labels;
 }
+
+// Watch for changes in itemPerPage and performanceDays to reload data
+watch([itemPerPage, performanceDays], () => {
+  loadTopServicesByPerformance();
+});
 
 function formatNumber(num: number | string): string { return new Intl.NumberFormat().format(typeof num === 'string' ? parseInt(num) : num); }
 function formatComputeUnits(units: number | string): string {
@@ -782,6 +798,25 @@ onMounted(() => {
     loadRewardShareData();
   }
 });
+
+const perfCurrentPage = ref(1);
+watch(itemsPerPages, () => {
+  perfCurrentPage.value = 1;
+  // reload remote data (already done by existing @change), local page reset only
+});
+const perfTotalPages = computed(() => {
+  const total = topServicesByPerformance.value?.length || 0;
+  return total === 0 ? 0 : Math.ceil(total / itemsPerPages.value);
+});
+const paginatedTopServices = computed(() => {
+  const start = (perfCurrentPage.value - 1) * itemsPerPages.value;
+  return topServicesByPerformance.value.slice(start, start + itemsPerPages.value);
+});
+
+function perfNext() { if (perfCurrentPage.value < perfTotalPages.value) perfCurrentPage.value++; }
+function perfPrev() { if (perfCurrentPage.value > 1) perfCurrentPage.value--; }
+function perfGoFirst() { if (perfCurrentPage.value !== 1) perfCurrentPage.value = 1; }
+function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && perfTotalPages.value > 0) perfCurrentPage.value = perfTotalPages.value; }
 </script>
 
 <template>
@@ -851,17 +886,29 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- Middle Section: Rewards Distribution Table (Large) - Show in Summary and Reward Share tabs -->
+     <!-- Middle Section: Rewards Distribution Table (Large) - Show in Summary and Reward Share tabs -->
     <div v-if="!props.tabView || props.tabView === 'summary' || props.tabView === 'reward-share'" class="dark:bg-base-100 bg-base-200 pt-3 rounded-lg border-[3px] border-solid border-base-200 dark:border-base-100 mb-3">
       <div class="flex items-center justify-between mb-3 ml-4 mr-4">
         <div class="text-base font-semibold text-main">Rewards Distribution</div>
-        <div class="flex items-center gap-2">
-          <span class="text-xs text-secondary">Days:</span>
-          <select v-model="performanceDays" @change="loadTopServicesByPerformance()" class="select select-bordered select-xs w-full text-xs">
-            <option :value="7">7</option>
-            <option :value="15">15</option>
-            <option :value="30">30</option>
-          </select>
+        <div class="flex justify-end gap-4">
+          <!-- LIMIT DROPDOWN -->
+          <div class="flex items-center justify-end gap-2">
+            <span class="text-xs text-secondary"> Limit:</span>
+            <select v-model="itemsPerPages" @change="loadTopServicesByPerformance()"  class="select select-bordered select-xs w-full text-xs">
+              <option :value="10">10</option>
+              <option :value="20">20</option>
+              <option :value="30">30</option>
+              <option :value="50">50</option>
+            </select>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-secondary">Days:</span>
+            <select v-model="performanceDays" @change="loadTopServicesByPerformance()" class="select select-bordered select-xs w-full text-xs">
+              <option :value="7">7</option>
+              <option :value="15">15</option>
+              <option :value="30">30</option>
+            </select>
+          </div>
         </div>
       </div>
       <div class="dark:bg-base-200 bg-base-100 p-2 rounded-md">
@@ -872,7 +919,7 @@ onMounted(() => {
         <div v-else-if="topServicesByPerformance.length === 0" class="text-center py-4 text-gray-500 text-xs">
           No data found
         </div>
-        <div v-else class="overflow-auto">
+        <div v-else class="overflow-auto max-h-96">
           <table class="table table-compact w-full text-xs">
             <thead class="bg-white sticky top-0">
               <tr class="border-b-[0px]">
@@ -885,7 +932,7 @@ onMounted(() => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="service in topServicesByPerformance" :key="service.service_id" class="hover:bg-base-300 transition-colors duration-200 border-b-[0px]">
+              <tr v-for="service in paginatedTopServices" :key="service.service_id" class="hover:bg-base-300 transition-colors duration-200 border-b-[0px]">
                 <td class="dark:bg-base-200 bg-white font-bold py-1">
                   <span class="badge badge-sm" :class="service.rank === 1 ? 'badge-primary' : service.rank === 2 ? 'badge-secondary' : service.rank === 3 ? 'badge-accent' : 'badge-ghost'">
                     #{{ service.rank }}
@@ -921,14 +968,14 @@ onMounted(() => {
     </div>
 
     <!-- Bottom Section: 2 Columns (Merged Servicer/Producer/Performance + Services Chart) -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-3" v-if="!props.tabView || props.tabView === 'summary'">
-      <!-- Left Column: Supplier & Service Performance Summary -->
-      <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-3 items-stretch" v-if="!props.tabView || props.tabView === 'summary'">
+
+      <!-- <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3">
         <div class="flex items-center justify-between mb-3">
           <div class="text-sm font-semibold">Performance Summary</div>
         </div>
         <div class="grid grid-cols-2 gap-3 text-xs">
-          <!-- Supplier Section -->
+
           <div>
             <div class="text-xs font-semibold mb-2 text-secondary">Supplier</div>
             <div class="space-y-1">
@@ -946,7 +993,7 @@ onMounted(() => {
               </div>
             </div>
           </div>
-          <!-- Service Section -->
+
           <div>
             <div class="text-xs font-semibold mb-2 text-secondary">Service</div>
             <div class="space-y-1">
@@ -965,22 +1012,100 @@ onMounted(() => {
             </div>
           </div>
         </div>
+      </div> -->
+
+      <!-- Proof Submissions Table (Compact) - Show in Summary tab only -->
+      <div v-if="!props.tabView || props.tabView === 'summary'" class="dark:bg-base-100 bg-base-200 pt-2 rounded-lg border-[3px] border-solid border-base-200 dark:border-base-100 mb-3 h-full">
+        <div class="flex items-center justify-between mb-2 ml-3 mr-3">
+          <div class="text-sm font-semibold text-main">Proof Submissions</div>
+          <div class="flex items-center gap-1">
+            <span class="text-xs text-secondary">Show:</span>
+            <select v-model="itemsPerPage" @change="loadProofSubmissions()" class="select select-bordered select-xs w-full text-xs">
+              <option :value="25">25</option>
+              <option :value="50">50</option>
+              <option :value="100">100</option>
+            </select>
+          </div>
+        </div>
+        <div class="dark:bg-base-200 bg-base-100 p-2 rounded-md">
+          <div class="overflow-auto max-h-96">
+            <table class="table w-full table-compact text-xs">
+              <thead class="bg-white sticky top-0">
+                <tr class="border-b-[0px]">
+                  <th class="py-1">Tx Hash</th>
+                  <th class="py-1">Service</th>
+                  <th class="py-1">Supplier</th>
+                  <th class="py-1">Relays</th>
+                  <th class="py-1">Rewards</th>
+                  <th class="py-1">Efficiency</th>
+                  <th class="py-1">Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="loading" class="text-center"><td colspan="7" class="py-4"><div class="flex justify-center items-center"><div class="loading loading-spinner loading-sm"></div><span class="ml-2 text-xs">Loading...</span></div></td></tr>
+                <tr v-else-if="submissions.length === 0" class="text-center"><td colspan="7" class="py-4"><div class="text-gray-500 text-xs">No submissions found</div></td></tr>
+                <tr v-for="submission in submissions" :key="submission.id" class="hover:bg-base-300 transition-colors duration-200 border-b-[0px]">
+                  <td class="truncate dark:bg-base-200 bg-white text-[#153cd8] py-1" style="max-width:120px"><a :href="`#tx/${submission.transaction_hash}`" class="hover:underline text-xs">{{ submission.transaction_hash.substring(0, 12) }}...</a></td>
+                  <td class="dark:bg-base-200 bg-white py-1"><span class="badge badge-primary badge-xs">{{ submission.service_id }}</span></td>
+                  <td class="truncate dark:bg-base-200 bg-white py-1 text-xs" style="max-width:120px">{{ submission.supplier_operator_address.substring(0, 12) }}...</td>
+                  <td class="dark:bg-base-200 bg-white py-1 text-xs">{{ formatNumber(parseInt(submission.num_relays)) }}</td>
+                  <td class="dark:bg-base-200 bg-white py-1 text-xs">{{ format.formatToken({ denom: 'upokt', amount: String(submission.claimed_upokt_amount) }) }}</td>
+                  <td class="dark:bg-base-200 bg-white py-1"><span :class="parseFloat(submission.compute_unit_efficiency) >= 95 ? 'text-success' : parseFloat(submission.compute_unit_efficiency) >= 80 ? 'text-warning' : 'text-error'" class="text-xs">{{ parseFloat(submission.compute_unit_efficiency).toFixed(2) }}%</span></td>
+                  <td class="dark:bg-base-200 bg-white py-1 text-xs">{{ new Date(submission.timestamp).toLocaleTimeString() }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="flex justify-between items-center gap-2 my-2 px-2 text-xs">
+            <span class="text-gray-600">Showing {{ ((currentPage - 1) * itemsPerPage) + 1 }} to {{ Math.min(currentPage * itemsPerPage, submissions.length) }} of {{ submissions.length }}</span>
+            <div class="flex items-center gap-1">
+              <button class="btn btn-xs btn-ghost" @click="goToFirst" :disabled="currentPage === 1 || totalPages === 0">First</button>
+              <button class="btn btn-xs btn-ghost" @click="prevPage" :disabled="currentPage === 1 || totalPages === 0">&lt;</button>
+              <span class="px-1">Page {{ currentPage }}/{{ totalPages }}</span>
+              <button class="btn btn-xs btn-ghost" @click="nextPage" :disabled="currentPage === totalPages || totalPages === 0">&gt;</button>
+              <button class="btn btn-xs btn-ghost" @click="goToLast" :disabled="currentPage === totalPages || totalPages === 0">Last</button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Right Column: Services Chart -->
-      <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3">
-        <div class="text-sm font-semibold mb-2">Services</div>
-        <div class="dark:bg-base-200 bg-base-100 p-2 rounded-md relative">
+      <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3 h-full">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-sm font-semibold mb-2">Services</div>
+          <div class="flex justify-end gap-4">
+            <!-- LIMIT DROPDOWN -->
+            <div class="flex items-center justify-end gap-2">
+              <span class="text-xs text-secondary"> Limit:</span>
+              <select v-model="itemsPerPages" @change="loadTopServicesByPerformance()"  class="select select-bordered select-xs w-full text-xs">
+                <option :value="10">10</option>
+                <option :value="20">20</option>
+                <option :value="30">30</option>
+                <option :value="50">50</option>
+              </select>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-secondary">Days:</span>
+              <select v-model="performanceDays" @change="loadTopServicesByPerformance()" class="select select-bordered select-xs w-full text-xs">
+                <option :value="7">7</option>
+                <option :value="15">15</option>
+                <option :value="30">30</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        
+        <div class="dark:bg-base-200 bg-base-100 p-2 rounded-md relative max-h-9/10">
           <div v-if="loadingTopServices" class="flex justify-center items-center h-64">
             <div class="loading loading-spinner loading-sm"></div>
           </div>
           <div v-else-if="topServicesByComputeUnits.length === 0" class="flex justify-center items-center h-64 text-gray-500 text-xs">
             No data
           </div>
-          <div v-else class="h-64">
+          <div v-else class="h-100">
             <ApexCharts 
               :type="topServicesChartType" 
-              height="250" 
+              height="360" 
               :options="topServicesChartOptions" 
               :series="topServicesChartSeries"
               :key="`topServices-${topServicesChartType}`"
@@ -1319,61 +1444,6 @@ onMounted(() => {
               title="Line Chart">
               <Icon icon="mdi:chart-line" class="text-sm" />
             </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Proof Submissions Table (Compact) - Show in Summary tab only -->
-    <div v-if="!props.tabView || props.tabView === 'summary'" class="dark:bg-base-100 bg-base-200 pt-2 rounded-lg border-[3px] border-solid border-base-200 dark:border-base-100 mb-3">
-      <div class="flex items-center justify-between mb-2 ml-3 mr-3">
-        <div class="text-sm font-semibold text-main">Proof Submissions</div>
-        <div class="flex items-center gap-1">
-          <span class="text-xs text-secondary">Show:</span>
-          <select v-model="itemsPerPage" @change="loadProofSubmissions()" class="select select-bordered select-xs w-full text-xs">
-            <option :value="25">25</option>
-            <option :value="50">50</option>
-            <option :value="100">100</option>
-          </select>
-        </div>
-      </div>
-      <div class="dark:bg-base-200 bg-base-100 p-2 rounded-md">
-        <div class="overflow-auto max-h-96">
-          <table class="table w-full table-compact text-xs">
-            <thead class="bg-white sticky top-0">
-              <tr class="border-b-[0px]">
-                <th class="py-1">Tx Hash</th>
-                <th class="py-1">Service</th>
-                <th class="py-1">Supplier</th>
-                <th class="py-1">Relays</th>
-                <th class="py-1">Rewards</th>
-                <th class="py-1">Efficiency</th>
-                <th class="py-1">Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-if="loading" class="text-center"><td colspan="7" class="py-4"><div class="flex justify-center items-center"><div class="loading loading-spinner loading-sm"></div><span class="ml-2 text-xs">Loading...</span></div></td></tr>
-              <tr v-else-if="submissions.length === 0" class="text-center"><td colspan="7" class="py-4"><div class="text-gray-500 text-xs">No submissions found</div></td></tr>
-              <tr v-for="submission in submissions" :key="submission.id" class="hover:bg-base-300 transition-colors duration-200 border-b-[0px]">
-                <td class="truncate dark:bg-base-200 bg-white text-[#153cd8] py-1" style="max-width:120px"><a :href="`#tx/${submission.transaction_hash}`" class="hover:underline text-xs">{{ submission.transaction_hash.substring(0, 12) }}...</a></td>
-                <td class="dark:bg-base-200 bg-white py-1"><span class="badge badge-primary badge-xs">{{ submission.service_id }}</span></td>
-                <td class="truncate dark:bg-base-200 bg-white py-1 text-xs" style="max-width:120px">{{ submission.supplier_operator_address.substring(0, 12) }}...</td>
-                <td class="dark:bg-base-200 bg-white py-1 text-xs">{{ formatNumber(parseInt(submission.num_relays)) }}</td>
-                <td class="dark:bg-base-200 bg-white py-1 text-xs">{{ format.formatToken({ denom: 'upokt', amount: String(submission.claimed_upokt_amount) }) }}</td>
-                <td class="dark:bg-base-200 bg-white py-1"><span :class="parseFloat(submission.compute_unit_efficiency) >= 95 ? 'text-success' : parseFloat(submission.compute_unit_efficiency) >= 80 ? 'text-warning' : 'text-error'" class="text-xs">{{ parseFloat(submission.compute_unit_efficiency).toFixed(2) }}%</span></td>
-                <td class="dark:bg-base-200 bg-white py-1 text-xs">{{ new Date(submission.timestamp).toLocaleTimeString() }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="flex justify-between items-center gap-2 my-2 px-2 text-xs">
-          <span class="text-gray-600">Showing {{ ((currentPage - 1) * itemsPerPage) + 1 }} to {{ Math.min(currentPage * itemsPerPage, submissions.length) }} of {{ submissions.length }}</span>
-          <div class="flex items-center gap-1">
-            <button class="btn btn-xs btn-ghost" @click="goToFirst" :disabled="currentPage === 1 || totalPages === 0">First</button>
-            <button class="btn btn-xs btn-ghost" @click="prevPage" :disabled="currentPage === 1 || totalPages === 0">&lt;</button>
-            <span class="px-1">Page {{ currentPage }}/{{ totalPages }}</span>
-            <button class="btn btn-xs btn-ghost" @click="nextPage" :disabled="currentPage === totalPages || totalPages === 0">&gt;</button>
-            <button class="btn btn-xs btn-ghost" @click="goToLast" :disabled="currentPage === totalPages || totalPages === 0">Last</button>
           </div>
         </div>
       </div>
