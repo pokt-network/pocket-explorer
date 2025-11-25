@@ -34,6 +34,7 @@ const end = new Date();
 const start = new Date(end.getTime() - 6 * 24 * 60 * 60 * 1000);
 
 const showFilters = ref(false);
+const focusField = ref<'owner' | 'supplier' | 'date' | undefined>(undefined);
 const filters = ref({
   owner_address: undefined as string | undefined,
   supplier_address: undefined as string | undefined,
@@ -47,8 +48,14 @@ watch(apiChainName, (newChain) => {
   filters.value.chain = newChain;
 });
 
-function openFilters() { showFilters.value = true; }
-function onApply(newFilters: any) { filters.value = { ...filters.value, ...newFilters }; }
+function openFilters(field?: 'owner' | 'supplier' | 'date') {
+  focusField.value = field;
+  showFilters.value = true;
+}
+function onApply(newFilters: any) { 
+  filters.value = { ...filters.value, ...newFilters };
+  focusField.value = undefined; // Reset focus after applying
+}
 
 // Computed filters for service dashboard (only supplier_address and owner_address)
 const serviceDashboardFilters = computed(() => ({
@@ -202,10 +209,77 @@ watch(activeTab, (newTab) => {
 <template>
   <div>
     <div class="flex items-center justify-between my-4">
-      <p class="bg-[#09279F] dark:bg-base-100 text-2xl rounded-xl px-4 py-2 font-bold text-[#ffffff]">
-        Node Operator Performance
+      <p class="text-2xl rounded-xl px-4 py-2 font-bold">
+        Supplier Performance Dashboard
       </p>
-      <button class="btn btn-sm" @click="openFilters">Filter</button>
+      <button class="btn btn-sm" @click="openFilters()">Filter</button>
+    </div>
+
+    <!-- Active Filters Display -->
+    <div v-if="filters.owner_address || filters.supplier_address || filters.start_date || filters.end_date" class="mb-4 p-3 bg-base-200 dark:bg-base-100 rounded-lg border border-base-300">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-xs font-semibold text-base-content/70 mr-1">Active Filters:</span>
+        
+        <!-- Owner Address Filter -->
+        <div v-if="filters.owner_address" class="badge badge-primary badge-sm gap-1 cursor-pointer hover:badge-secondary" @click="openFilters('owner')">
+          <Icon icon="mdi:account" class="text-xs" />
+          <span class="font-mono text-xs">{{ filters.owner_address.substring(0, 12) }}...</span>
+          <button 
+            class="ml-1 hover:bg-base-content/20 rounded-full p-0.5"
+            @click.stop="filters.owner_address = undefined; onApply({ owner_address: undefined })"
+          >
+            <Icon icon="mdi:close" class="text-xs" />
+          </button>
+        </div>
+
+        <!-- Supplier Address(es) Filter -->
+        <div v-if="filters.supplier_address" class="badge badge-secondary badge-sm gap-1 cursor-pointer hover:badge-accent" @click="openFilters('supplier')">
+          <Icon icon="mdi:server-network" class="text-xs" />
+          <span class="font-mono text-xs">
+            <template v-if="filters.supplier_address.includes(',')">
+              <template v-if="filters.supplier_address.split(',').length > 1">
+                {{ filters.supplier_address.split(',')[0].trim().substring(0, 8) }}...
+                <span class="ml-1 font-sans">+{{ filters.supplier_address.split(',').filter(addr => addr.trim()).length - 1 }} more</span>
+              </template>
+              <template v-else>
+                {{ filters.supplier_address.substring(0, 12) }}...
+              </template>
+            </template>
+            <template v-else>
+              {{ filters.supplier_address.substring(0, 12) }}...
+            </template>
+          </span>
+          <button 
+            class="ml-1 hover:bg-base-content/20 rounded-full p-0.5"
+            @click.stop="filters.supplier_address = undefined; onApply({ supplier_address: undefined })"
+          >
+            <Icon icon="mdi:close" class="text-xs" />
+          </button>
+        </div>
+
+        <!-- Date Range Filter -->
+        <div v-if="filters.start_date && filters.end_date" class="badge badge-accent badge-sm gap-1 cursor-pointer hover:badge-info" @click="openFilters('date')">
+          <Icon icon="mdi:calendar-range" class="text-xs" />
+          <span class="text-xs">
+            {{ new Date(filters.start_date).toLocaleDateString() }} - {{ new Date(filters.end_date).toLocaleDateString() }}
+          </span>
+          <button 
+            class="ml-1 hover:bg-base-content/20 rounded-full p-0.5"
+            @click.stop="filters.start_date = start.toISOString(); filters.end_date = end.toISOString(); onApply({ start_date: start.toISOString(), end_date: end.toISOString() })"
+          >
+            <Icon icon="mdi:close" class="text-xs" />
+          </button>
+        </div>
+
+        <!-- Clear All Button -->
+        <button 
+          class="btn btn-xs btn-ghost ml-auto"
+          @click="filters.owner_address = undefined; filters.supplier_address = undefined; filters.start_date = start.toISOString(); filters.end_date = end.toISOString(); onApply({ owner_address: undefined, supplier_address: undefined, start_date: start.toISOString(), end_date: end.toISOString() })"
+        >
+          <Icon icon="mdi:filter-off" class="text-xs" />
+          Clear All
+        </button>
+      </div>
     </div>
 
     <!-- Tabs -->
@@ -222,9 +296,9 @@ watch(activeTab, (newTab) => {
         :class="{ 'tab-active': activeTab === 'chain' }"
         @click="activeTab = 'chain'"
       >
-        Chain
+        Services
       </button>
-      <button 
+      <!-- <button 
         class="tab" 
         :class="{ 'tab-active': activeTab === 'performance' }"
         @click="activeTab = 'performance'"
@@ -237,7 +311,7 @@ watch(activeTab, (newTab) => {
         @click="activeTab = 'analytics'"
       >
         Analytics
-      </button>
+      </button> -->
       <button 
         class="tab" 
         :class="{ 'tab-active': activeTab === 'reward-share' }"
@@ -245,13 +319,13 @@ watch(activeTab, (newTab) => {
       >
         Reward Share
       </button>
-      <button 
+      <!-- <button 
         class="tab" 
         :class="{ 'tab-active': activeTab === 'transactions' }"
         @click="activeTab = 'transactions'"
       >
         Transactions
-      </button>
+      </button> -->
     </div>
 
     <!-- Tab Content -->
@@ -260,6 +334,8 @@ watch(activeTab, (newTab) => {
         :chain="current" 
         :filters="serviceDashboardFilters"
         :show-tabs="false"
+        :start-date="filters.start_date"
+        :end-date="filters.end_date"
       />
     </div>
 
@@ -269,17 +345,11 @@ watch(activeTab, (newTab) => {
         :filters="serviceDashboardFilters"
         :show-tabs="false"
         :tab-view="'chain'"
+        :start-date="filters.start_date"
+        :end-date="filters.end_date"
       />
     </div>
 
-    <div v-else-if="activeTab === 'performance'">
-      <ServiceDashboardByComputeUnits 
-        :chain="current" 
-        :filters="serviceDashboardFilters"
-        :show-tabs="false"
-        :tab-view="'performance'"
-      />
-    </div>
 
     <div v-else-if="activeTab === 'analytics'">
       <div class="space-y-4">
@@ -315,6 +385,8 @@ watch(activeTab, (newTab) => {
         :filters="serviceDashboardFilters"
         :show-tabs="false"
         :tab-view="'reward-share'"
+        :start-date="filters.start_date"
+        :end-date="filters.end_date"
       />
     </div>
 
@@ -605,6 +677,7 @@ watch(activeTab, (newTab) => {
     <ValidatorFilterModal
       v-model="showFilters"
       :initial="filters"
+      :focus-field="focusField"
       @apply="onApply"
     />
   </div>

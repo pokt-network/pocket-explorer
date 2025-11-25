@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { Icon } from '@iconify/vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useBlockchain } from '@/stores';
@@ -15,6 +15,7 @@ const props = defineProps<{
     start_date: string;
     end_date: string;
   };
+  focusField?: 'owner' | 'supplier' | 'date';
 }>();
 
 const emit = defineEmits<{
@@ -27,6 +28,22 @@ const open = computed({
   set: (v: boolean) => emit('update:modelValue', v),
 });
 
+// Focus on specific field when modal opens
+watch(() => props.modelValue, (isOpen) => {
+  if (isOpen && props.focusField) {
+    // Use nextTick to ensure DOM is ready
+    setTimeout(() => {
+      if (props.focusField === 'owner' && ownerInputRef.value) {
+        ownerInputRef.value.focus();
+      } else if (props.focusField === 'supplier' && supplierInputRef.value) {
+        supplierInputRef.value.focus();
+      } else if (props.focusField === 'date' && startDateInputRef.value) {
+        startDateInputRef.value.focus();
+      }
+    }, 150);
+  }
+});
+
 const router = useRouter();
 const route = useRoute();
 const chainStore = useBlockchain();
@@ -35,6 +52,11 @@ const ownerAddress = ref<string>(props.initial?.owner_address || '');
 const supplierAddress = ref<string>(props.initial?.supplier_address || '');
 const start = ref<string>(props.initial?.start_date);
 const end = ref<string>(props.initial?.end_date);
+
+// Template refs for focusing
+const ownerInputRef = ref<HTMLInputElement | null>(null);
+const supplierInputRef = ref<HTMLTextAreaElement | null>(null);
+const startDateInputRef = ref<HTMLInputElement | null>(null);
 
 // Get chain from route params or fallback to chainStore
 const currentChain = computed(() => {
@@ -182,14 +204,35 @@ function preset(days: number | null) {
 }
 
 function apply() {
-  emit('apply', {
+  const filters = {
     owner_address: ownerAddress.value || undefined,
     supplier_address: supplierAddress.value || undefined,
     start_date: start.value,
     end_date: end.value,
-  });
-  open.value = false;
+  };
+  emit('apply', filters);
+  emit('update:modelValue', false);
 }
+
+function cancel() {
+  emit('update:modelValue', false);
+}
+
+// Handle Escape key to close modal
+function handleEscape(e: KeyboardEvent) {
+  if (e.key === 'Escape' && props.modelValue) {
+    cancel();
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', handleEscape);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleEscape);
+});
+
 
 function clearSearch() {
   searchQuery.value = '';
@@ -222,11 +265,19 @@ function isPresetActive(days: number | null): boolean {
 </script>
 
 <template>
-  <dialog class="modal" :open="open">
-    <div class="modal-box dark:bg-base-100 bg-base-200 w-11/12 max-w-6xl">
+  <Teleport to="body">
+    <div 
+      v-if="props.modelValue" 
+      class="modal modal-open" 
+      @click.self="cancel"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+    >
+      <div class="modal-box dark:bg-base-100 bg-base-200 w-11/12 max-w-6xl" @click.stop>
       <div class="flex items-center justify-between mb-4">
-        <h3 class="font-bold text-lg">Validator Filters</h3>
-        <button class="btn btn-sm btn-circle" @click="open=false">
+        <h3 id="modal-title" class="font-bold text-lg">Validator Filters</h3>
+        <button class="btn btn-sm btn-circle" @click="cancel" type="button" aria-label="Close modal">
           <Icon icon="mdi:close" />
         </button>
       </div>
@@ -249,7 +300,8 @@ function isPresetActive(days: number | null): boolean {
             <!-- Search Results Dropdown -->
             <div 
               v-if="searchResults && !searchLoading" 
-              class="absolute z-10 w-full mt-1 bg-base-100 dark:bg-base-200 border border-base-300 rounded-lg shadow-lg max-h-64 overflow-y-auto"
+              class="absolute z-50 w-full mt-1 bg-base-100 dark:bg-base-200 border border-base-300 rounded-lg shadow-lg max-h-64 overflow-y-auto"
+              @click.stop
             >
               <!-- No Results -->
               <div v-if="(!searchResults.validators || searchResults.validators.length === 0) && uniqueDomains.length === 0" class="p-4 text-center text-sm text-base-content/60">
@@ -263,7 +315,7 @@ function isPresetActive(days: number | null): boolean {
                   v-for="validator in searchResults.validators" 
                   :key="validator.validator_account_address"
                   class="p-2 hover:bg-base-200 dark:hover:bg-base-300 rounded cursor-pointer transition-colors"
-                  @click="selectValidator(validator)"
+                  @click.stop="selectValidator(validator)"
                 >
                   <div class="font-medium">{{ validator.moniker || 'Unknown' }}</div>
                   <div class="text-xs text-base-content/60 font-mono">{{ validator.validator_account_address }}</div>
@@ -278,7 +330,7 @@ function isPresetActive(days: number | null): boolean {
                   v-for="domain in uniqueDomains" 
                   :key="domain"
                   class="p-2 hover:bg-base-200 dark:hover:bg-base-300 rounded cursor-pointer transition-colors"
-                  @click="selectDomain(domain)"
+                  @click.stop="selectDomain(domain)"
                 >
                   <div class="font-medium">{{ domain }}</div>
                   <div class="text-xs text-base-content/50">
@@ -293,7 +345,7 @@ function isPresetActive(days: number | null): boolean {
         <div>
           <label class="label text-xs">Owner Address</label>
           <div class="flex gap-2">
-            <input v-model="ownerAddress" class="input input-bordered w-full font-mono flex-1 shadow-sm" placeholder="pokt1..." />
+            <input ref="ownerInputRef" v-model="ownerAddress" class="input input-bordered w-full font-mono flex-1 shadow-sm" placeholder="pokt1..." />
             <button v-if="ownerAddress" class="btn btn-sm btn-ghost" @click="ownerAddress = ''">
               <Icon icon="mdi:close" />
             </button>
@@ -304,6 +356,7 @@ function isPresetActive(days: number | null): boolean {
           <label class="label text-xs">Supplier Operator Address(es)</label>
           <div class="flex gap-2">
             <textarea 
+              ref="supplierInputRef"
               v-model="supplierAddress" 
               class="textarea textarea-bordered w-full font-mono flex-1 min-h-[100px] shadow-sm" 
               placeholder="poktvaloper1... (comma-separated for multiple)"
@@ -360,6 +413,7 @@ function isPresetActive(days: number | null): boolean {
             <div>
               <label class="label label-text text-xs py-1">Start Date</label>
               <input 
+                ref="startDateInputRef"
                 type="datetime-local" 
                 class="input input-bordered input-sm w-full shadow-sm" 
                 :value="start ? new Date(start).toISOString().slice(0, 16) : ''"
@@ -387,11 +441,12 @@ function isPresetActive(days: number | null): boolean {
       </div>
 
       <div class="modal-action">
-        <button class="btn btn-ghost" @click="open=false">Cancel</button>
-        <button class="btn btn-primary" @click="apply">Apply</button>
+        <button class="btn btn-ghost" @click="cancel" type="button">Cancel</button>
+        <button class="btn btn-primary" @click="apply" type="button">Apply</button>
       </div>
     </div>
-  </dialog>
+    </div>
+  </Teleport>
 </template>
 
 

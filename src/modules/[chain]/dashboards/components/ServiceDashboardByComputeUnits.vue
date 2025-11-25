@@ -13,6 +13,8 @@ const props = defineProps<{
   };
   showTabs?: boolean;
   tabView?: 'summary' | 'chain' | 'performance' | 'reward-share';
+  startDate?: string;
+  endDate?: string;
 }>();
 
 const chainStore = useBlockchain();
@@ -48,23 +50,37 @@ function shouldUsePost(params: URLSearchParams): boolean {
 async function fetchApi(url: string, params: URLSearchParams, body?: any): Promise<any> {
   const isRewardsEndpoint = url.includes('/proof-submissions/rewards');
   const isSummaryEndpoint = url.includes('/proof-submissions/summary');
+  const isValidatorsPerformanceEndpoint = url.includes('/validators/performance');
   
   // Check if we have supplier_address parameter
   const hasSupplierAddress = params.has('supplier_address');
   const supplierAddressValue = hasSupplierAddress ? params.get('supplier_address') : null;
   const hasMultipleSuppliers = supplierAddressValue && supplierAddressValue.includes(',');
   
+  // For validators/performance endpoint: always use POST
   // For rewards and summary endpoints: always use POST when supplier_address is present
-  // This ensures proper handling of supplier_addresses array format
-  const shouldPost = shouldUsePost(params) || body || 
+  // This ensures proper handling of supplier_addresses/operator_addresses array format
+  const shouldPost = isValidatorsPerformanceEndpoint || shouldUsePost(params) || body || 
     ((isRewardsEndpoint || isSummaryEndpoint) && hasSupplierAddress);
   
   if (shouldPost) {
     // Use POST with request body
     const postBody: any = {};
     params.forEach((value, key) => {
+      // For validators/performance endpoint, convert supplier_address to operator_addresses
+      if (isValidatorsPerformanceEndpoint && key === 'supplier_address') {
+        const trimmedValue = value.trim();
+        if (trimmedValue.length > 0) {
+          // Split comma-separated addresses and convert to operator_addresses array
+          const addresses = trimmedValue.split(',').map((addr: string) => addr.trim()).filter((addr: string) => addr.length > 0);
+          if (addresses.length > 0) {
+            postBody.operator_addresses = addresses;
+          }
+        }
+        // Do NOT include supplier_address when using operator_addresses
+      }
       // For rewards and summary endpoints, handle supplier_address specially
-      if ((isRewardsEndpoint || isSummaryEndpoint) && key === 'supplier_address') {
+      else if ((isRewardsEndpoint || isSummaryEndpoint) && key === 'supplier_address') {
         // Check if value contains comma (multiple addresses)
         const trimmedValue = value.trim();
         if (trimmedValue.includes(',')) {
@@ -204,10 +220,87 @@ const topServicesLimit = ref(10);
 const topServicesDays = ref(7);
 const performanceDays = ref(7);
 
-// Reward Share tab data
-const delegatedRewards = ref<Array<{ account: string; rewards: number; share: number; nodes: number }>>([]);
-const rewardsByAddresses = ref<Array<{ date: string; rewards: number }>>([]);
-const rewardsDistribution = ref({ custodian: 0, delegator: 0, operator: 0, total: 0 });
+// Reward Share tab data - New structures
+interface RewardShareEntry {
+  account: string; // validator or owner address
+  moniker: string | null;
+  total_rewards: number; // POKT
+  share_percent: number;
+  total_relays: number;
+  efficiency: number;
+  compute_units: number;
+  nodes?: number; // if grouped by owner
+  status: string | null;
+}
+
+interface TopRewardEarner {
+  rank: number;
+  operator_address: string;
+  moniker: string | null;
+  total_rewards: number; // POKT
+  total_relays: number;
+  reward_per_relay: number; // upokt
+  efficiency: number;
+  compute_units: number;
+  applications: number;
+  services: number;
+  status: string | null;
+}
+
+interface RewardEfficiencyEntry {
+  operator_address: string;
+  moniker: string | null;
+  total_rewards: number; // POKT
+  reward_per_compute_unit: number; // POKT per compute unit
+  reward_per_relay: number; // upokt
+  efficiency: number;
+  total_relays: number;
+  compute_units: number;
+}
+
+interface RewardTrendPoint {
+  date: string;
+  total_rewards: number; // POKT
+  reward_per_relay: number; // upokt
+  efficiency: number;
+  total_relays: number;
+  compute_units: number;
+}
+
+interface ServiceRewardBreakdown {
+  validator: {
+    operator_address: string;
+    moniker: string | null;
+  };
+  services: Array<{
+    service_id: string;
+    rewards: number; // POKT
+    total_relays: number;
+    reward_per_relay: number; // upokt
+    efficiency: number;
+    compute_units: number;
+    applications: number;
+  }>;
+  total_rewards: number;
+  total_services: number;
+}
+
+// Reward Share Distribution
+const rewardShareDistribution = ref<RewardShareEntry[]>([]);
+const totalRewards = ref<number>(0);
+
+// Top Reward Earners
+const topRewardEarners = ref<TopRewardEarner[]>([]);
+
+// Reward Efficiency Analysis
+const rewardEfficiencyAnalysis = ref<RewardEfficiencyEntry[]>([]);
+
+// Reward Trends Over Time
+const rewardTrends = ref<RewardTrendPoint[]>([]);
+
+// Reward by Service
+const rewardsByService = ref<ServiceRewardBreakdown[]>([]);
+
 const loadingRewardShare = ref(false);
 const rewardShareSearchQuery = ref('');
 const rewardShareDateRange = ref({ start: '', end: '' });
@@ -218,6 +311,23 @@ const networkAverages = ref<NetworkAverages | null>(null);
 const topPerformers = ref<TopPerformersThreshold | null>(null);
 const comparisonLoading = ref(false);
 const growthRates = ref({ dayOverDay: 0, weekOverWeek: 0, monthOverMonth: 0 });
+
+// Rewards data for Summary tab (service-aggregated)
+interface ServiceReward {
+  service_id: string;
+  chain: string;
+  total_submissions: number;
+  total_rewards_upokt: number;
+  total_relays: number;
+  total_claimed_compute_units: number;
+  total_estimated_compute_units: number;
+  avg_efficiency_percent: number;
+  avg_reward_per_relay: number;
+  max_reward_per_submission: number;
+  min_reward_per_submission: number;
+}
+const serviceRewards = ref<ServiceReward[]>([]);
+const loadingServiceRewards = ref(false);
 
 const rewardsChartSeries = ref([{ name: 'Total Rewards', data: [] as number[] }]);
 const efficiencyChartSeries = ref([{ name: 'Efficiency %', data: [] as number[] }]);
@@ -318,24 +428,33 @@ const rewardShareChartOptions = computed(() => ({
   plotOptions: { pie: { donut: { size: '70%' } } }
 }));
 
-const rewardsDistributionChartSeries = computed(() => {
-  const dist = rewardsDistribution.value;
-  return [dist.custodian, dist.delegator, dist.operator];
+// Reward Share Distribution Chart
+const rewardShareDistributionChartSeries = computed(() => {
+  return rewardShareDistribution.value.map(entry => entry.share_percent);
 });
 
-const rewardsDistributionChartOptions = computed(() => {
-  const dist = rewardsDistribution.value;
-  const custodianPercent = dist.total > 0 ? (dist.custodian / dist.total * 100).toFixed(0) : '0';
-  const delegatorPercent = dist.total > 0 ? (dist.delegator / dist.total * 100).toFixed(0) : '0';
-  const operatorPercent = dist.total > 0 ? (dist.operator / dist.total * 100).toFixed(0) : '0';
+const rewardShareDistributionChartOptions = computed(() => {
+  const entries = rewardShareDistribution.value;
+  const labels = entries.map(e => e.moniker || e.account.substring(0, 12) + '...');
+  const colors = ['#A3E635', '#5E9AE4', '#FFB206', '#60BC29', '#09279F', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'];
+  const chartColors = labels.map((_, i) => colors[i % colors.length]);
   
   return {
-    chart: { type: 'donut', height: 300, toolbar: { show: false } },
-    labels: [`${custodianPercent}% Custodian Rewards`, `${delegatorPercent}% Delegator Rewards`, `${operatorPercent}% Operator Rewards`],
-    colors: ['#4ECDC4', '#9B59B6', '#E74C3C'],
+    chart: { type: 'donut', height: 350, toolbar: { show: false } },
+    labels: labels,
+    colors: chartColors,
     dataLabels: { enabled: true, formatter: (val: number) => val.toFixed(1) + '%' },
     legend: { position: 'right', labels: { colors: 'rgb(116, 109, 105)' } },
-    tooltip: { theme: 'dark', y: { formatter: (val: number) => val.toFixed(2) + ' POKT' } },
+    tooltip: { 
+      theme: 'dark',
+      y: {
+        formatter: (val: number, { seriesIndex }: any) => {
+          const entry = entries[seriesIndex];
+          if (!entry) return val.toFixed(1) + '%';
+          return `${entry.moniker || entry.account}: ${val.toFixed(1)}% (${entry.total_rewards.toFixed(2)} POKT)`;
+        }
+      }
+    },
     plotOptions: { 
       pie: { 
         donut: { 
@@ -343,11 +462,11 @@ const rewardsDistributionChartOptions = computed(() => {
           labels: {
             show: true,
             name: { show: true },
-            value: { show: true, formatter: (val: number) => val.toFixed(2) + ' POKT' },
+            value: { show: true, formatter: (val: number) => val.toFixed(1) + '%' },
             total: { 
               show: true, 
-              label: 'Total',
-              formatter: () => dist.total.toFixed(2) + ' POKT'
+              label: 'Total Rewards',
+              formatter: () => totalRewards.value.toFixed(2) + ' POKT'
             }
           }
         } 
@@ -356,22 +475,52 @@ const rewardsDistributionChartOptions = computed(() => {
   };
 });
 
-const rewardsByAddressesChartSeries = computed(() => {
-  return [{ name: 'Rewards (POKT)', data: rewardsByAddresses.value.map(d => d.rewards) }];
+// Reward Trends Chart
+const rewardTrendsChartType = ref<'bar' | 'area' | 'line'>('line');
+const rewardTrendsMetrics = ref({
+  rewards: true,
+  rewardPerRelay: true,
+  efficiency: true
 });
 
-const rewardsByAddressesChartType = ref<'bar' | 'area' | 'line'>('bar');
+const rewardTrendsChartSeries = computed(() => {
+  const trends = rewardTrends.value;
+  const series: any[] = [];
+  
+  if (rewardTrendsMetrics.value.rewards) {
+    series.push({
+      name: 'Total Rewards (POKT)',
+      data: trends.map(t => t.total_rewards),
+      yAxisIndex: 0
+    });
+  }
+  
+  if (rewardTrendsMetrics.value.rewardPerRelay) {
+    series.push({
+      name: 'Reward per Relay (upokt)',
+      data: trends.map(t => t.reward_per_relay),
+      yAxisIndex: 0
+    });
+  }
+  
+  if (rewardTrendsMetrics.value.efficiency) {
+    series.push({
+      name: 'Efficiency %',
+      data: trends.map(t => t.efficiency),
+      yAxisIndex: 1
+    });
+  }
+  
+  return series;
+});
 
-const rewardsByAddressesChartOptions = computed(() => {
-  const dates = rewardsByAddresses.value.map(d => {
-    const date = new Date(d.date);
-    return date.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' });
+const rewardTrendsChartOptions = computed(() => {
+  const trends = rewardTrends.value;
+  const dates = trends.map(t => {
+    const date = new Date(t.date);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   });
-  const values = rewardsByAddresses.value.map(d => d.rewards);
-  const maxValue = Math.max(...values, 0);
-  const avgHigh = values.length > 0 ? Math.max(...values) : 0;
-  const avgLow = values.length > 0 ? Math.min(...values.filter(v => v > 0)) : 0;
-  const chartType = rewardsByAddressesChartType.value;
+  const chartType = rewardTrendsChartType.value;
 
   const strokeConfig = chartType === 'bar' 
     ? { width: 0 }
@@ -394,8 +543,8 @@ const rewardsByAddressesChartOptions = computed(() => {
       };
 
   return {
-    chart: { type: chartType, height: 250, toolbar: { show: false } },
-    colors: ['#4ECDC4'],
+    chart: { type: chartType, height: 350, toolbar: { show: false } },
+    colors: ['#A3E635', '#5E9AE4', '#FFB206'],
     dataLabels: { enabled: false },
     plotOptions: chartType === 'bar' ? { bar: { horizontal: false, columnWidth: '55%', borderRadius: 4 } } : {},
     stroke: strokeConfig,
@@ -410,42 +559,37 @@ const rewardsByAddressesChartOptions = computed(() => {
       categories: dates,
       labels: { style: { colors: 'rgb(116, 109, 105)' } }
     },
-    yaxis: { 
-      labels: { 
-        style: { colors: 'rgb(116, 109, 105)' },
-        formatter: (v: number) => v.toFixed(0)
-      },
-      title: { text: 'Total Rewards (POKT)', style: { color: 'rgb(116, 109, 105)' } }
-    },
-    tooltip: { theme: 'dark', y: { formatter: (v: number) => v.toFixed(2) + ' POKT' } },
-    annotations: {
-      yaxis: [
-        {
-          y: avgHigh,
-          borderColor: '#A3E635',
-          borderWidth: 2,
-          borderDashArray: 5,
-          label: {
-            text: `HIGH AVG: ${avgHigh.toFixed(0)}`,
-            style: { color: '#A3E635', fontSize: '12px' },
-            position: 'right'
-          }
+    yaxis: [
+      {
+        labels: { 
+          style: { colors: 'rgb(116, 109, 105)' },
+          formatter: (v: number) => v.toFixed(2)
         },
-        {
-          y: avgLow,
-          borderColor: '#FF6B6B',
-          borderWidth: 2,
-          borderDashArray: 5,
-          label: {
-            text: `LOW AVG: ${avgLow.toFixed(0)}`,
-            style: { color: '#FF6B6B', fontSize: '12px' },
-            position: 'right'
-          }
-        }
-      ]
+        title: { text: 'Rewards (POKT) / Reward per Relay (upokt)', style: { color: 'rgb(116, 109, 105)' } }
+      },
+      {
+        opposite: true,
+        labels: { 
+          style: { colors: 'rgb(116, 109, 105)' },
+          formatter: (v: number) => v.toFixed(2) + '%'
+        },
+        title: { text: 'Efficiency %', style: { color: 'rgb(116, 109, 105)' } },
+        max: 100,
+        min: 0
+      }
+    ],
+    tooltip: { 
+      theme: 'dark',
+      shared: true,
+      intersect: false
+    },
+    legend: { 
+      position: 'top',
+      labels: { colors: 'rgb(116, 109, 105)' }
     }
   };
 });
+
 
 async function loadSummaryStats() {
   try {
@@ -458,6 +602,12 @@ async function loadSummaryStats() {
     if (props.filters?.owner_address) params.append('owner_address', props.filters.owner_address);
     if (selectedApplication.value) params.append('application_address', selectedApplication.value);
     
+    // Add date filters from props if available
+    const dateStart = props.startDate || startDate.value;
+    const dateEnd = props.endDate || endDate.value;
+    if (dateStart) params.append('start_date', dateStart);
+    if (dateEnd) params.append('end_date', dateEnd);
+    
     const data = await fetchApi('/api/v1/proof-submissions/summary', params);
       summaryStats.value = data.data;
     
@@ -465,8 +615,65 @@ async function loadSummaryStats() {
     if (props.filters?.supplier_address || props.filters?.owner_address) {
       loadComparisonData();
     }
+    
+    // Load service rewards for Summary tab
+    if (!props.tabView || props.tabView === 'summary') {
+      loadServiceRewards();
+    }
   } catch (error: any) {
     console.error('Error loading summary stats:', error);
+  }
+}
+
+async function loadServiceRewards() {
+  loadingServiceRewards.value = true;
+  try {
+    const params = new URLSearchParams();
+    params.append('chain', apiChainName.value);
+    
+    // Use filters from props if provided
+    const supplierFilter = props.filters?.supplier_address || selectedSupplier.value;
+    if (supplierFilter) params.append('supplier_address', supplierFilter);
+    if (props.filters?.owner_address) params.append('owner_address', props.filters.owner_address);
+    if (selectedApplication.value) params.append('application_address', selectedApplication.value);
+    if (selectedService.value) params.append('service_id', selectedService.value);
+    
+    // Add date filters from props if available, otherwise use default (last 7 days)
+    const dateStart = props.startDate || startDate.value;
+    const dateEnd = props.endDate || endDate.value;
+    if (dateStart && dateEnd) {
+      params.append('start_date', dateStart);
+      params.append('end_date', dateEnd);
+    } else {
+      // Default to last 7 days
+      const end = new Date();
+      const start = new Date(end.getTime() - 6 * 24 * 60 * 60 * 1000);
+      params.append('start_date', start.toISOString());
+      params.append('end_date', end.toISOString());
+    }
+    
+    params.append('limit', '100');
+    params.append('page', '1');
+    
+    const data = await fetchApi('/api/v1/proof-submissions/rewards', params);
+    // Normalize the data to ensure numeric values
+    serviceRewards.value = (data.data || []).map((item: any) => ({
+      ...item,
+      total_submissions: Number(item.total_submissions) || 0,
+      total_rewards_upokt: Number(item.total_rewards_upokt) || 0,
+      total_relays: Number(item.total_relays) || 0,
+      total_claimed_compute_units: Number(item.total_claimed_compute_units) || 0,
+      total_estimated_compute_units: Number(item.total_estimated_compute_units) || 0,
+      avg_efficiency_percent: Number(item.avg_efficiency_percent) || 0,
+      avg_reward_per_relay: Number(item.avg_reward_per_relay) || 0,
+      max_reward_per_submission: Number(item.max_reward_per_submission) || 0,
+      min_reward_per_submission: Number(item.min_reward_per_submission) || 0,
+    }));
+  } catch (error: any) {
+    console.error('Error loading service rewards:', error);
+    serviceRewards.value = [];
+  } finally {
+    loadingServiceRewards.value = false;
   }
 }
 
@@ -659,81 +866,293 @@ async function loadTopServicesByPerformance() {
 async function loadRewardShareData() {
   loadingRewardShare.value = true;
   try {
-    // Set default date range (last 7 days)
-    const end = new Date();
-    const start = new Date(end.getTime() - 6 * 24 * 60 * 60 * 1000);
-    if (!rewardShareDateRange.value.start) {
+    // Use date range from props if available, otherwise use rewardShareDateRange
+    const dateStart = props.startDate || rewardShareDateRange.value.start;
+    const dateEnd = props.endDate || rewardShareDateRange.value.end;
+    
+    // Set default date range (last 7 days) if neither is available
+    if (!dateStart || !dateEnd) {
+      const end = new Date();
+      const start = new Date(end.getTime() - 6 * 24 * 60 * 60 * 1000);
       rewardShareDateRange.value.start = start.toISOString();
       rewardShareDateRange.value.end = end.toISOString();
     }
 
-    // Load reward analytics to aggregate by supplier
-    const params = new URLSearchParams();
-    params.append('chain', apiChainName.value);
-    if (rewardShareDateRange.value.start) params.append('start_date', rewardShareDateRange.value.start);
-    if (rewardShareDateRange.value.end) params.append('end_date', rewardShareDateRange.value.end);
+    // Get supplier addresses from filters (may be comma-separated)
     const supplierFilter = props.filters?.supplier_address;
-    if (supplierFilter) params.append('supplier_address', supplierFilter);
-    if (props.filters?.owner_address) params.append('owner_address', props.filters.owner_address);
+    if (!supplierFilter) {
+      // No supplier filter - clear all data
+      rewardShareDistribution.value = [];
+      topRewardEarners.value = [];
+      rewardEfficiencyAnalysis.value = [];
+      rewardTrends.value = [];
+      rewardsByService.value = [];
+      totalRewards.value = 0;
+      return;
+    }
+
+    // Prepare POST request parameters
+    const paramsTotal = new URLSearchParams();
+    paramsTotal.append('chain', apiChainName.value);
+    paramsTotal.append('group_by', 'total');
+    if (dateStart) paramsTotal.append('start_date', dateStart);
+    if (dateEnd) paramsTotal.append('end_date', dateEnd);
+    if (supplierFilter) paramsTotal.append('supplier_address', supplierFilter);
+    paramsTotal.append('limit', '1000');
+
+    const paramsDaily = new URLSearchParams();
+    paramsDaily.append('chain', apiChainName.value);
+    paramsDaily.append('group_by', 'day');
+    if (dateStart) paramsDaily.append('start_date', dateStart);
+    if (dateEnd) paramsDaily.append('end_date', dateEnd);
+    if (supplierFilter) paramsDaily.append('supplier_address', supplierFilter);
+    paramsDaily.append('limit', '1000');
     
-    const data = await fetchApi('/api/v1/proof-submissions/rewards', params);
-    const rewardsData = data.data || [];
+    // Fetch both total and daily data in parallel using POST
+    const [totalData, dailyData] = await Promise.all([
+      fetchApi('/api/v1/validators/performance', paramsTotal),
+      fetchApi('/api/v1/validators/performance', paramsDaily)
+    ]);
+    
+    const totalPerformanceData = totalData.data || [];
+    const dailyPerformanceData = dailyData.data || [];
+    const validatorsMetadata = totalData.validators || [];
 
-    // Aggregate by supplier address for delegated rewards
-    const supplierMap = new Map<string, { rewards: number; submissions: number }>();
-    const dailyMap = new Map<string, number>();
-
-    rewardsData.forEach((item: any) => {
-      // Aggregate by supplier
-      const supplier = item.supplier_operator_address;
-      if (supplier) {
-        const existing = supplierMap.get(supplier) || { rewards: 0, submissions: 0 };
-        existing.rewards += item.total_rewards_upokt || 0;
-        existing.submissions += item.submission_count || 0;
-        supplierMap.set(supplier, existing);
-      }
-
-      // Aggregate by day for chart
-      const date = new Date(item.hour_bucket).toISOString().split('T')[0];
-      const existing = dailyMap.get(date) || 0;
-      dailyMap.set(date, existing + (item.total_rewards_upokt || 0));
+    // Create validator metadata map for quick lookup
+    const validatorMap = new Map<string, any>();
+    validatorsMetadata.forEach((validator: any) => {
+      validatorMap.set(validator.operator_address, validator);
     });
 
-    // Calculate total rewards
-    const totalRewards = Array.from(supplierMap.values()).reduce((sum, item) => sum + item.rewards, 0);
+    // Process total performance data
+    const supplierMap = new Map<string, {
+      rewards: number;
+      submissions: number;
+      relays: number;
+      owner: string | null;
+      efficiency: number;
+      compute_units: number;
+      applications: number;
+      services: number;
+      reward_per_relay: number;
+      validator: any;
+    }>();
 
-    // Build delegated rewards list
-    delegatedRewards.value = Array.from(supplierMap.entries())
-      .map(([account, data]) => ({
-        account,
-        rewards: data.rewards / 1000000, // Convert upokt to POKT
-        share: totalRewards > 0 ? (data.rewards / totalRewards) * 100 : 0,
-        nodes: 1 // We don't have node count, using 1 as placeholder
-      }))
-      .sort((a, b) => b.rewards - a.rewards)
-      .slice(0, 10);
+    totalPerformanceData.forEach((item: any) => {
+      const avgRewardPerRelay = item.avg_reward_per_relay;
+      if (avgRewardPerRelay === null || avgRewardPerRelay === undefined) return;
+      
+      const rewards = (item.total_relays || 0) * avgRewardPerRelay; // in upokt
+      const supplier = item.supplier_operator_address;
+      const owner = item.owner_address;
+      const validator = validatorMap.get(supplier);
+      
+      if (supplier) {
+        supplierMap.set(supplier, {
+          rewards,
+          submissions: item.submissions || 0,
+          relays: item.total_relays || 0,
+          owner: owner || null,
+          efficiency: item.avg_efficiency_percent || 0,
+          compute_units: item.total_claimed_compute_units || 0,
+          applications: item.unique_applications || 0,
+          services: item.unique_services || 0,
+          reward_per_relay: avgRewardPerRelay,
+          validator: validator || null
+        });
+      }
+    });
 
-    // Build daily rewards for chart
-    rewardsByAddresses.value = Array.from(dailyMap.entries())
-      .map(([date, rewards]) => ({
+    // Calculate total rewards (in upokt)
+    const totalRewardsUpokt = Array.from(supplierMap.values()).reduce((sum, item) => sum + item.rewards, 0);
+    totalRewards.value = totalRewardsUpokt / 1000000; // Convert to POKT
+
+    // 1. Reward Share Distribution
+    const rewardShareEntries: RewardShareEntry[] = [];
+    if (props.filters?.owner_address) {
+      // Show individual suppliers for this owner
+      supplierMap.forEach((data, supplier) => {
+        if (data.owner === props.filters?.owner_address) {
+          rewardShareEntries.push({
+            account: supplier,
+            moniker: data.validator?.moniker || null,
+            total_rewards: data.rewards / 1000000,
+            share_percent: totalRewardsUpokt > 0 ? (data.rewards / totalRewardsUpokt) * 100 : 0,
+            total_relays: data.relays,
+            efficiency: data.efficiency,
+            compute_units: data.compute_units,
+            nodes: 1,
+            status: data.validator?.status || null
+          });
+        }
+      });
+    } else {
+      // Group by owner address
+      const ownerMap = new Map<string, {
+        rewards: number;
+        suppliers: Set<string>;
+        relays: number;
+        efficiency: number;
+        compute_units: number;
+        validators: any[];
+      }>();
+      
+      supplierMap.forEach((data, supplier) => {
+        const owner = data.owner || supplier;
+        const existing = ownerMap.get(owner) || {
+          rewards: 0,
+          suppliers: new Set(),
+          relays: 0,
+          efficiency: 0,
+          compute_units: 0,
+          validators: []
+        };
+        existing.rewards += data.rewards;
+        existing.suppliers.add(supplier);
+        existing.relays += data.relays;
+        existing.compute_units += data.compute_units;
+        if (data.validator) existing.validators.push(data.validator);
+        ownerMap.set(owner, existing);
+      });
+
+      ownerMap.forEach((data, owner) => {
+        // Calculate weighted average efficiency
+        const avgEfficiency = supplierMap.size > 0
+          ? Array.from(data.suppliers).reduce((sum, s) => sum + (supplierMap.get(s)?.efficiency || 0), 0) / data.suppliers.size
+          : 0;
+
+        rewardShareEntries.push({
+          account: owner,
+          moniker: data.validators[0]?.moniker || null,
+          total_rewards: data.rewards / 1000000,
+          share_percent: totalRewardsUpokt > 0 ? (data.rewards / totalRewardsUpokt) * 100 : 0,
+          total_relays: data.relays,
+          efficiency: avgEfficiency,
+          compute_units: data.compute_units,
+          nodes: data.suppliers.size,
+          status: data.validators[0]?.status || null
+        });
+      });
+    }
+    rewardShareDistribution.value = rewardShareEntries.sort((a, b) => b.total_rewards - a.total_rewards);
+
+    // 2. Top Reward Earners
+    const earners: TopRewardEarner[] = [];
+    supplierMap.forEach((data, supplier) => {
+      earners.push({
+        rank: 0, // Will be set after sorting
+        operator_address: supplier,
+        moniker: data.validator?.moniker || null,
+        total_rewards: data.rewards / 1000000,
+        total_relays: data.relays,
+        reward_per_relay: data.reward_per_relay,
+        efficiency: data.efficiency,
+        compute_units: data.compute_units,
+        applications: data.applications,
+        services: data.services,
+        status: data.validator?.status || null
+      });
+    });
+    earners.sort((a, b) => b.total_rewards - a.total_rewards);
+    earners.forEach((earner, index) => {
+      earner.rank = index + 1;
+    });
+    topRewardEarners.value = earners.slice(0, 20);
+
+    // 3. Reward Efficiency Analysis
+    const efficiencyEntries: RewardEfficiencyEntry[] = [];
+    supplierMap.forEach((data, supplier) => {
+      const rewardsPOKT = data.rewards / 1000000;
+      const rewardPerComputeUnit = data.compute_units > 0 ? rewardsPOKT / data.compute_units : 0;
+      
+      efficiencyEntries.push({
+        operator_address: supplier,
+        moniker: data.validator?.moniker || null,
+        total_rewards: rewardsPOKT,
+        reward_per_compute_unit: rewardPerComputeUnit,
+        reward_per_relay: data.reward_per_relay,
+        efficiency: data.efficiency,
+        total_relays: data.relays,
+        compute_units: data.compute_units
+      });
+    });
+    rewardEfficiencyAnalysis.value = efficiencyEntries.sort((a, b) => b.reward_per_compute_unit - a.reward_per_compute_unit);
+
+    // 4. Reward Trends Over Time
+    const dailyMap = new Map<string, {
+      rewards: number;
+      relays: number;
+      compute_units: number;
+      reward_per_relay_sum: number;
+      reward_per_relay_count: number;
+      efficiency_sum: number;
+      efficiency_count: number;
+    }>();
+
+    dailyPerformanceData.forEach((item: any) => {
+      const avgRewardPerRelay = item.avg_reward_per_relay;
+      if (avgRewardPerRelay === null || avgRewardPerRelay === undefined) return;
+      
+      const rewards = (item.total_relays || 0) * avgRewardPerRelay;
+      if (item.bucket) {
+        const date = new Date(item.bucket).toISOString().split('T')[0];
+        const existing = dailyMap.get(date) || {
+          rewards: 0,
+          relays: 0,
+          compute_units: 0,
+          reward_per_relay_sum: 0,
+          reward_per_relay_count: 0,
+          efficiency_sum: 0,
+          efficiency_count: 0
+        };
+        existing.rewards += rewards;
+        existing.relays += (item.total_relays || 0);
+        existing.compute_units += (item.total_claimed_compute_units || 0);
+        existing.reward_per_relay_sum += avgRewardPerRelay;
+        existing.reward_per_relay_count += 1;
+        existing.efficiency_sum += (item.avg_efficiency_percent || 0);
+        existing.efficiency_count += 1;
+        dailyMap.set(date, existing);
+      }
+    });
+
+    const trends: RewardTrendPoint[] = Array.from(dailyMap.entries())
+      .map(([date, data]) => ({
         date,
-        rewards: rewards / 1000000 // Convert upokt to POKT
+        total_rewards: data.rewards / 1000000,
+        reward_per_relay: data.reward_per_relay_count > 0 ? data.reward_per_relay_sum / data.reward_per_relay_count : 0,
+        efficiency: data.efficiency_count > 0 ? data.efficiency_sum / data.efficiency_count : 0,
+        total_relays: data.relays,
+        compute_units: data.compute_units
       }))
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    rewardTrends.value = trends;
 
-    // Calculate rewards distribution (simplified - using summary stats)
-    // In a real scenario, we'd need to differentiate custodian/delegator/operator
-    const summaryTotal = parseFloat(summaryStats.value?.total_rewards_upokt || '0') / 1000000;
-    rewardsDistribution.value = {
-      custodian: summaryTotal * 0.79, // Placeholder percentages
-      delegator: summaryTotal * 0.21,
-      operator: summaryTotal * 0.00,
-      total: summaryTotal
-    };
+    // 5. Reward by Service
+    // Note: The validators/performance endpoint doesn't provide service-level breakdown
+    // We'll show aggregate per validator with service count
+    const serviceBreakdowns: ServiceRewardBreakdown[] = [];
+    supplierMap.forEach((data, supplier) => {
+      serviceBreakdowns.push({
+        validator: {
+          operator_address: supplier,
+          moniker: data.validator?.moniker || null
+        },
+        services: [], // Service-level data not available from this endpoint
+        total_rewards: data.rewards / 1000000,
+        total_services: data.services
+      });
+    });
+    rewardsByService.value = serviceBreakdowns.sort((a, b) => b.total_rewards - a.total_rewards);
+
   } catch (error: any) {
     console.error('Error loading reward share data:', error);
-    delegatedRewards.value = [];
-    rewardsByAddresses.value = [];
+    rewardShareDistribution.value = [];
+    topRewardEarners.value = [];
+    rewardEfficiencyAnalysis.value = [];
+    rewardTrends.value = [];
+    rewardsByService.value = [];
+    totalRewards.value = 0;
   } finally {
     loadingRewardShare.value = false;
   }
@@ -783,6 +1202,17 @@ watch(() => props.filters, () => {
   }
 }, { deep: true });
 
+// Watch for date changes
+watch(() => [props.startDate, props.endDate], () => {
+  if (!props.tabView || props.tabView === 'summary') {
+    loadSummaryStats();
+    loadServiceRewards();
+  }
+  if (props.tabView === 'reward-share') {
+    loadRewardShareData();
+  }
+});
+
 watch(() => props.tabView, (newTab) => {
   if (newTab === 'reward-share') {
     loadRewardShareData();
@@ -821,75 +1251,154 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
 
 <template>
   <div>
-    <!-- Comparison Cards (only when filters are provided) -->
-    <div v-if="props.filters && (props.filters.supplier_address || props.filters.owner_address) && comparisonMetrics" class="mb-3">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3 border-l-4" :class="comparisonMetrics.networkRewardsDiff >= 0 ? 'border-success' : 'border-error'">
-          <div class="text-xs text-secondary mb-1">vs Network Average</div>
-          <div class="text-sm font-bold" :class="comparisonMetrics.networkRewardsDiff >= 0 ? 'text-success' : 'text-error'">
-            {{ comparisonMetrics.networkRewardsDiff >= 0 ? '+' : '' }}{{ comparisonMetrics.networkRewardsDiff.toFixed(1) }}%
-          </div>
-          <div class="text-xs text-secondary mt-1">Rewards difference</div>
-        </div>
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3 border-l-4" :class="comparisonMetrics.isTop10 ? 'border-success' : 'border-info'">
-          <div class="text-xs text-secondary mb-1">Performance Rank</div>
-          <div class="text-sm font-bold" :class="comparisonMetrics.isTop10 ? 'text-success' : 'text-info'">
-            {{ comparisonMetrics.percentile }}
-          </div>
-          <div class="text-xs text-secondary mt-1">Percentile position</div>
-        </div>
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3 border-l-4" :class="growthRates.weekOverWeek >= 0 ? 'border-success' : 'border-warning'">
-          <div class="text-xs text-secondary mb-1">Week-over-Week</div>
-          <div class="text-sm font-bold" :class="growthRates.weekOverWeek >= 0 ? 'text-success' : 'text-warning'">
-            {{ growthRates.weekOverWeek >= 0 ? '+' : '' }}{{ growthRates.weekOverWeek.toFixed(1) }}%
-          </div>
-          <div class="text-xs text-secondary mt-1">Growth rate</div>
+
+    <!-- No Data Message - Only show when filters are expected but not provided (for supplier/validator dashboards) -->
+    <div v-if="(!props.tabView || props.tabView === 'summary') && props.filters !== undefined && !props.filters?.supplier_address && !props.filters?.owner_address" class="mb-4">
+      <div class="alert alert-info">
+        <Icon icon="mdi:information-outline" class="text-xl" />
+        <div>
+          <h3 class="font-bold">No Filters Selected</h3>
+          <div class="text-sm">Please select a validator or service from the filter modal to view performance data.</div>
         </div>
       </div>
     </div>
 
-    <!-- Top Row: 8 KPI Boxes (Compact) -->
-    <div v-if="summaryStats" class="mb-3">
+    <!-- Top Row: Enhanced KPI Boxes -->
+    <div v-if="summaryStats && (props.filters?.supplier_address || props.filters?.owner_address)" class="mb-3">
       <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-2">
-          <div class="text-xs text-secondary mb-1">Submissions</div>
-          <div class="text-lg font-bold">{{ formatNumber(parseInt(summaryStats.total_submissions)) }}</div>
+        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3 border-l-4 border-primary">
+          <div class="text-xs text-secondary mb-1 flex items-center gap-1">
+            <Icon icon="mdi:file-document-multiple" class="text-sm" />
+            Submissions
+          </div>
+          <div class="text-xl font-bold">{{ formatNumber(parseInt(summaryStats.total_submissions)) }}</div>
         </div>
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-2">
-          <div class="text-xs text-secondary mb-1">Suppliers</div>
-          <div class="text-lg font-bold">{{ formatNumber(parseInt(summaryStats.unique_suppliers)) }}</div>
+        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3 border-l-4 border-secondary">
+          <div class="text-xs text-secondary mb-1 flex items-center gap-1">
+            <Icon icon="mdi:account-group" class="text-sm" />
+            Suppliers
+          </div>
+          <div class="text-xl font-bold">{{ formatNumber(parseInt(summaryStats.unique_suppliers)) }}</div>
         </div>
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-2">
-          <div class="text-xs text-secondary mb-1">Applications</div>
-          <div class="text-lg font-bold">{{ formatNumber(parseInt(summaryStats.unique_applications)) }}</div>
+        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3 border-l-4 border-accent">
+          <div class="text-xs text-secondary mb-1 flex items-center gap-1">
+            <Icon icon="mdi:application" class="text-sm" />
+            Applications
+          </div>
+          <div class="text-xl font-bold">{{ formatNumber(parseInt(summaryStats.unique_applications)) }}</div>
         </div>
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-2">
-          <div class="text-xs text-secondary mb-1">Services</div>
-          <div class="text-lg font-bold">{{ formatNumber(parseInt(summaryStats.unique_services)) }}</div>
+        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3 border-l-4 border-info">
+          <div class="text-xs text-secondary mb-1 flex items-center gap-1">
+            <Icon icon="mdi:server-network" class="text-sm" />
+            Services
+          </div>
+          <div class="text-xl font-bold">{{ formatNumber(parseInt(summaryStats.unique_services)) }}</div>
         </div>
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-2">
-          <div class="text-xs text-secondary mb-1">Total Relays</div>
-          <div class="text-lg font-bold">{{ formatNumber(parseInt(summaryStats.total_relays)) }}</div>
+        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3 border-l-4 border-warning">
+          <div class="text-xs text-secondary mb-1 flex items-center gap-1">
+            <Icon icon="mdi:network" class="text-sm" />
+            Total Relays
+          </div>
+          <div class="text-xl font-bold">{{ formatNumber(parseInt(summaryStats.total_relays)) }}</div>
         </div>
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-2">
-          <div class="text-xs text-secondary mb-1">Avg Efficiency</div>
-          <div class="text-lg font-bold">{{ parseFloat(summaryStats.avg_efficiency_percent).toFixed(2) }}%</div>
+        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3 border-l-4" :class="parseFloat(summaryStats.avg_efficiency_percent) >= 95 ? 'border-success' : parseFloat(summaryStats.avg_efficiency_percent) >= 80 ? 'border-warning' : 'border-error'">
+          <div class="text-xs text-secondary mb-1 flex items-center gap-1">
+            <Icon icon="mdi:gauge" class="text-sm" />
+            Avg Efficiency
+          </div>
+          <div class="text-xl font-bold" :class="parseFloat(summaryStats.avg_efficiency_percent) >= 95 ? 'text-success' : parseFloat(summaryStats.avg_efficiency_percent) >= 80 ? 'text-warning' : 'text-error'">
+            {{ parseFloat(summaryStats.avg_efficiency_percent).toFixed(2) }}%
+          </div>
         </div>
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-2">
-          <div class="text-xs text-secondary mb-1">Compute Units</div>
-          <div class="text-lg font-bold">{{ formatComputeUnits(parseInt(summaryStats.total_claimed_compute_units)) }}</div>
+        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3 border-l-4 border-primary">
+          <div class="text-xs text-secondary mb-1 flex items-center gap-1">
+            <Icon icon="mdi:calculator" class="text-sm" />
+            Compute Units
+          </div>
+          <div class="text-xl font-bold">{{ formatComputeUnits(parseInt(summaryStats.total_claimed_compute_units)) }}</div>
+          <div class="text-xs text-secondary mt-1">
+            Est: {{ formatComputeUnits(parseInt(summaryStats.total_estimated_compute_units)) }}
+          </div>
         </div>
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-2">
-          <div class="text-xs text-secondary mb-1">Total Rewards</div>
-          <div class="text-lg font-bold">{{ format.formatToken({ denom: 'upokt', amount: String(summaryStats.total_rewards_upokt) }) }}</div>
+        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3 border-l-4 border-success">
+          <div class="text-xs text-secondary mb-1 flex items-center gap-1">
+            <Icon icon="mdi:currency-usd" class="text-sm" />
+            Total Rewards
+          </div>
+          <div class="text-xl font-bold text-success">{{ format.formatToken({ denom: 'upokt', amount: String(summaryStats.total_rewards_upokt) }) }}</div>
+          <div class="text-xs text-secondary mt-1">
+            Avg/Relay: {{ format.formatToken({ denom: 'upokt', amount: String(parseFloat(summaryStats.avg_reward_per_relay || '0')) }) }}
+          </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Service Rewards Breakdown - Show in Summary tab -->
+    <div v-if="(!props.tabView || props.tabView === 'summary') && (props.filters?.supplier_address || props.filters?.owner_address)" class="dark:bg-base-100 bg-base-200 pt-3 rounded-lg border-[3px] border-solid border-base-200 dark:border-base-100 mb-3">
+      <div class="flex items-center justify-between mb-3 ml-4 mr-4">
+        <div class="text-base font-semibold text-main flex items-center gap-2">
+          <Icon icon="mdi:chart-pie" class="text-lg" />
+          Rewards by Service ({{ serviceRewards.length }})
+        </div>
+      </div>
+      <div class="bg-base-200 rounded-md overflow-auto h-[50vh]">
+        <div v-if="loadingServiceRewards" class="flex justify-center items-center py-8">
+          <div class="loading loading-spinner loading-md"></div>
+          <span class="ml-2 text-sm">Loading rewards data...</span>
+        </div>
+        <div v-else-if="serviceRewards.length === 0" class="text-center py-8 text-gray-500 text-sm">
+          No rewards data available for the selected filters
+        </div>
+        <table v-else class="table w-full table-compact">
+          <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
+            <tr class="border-b-[0px] text-sm font-semibold">
+              <th>Service</th>
+              <th>Total Rewards</th>
+              <th>Total Relays</th>
+              <th>Avg Reward/Relay</th>
+              <th>Compute Units</th>
+              <th>Efficiency</th>
+              <th>Submissions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="service in serviceRewards" :key="service.service_id" class="hover:bg-gray-100 dark:hover:bg-[#384059] dark:bg-base-200 bg-white border-0 rounded-xl">
+              <td class="dark:bg-base-200 bg-white">
+                <span class="badge badge-primary badge-sm">{{ service.service_id }}</span>
+              </td>
+              <td class="dark:bg-base-200 bg-white font-semibold text-success">
+                {{ format.formatToken({ denom: 'upokt', amount: String(service.total_rewards_upokt) }) }}
+              </td>
+              <td class="dark:bg-base-200 bg-white">
+                {{ formatNumber(service.total_relays) }}
+              </td>
+              <td class="dark:bg-base-200 bg-white">
+                {{ format.formatToken({ denom: 'upokt', amount: String(service.avg_reward_per_relay) }) }}
+              </td>
+              <td class="dark:bg-base-200 bg-white">
+                <div class="flex flex-col">
+                  <span class="font-medium">{{ formatComputeUnits(service.total_claimed_compute_units) }}</span>
+                  <span class="text-xs text-secondary">Est: {{ formatComputeUnits(service.total_estimated_compute_units) }}</span>
+                </div>
+              </td>
+              <td class="dark:bg-base-200 bg-white">
+                <span :class="Number(service.avg_efficiency_percent) >= 95 ? 'text-success' : Number(service.avg_efficiency_percent) >= 80 ? 'text-warning' : 'text-error'" class="font-medium">
+                  {{ Number(service.avg_efficiency_percent).toFixed(2) }}%
+                </span>
+              </td>
+              <td class="dark:bg-base-200 bg-white">
+                {{ formatNumber(service.total_submissions) }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
      <!-- Middle Section: Rewards Distribution Table (Large) - Show in Summary and Reward Share tabs -->
-    <div v-if="!props.tabView || props.tabView === 'summary' || props.tabView === 'reward-share'" class="dark:bg-base-100 bg-base-200 pt-3 rounded-lg border-[3px] border-solid border-base-200 dark:border-base-100 mb-3">
+    <div v-if="(!props.tabView || props.tabView === 'summary' || props.tabView === 'reward-share') && (props.filters?.supplier_address || props.filters?.owner_address)" class="dark:bg-base-100 bg-base-200 pt-3 rounded-lg border-[3px] border-solid border-base-200 dark:border-base-100 mb-3">
       <div class="flex items-center justify-between mb-3 ml-4 mr-4">
-        <div class="text-base font-semibold text-main">Rewards Distribution</div>
+        <div class="text-base font-semibold text-main">Rewards Distribution ({{ topServicesByPerformance.length }})</div>
         <div class="flex justify-end gap-4">
           <!-- LIMIT DROPDOWN -->
           <div class="flex items-center justify-end gap-2">
@@ -911,7 +1420,7 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
           </div>
         </div>
       </div>
-      <div class="dark:bg-base-200 bg-base-100 p-2 rounded-md">
+      <div class="bg-base-200 rounded-md overflow-auto h-[40vh]">
         <div v-if="loadingPerformanceTable" class="flex justify-center items-center py-4">
           <div class="loading loading-spinner loading-sm"></div>
           <span class="ml-2 text-xs">Loading...</span>
@@ -919,103 +1428,58 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
         <div v-else-if="topServicesByPerformance.length === 0" class="text-center py-4 text-gray-500 text-xs">
           No data found
         </div>
-        <div v-else class="overflow-auto max-h-96">
-          <table class="table table-compact w-full text-xs">
-            <thead class="bg-white sticky top-0">
-              <tr class="border-b-[0px]">
-                <th class="py-1">Rank</th>
-                <th class="py-1">Service</th>
-                <th class="py-1">Compute Units</th>
-                <th class="py-1">Market Share</th>
-                <th class="py-1">Submissions</th>
-                <th class="py-1">Efficiency</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="service in paginatedTopServices" :key="service.service_id" class="hover:bg-base-300 transition-colors duration-200 border-b-[0px]">
-                <td class="dark:bg-base-200 bg-white font-bold py-1">
-                  <span class="badge badge-sm" :class="service.rank === 1 ? 'badge-primary' : service.rank === 2 ? 'badge-secondary' : service.rank === 3 ? 'badge-accent' : 'badge-ghost'">
-                    #{{ service.rank }}
-                  </span>
-                </td>
-                <td class="dark:bg-base-200 bg-white py-1">
-                  <span class="badge badge-primary badge-xs">{{ service.service_id }}</span>
-                </td>
-                <td class="dark:bg-base-200 bg-white py-1">{{ formatNumber(service.total_claimed_compute_units) }}</td>
-                <td class="dark:bg-base-200 bg-white py-1">
-                  <div class="flex items-center gap-1">
-                    <div class="flex-1 bg-base-300 rounded-full h-2 overflow-hidden">
-                      <div 
-                        class="h-full rounded-full transition-all duration-500"
-                        :class="service.rank === 1 ? 'bg-primary' : service.rank === 2 ? 'bg-secondary' : service.rank === 3 ? 'bg-accent' : 'bg-info'"
-                        :style="{ width: `${service.percentage_of_total}%` }"
-                      ></div>
-                    </div>
-                    <span class="text-xs font-semibold min-w-[40px]">{{ service.percentage_of_total.toFixed(2) }}%</span>
+        <table v-else class="table w-full table-compact">
+          <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
+            <tr class="border-b-[0px] text-sm font-semibold">
+              <th>Rank</th>
+              <th>Service</th>
+              <th>Compute Units</th>
+              <th>Market Share</th>
+              <th>Submissions</th>
+              <th>Efficiency</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="service in paginatedTopServices" :key="service.service_id" class="hover:bg-gray-100 dark:hover:bg-[#384059] dark:bg-base-200 bg-white border-0 rounded-xl">
+              <td class="dark:bg-base-200 bg-white font-bold">
+                <span class="badge badge-sm" :class="service.rank === 1 ? 'badge-primary' : service.rank === 2 ? 'badge-secondary' : service.rank === 3 ? 'badge-accent' : 'badge-ghost'">
+                  #{{ service.rank }}
+                </span>
+              </td>
+              <td class="dark:bg-base-200 bg-white">
+                <span class="badge badge-primary badge-xs">{{ service.service_id }}</span>
+              </td>
+              <td class="dark:bg-base-200 bg-white">{{ formatNumber(service.total_claimed_compute_units) }}</td>
+              <td class="dark:bg-base-200 bg-white">
+                <div class="flex items-center gap-1">
+                  <div class="flex-1 bg-base-300 rounded-full h-2 overflow-hidden">
+                    <div 
+                      class="h-full rounded-full transition-all duration-500"
+                      :class="service.rank === 1 ? 'bg-primary' : service.rank === 2 ? 'bg-secondary' : service.rank === 3 ? 'bg-accent' : 'bg-info'"
+                      :style="{ width: `${service.percentage_of_total}%` }"
+                    ></div>
                   </div>
-                </td>
-                <td class="dark:bg-base-200 bg-white py-1">{{ formatNumber(service.submission_count) }}</td>
-                <td class="dark:bg-base-200 bg-white py-1">
-                  <span :class="service.avg_efficiency_percent >= 95 ? 'text-success' : service.avg_efficiency_percent >= 80 ? 'text-warning' : 'text-error'">
-                    {{ service.avg_efficiency_percent.toFixed(2) }}%
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                  <span class="text-xs font-semibold min-w-[40px]">{{ service.percentage_of_total.toFixed(2) }}%</span>
+                </div>
+              </td>
+              <td class="dark:bg-base-200 bg-white">{{ formatNumber(service.submission_count) }}</td>
+              <td class="dark:bg-base-200 bg-white">
+                <span :class="Number(service.avg_efficiency_percent) >= 95 ? 'text-success' : Number(service.avg_efficiency_percent) >= 80 ? 'text-warning' : 'text-error'">
+                  {{ Number(service.avg_efficiency_percent).toFixed(2) }}%
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
         </div>
-      </div>
     </div>
+    
 
     <!-- Bottom Section: 2 Columns (Merged Servicer/Producer/Performance + Services Chart) -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-3 items-stretch" v-if="!props.tabView || props.tabView === 'summary'">
 
-      <!-- <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3">
-        <div class="flex items-center justify-between mb-3">
-          <div class="text-sm font-semibold">Performance Summary</div>
-        </div>
-        <div class="grid grid-cols-2 gap-3 text-xs">
-
-          <div>
-            <div class="text-xs font-semibold mb-2 text-secondary">Supplier</div>
-            <div class="space-y-1">
-              <div class="flex justify-between">
-                <span class="text-secondary">Total Suppliers:</span>
-                <span class="font-medium">{{ formatNumber(parseInt(summaryStats?.unique_suppliers || '0')) }}</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-secondary">Rewards 24H:</span>
-                <span class="font-medium">{{ format.formatToken({ denom: 'upokt', amount: String(summaryStats?.total_rewards_upokt || '0') }) }}</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-secondary">Submissions 24H:</span>
-                <span class="font-medium">{{ formatNumber(parseInt(summaryStats?.total_submissions || '0')) }}</span>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <div class="text-xs font-semibold mb-2 text-secondary">Service</div>
-            <div class="space-y-1">
-              <div class="flex justify-between">
-                <span class="text-secondary">Total Services:</span>
-                <span class="font-medium">{{ formatNumber(parseInt(summaryStats?.unique_services || '0')) }}</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-secondary">Total Relays 24H:</span>
-                <span class="font-medium">{{ formatNumber(parseInt(summaryStats?.total_relays || '0')) }}</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-secondary">Avg Efficiency:</span>
-                <span class="font-medium">{{ parseFloat(summaryStats?.avg_efficiency_percent || '0').toFixed(2) }}%</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div> -->
-
       <!-- Proof Submissions Table (Compact) - Show in Summary tab only -->
-      <div v-if="!props.tabView || props.tabView === 'summary'" class="dark:bg-base-100 bg-base-200 pt-2 rounded-lg border-[3px] border-solid border-base-200 dark:border-base-100 mb-3 h-full">
+      <div v-if="(!props.tabView || props.tabView === 'summary') && (props.filters?.supplier_address || props.filters?.owner_address)" class="dark:bg-base-100 bg-base-200 pt-2 rounded-lg border-[3px] border-solid border-base-200 dark:border-base-100 mb-3 h-full">
         <div class="flex items-center justify-between mb-2 ml-3 mr-3">
           <div class="text-sm font-semibold text-main">Proof Submissions</div>
           <div class="flex items-center gap-1">
@@ -1027,50 +1491,95 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
             </select>
           </div>
         </div>
-        <div class="dark:bg-base-200 bg-base-100 p-2 rounded-md">
-          <div class="overflow-auto max-h-96">
-            <table class="table w-full table-compact text-xs">
-              <thead class="bg-white sticky top-0">
-                <tr class="border-b-[0px]">
-                  <th class="py-1">Tx Hash</th>
-                  <th class="py-1">Service</th>
-                  <th class="py-1">Supplier</th>
-                  <th class="py-1">Relays</th>
-                  <th class="py-1">Rewards</th>
-                  <th class="py-1">Efficiency</th>
-                  <th class="py-1">Time</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-if="loading" class="text-center"><td colspan="7" class="py-4"><div class="flex justify-center items-center"><div class="loading loading-spinner loading-sm"></div><span class="ml-2 text-xs">Loading...</span></div></td></tr>
-                <tr v-else-if="submissions.length === 0" class="text-center"><td colspan="7" class="py-4"><div class="text-gray-500 text-xs">No submissions found</div></td></tr>
-                <tr v-for="submission in submissions" :key="submission.id" class="hover:bg-base-300 transition-colors duration-200 border-b-[0px]">
-                  <td class="truncate dark:bg-base-200 bg-white text-[#153cd8] py-1" style="max-width:120px"><a :href="`#tx/${submission.transaction_hash}`" class="hover:underline text-xs">{{ submission.transaction_hash.substring(0, 12) }}...</a></td>
-                  <td class="dark:bg-base-200 bg-white py-1"><span class="badge badge-primary badge-xs">{{ submission.service_id }}</span></td>
-                  <td class="truncate dark:bg-base-200 bg-white py-1 text-xs" style="max-width:120px">{{ submission.supplier_operator_address.substring(0, 12) }}...</td>
-                  <td class="dark:bg-base-200 bg-white py-1 text-xs">{{ formatNumber(parseInt(submission.num_relays)) }}</td>
-                  <td class="dark:bg-base-200 bg-white py-1 text-xs">{{ format.formatToken({ denom: 'upokt', amount: String(submission.claimed_upokt_amount) }) }}</td>
-                  <td class="dark:bg-base-200 bg-white py-1"><span :class="parseFloat(submission.compute_unit_efficiency) >= 95 ? 'text-success' : parseFloat(submission.compute_unit_efficiency) >= 80 ? 'text-warning' : 'text-error'" class="text-xs">{{ parseFloat(submission.compute_unit_efficiency).toFixed(2) }}%</span></td>
-                  <td class="dark:bg-base-200 bg-white py-1 text-xs">{{ new Date(submission.timestamp).toLocaleTimeString() }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="flex justify-between items-center gap-2 my-2 px-2 text-xs">
-            <span class="text-gray-600">Showing {{ ((currentPage - 1) * itemsPerPage) + 1 }} to {{ Math.min(currentPage * itemsPerPage, submissions.length) }} of {{ submissions.length }}</span>
-            <div class="flex items-center gap-1">
-              <button class="btn btn-xs btn-ghost" @click="goToFirst" :disabled="currentPage === 1 || totalPages === 0">First</button>
-              <button class="btn btn-xs btn-ghost" @click="prevPage" :disabled="currentPage === 1 || totalPages === 0">&lt;</button>
-              <span class="px-1">Page {{ currentPage }}/{{ totalPages }}</span>
-              <button class="btn btn-xs btn-ghost" @click="nextPage" :disabled="currentPage === totalPages || totalPages === 0">&gt;</button>
-              <button class="btn btn-xs btn-ghost" @click="goToLast" :disabled="currentPage === totalPages || totalPages === 0">Last</button>
-            </div>
+        <div class="bg-base-200 rounded-md overflow-auto h-[35vh]">
+          <table class="table w-full table-compact">
+            <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
+              <tr class="border-b-[0px] text-sm font-semibold">
+                <th>Tx Hash</th>
+                <th>Service</th>
+                <th>Supplier</th>
+                <th>Relays</th>
+                <th>Rewards</th>
+                <th>Efficiency</th>
+                <th>Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="loading" class="text-center">
+                <td colspan="7" class="py-8">
+                  <div class="flex justify-center items-center">
+                    <div class="loading loading-spinner loading-md"></div>
+                    <span class="ml-2">Loading transactions...</span>
+                  </div>
+                </td>
+              </tr>
+              <tr v-else-if="submissions.length === 0" class="text-center">
+                <td colspan="7" class="py-8">
+                  <div class="text-gray-500">No submissions found</div>
+                </td>
+              </tr>
+              <tr v-for="submission in submissions" :key="submission.id" class="hover:bg-gray-100 dark:hover:bg-[#384059] dark:bg-base-200 bg-white border-0 rounded-xl">
+                <td class="truncate dark:bg-base-200 bg-white dark:text-warning text-[#153cd8]" style="max-width:120px">
+                  <a :href="`#tx/${submission.transaction_hash}`" class="hover:underline text-xs">{{ submission.transaction_hash.substring(0, 12) }}...</a>
+                </td>
+                <td class="dark:bg-base-200 bg-white">
+                  <span class="badge badge-primary badge-xs">{{ submission.service_id }}</span>
+                </td>
+                <td class="truncate dark:bg-base-200 bg-white text-xs" style="max-width:120px">{{ submission.supplier_operator_address.substring(0, 12) }}...</td>
+                <td class="dark:bg-base-200 bg-white text-xs">{{ formatNumber(parseInt(submission.num_relays)) }}</td>
+                <td class="dark:bg-base-200 bg-white text-xs">{{ format.formatToken({ denom: 'upokt', amount: String(submission.claimed_upokt_amount) }) }}</td>
+                <td class="dark:bg-base-200 bg-white">
+                  <span :class="parseFloat(submission.compute_unit_efficiency) >= 95 ? 'text-success' : parseFloat(submission.compute_unit_efficiency) >= 80 ? 'text-warning' : 'text-error'" class="text-xs">
+                    {{ parseFloat(submission.compute_unit_efficiency).toFixed(2) }}%
+                  </span>
+                </td>
+                <td class="dark:bg-base-200 bg-white text-xs">{{ new Date(submission.timestamp).toLocaleTimeString() }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="flex justify-between items-center gap-4 my-6 px-2">
+          <span class="text-sm text-gray-600">
+            Showing {{ ((currentPage - 1) * itemsPerPage) + 1 }} to {{ Math.min(currentPage * itemsPerPage, submissions.length) }} of {{ submissions.length }} submissions
+          </span>
+          <div class="flex items-center gap-1">
+            <button
+              class="page-btn bg-[#f8f9fa] border border-[#ccc] rounded px-[10px] py-[5px] cursor-pointer text-[#007bff] transition-colors duration-200 hover:bg-[#e9ecef] disabled:opacity-50 disabled:cursor-not-allowed text-[14px]"
+              @click="goToFirst"
+              :disabled="currentPage === 1 || totalPages === 0"
+            >
+              First
+            </button>
+            <button
+              class="page-btn bg-[#f8f9fa] border border-[#ccc] rounded px-[10px] py-[5px] cursor-pointer text-[#007bff] transition-colors duration-200 hover:bg-[#e9ecef] disabled:opacity-50 disabled:cursor-not-allowed text-[14px]"
+              @click="prevPage"
+              :disabled="currentPage === 1 || totalPages === 0"
+            >
+              &lt;
+            </button>
+            <span class="text-xs px-2">
+              Page {{ currentPage }} of {{ totalPages }}
+            </span>
+            <button
+              class="page-btn bg-[#f8f9fa] border border-[#ccc] rounded px-[10px] py-[5px] cursor-pointer text-[#007bff] transition-colors duration-200 hover:bg-[#e9ecef] disabled:opacity-50 disabled:cursor-not-allowed text-[14px]"
+              @click="nextPage"
+              :disabled="currentPage === totalPages || totalPages === 0"
+            >
+              &gt;
+            </button>
+            <button
+              class="page-btn bg-[#f8f9fa] border border-[#ccc] rounded px-[10px] py-[5px] cursor-pointer text-[#007bff] transition-colors duration-200 hover:bg-[#e9ecef] disabled:opacity-50 disabled:cursor-not-allowed text-[14px]"
+              @click="goToLast"
+              :disabled="currentPage === totalPages || totalPages === 0"
+            >
+              Last
+            </button>
           </div>
         </div>
       </div>
 
       <!-- Right Column: Services Chart -->
-      <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3 h-full">
+      <div v-if="props.filters?.supplier_address || props.filters?.owner_address" class="dark:bg-base-100 bg-base-200 rounded-lg p-3 h-full">
         <div class="flex items-center justify-between mb-3">
           <div class="text-sm font-semibold mb-2">Services</div>
           <div class="flex justify-end gap-4">
@@ -1102,7 +1611,7 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
           <div v-else-if="topServicesByComputeUnits.length === 0" class="flex justify-center items-center h-64 text-gray-500 text-xs">
             No data
           </div>
-          <div v-else class="h-100">
+          <div v-else class="h-[35vh]">
             <ApexCharts 
               :type="topServicesChartType" 
               height="360" 
@@ -1172,30 +1681,30 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
         <div v-else-if="topServicesByPerformance.length === 0" class="text-center py-4 text-gray-500 text-xs">
           No data found
         </div>
-        <div v-else class="overflow-auto">
-          <table class="table table-compact w-full text-xs">
-            <thead class="bg-white sticky top-0">
-              <tr class="border-b-[0px]">
-                <th class="py-1">Rank</th>
-                <th class="py-1">Service</th>
-                <th class="py-1">Compute Units</th>
-                <th class="py-1">Market Share</th>
-                <th class="py-1">Submissions</th>
-                <th class="py-1">Efficiency</th>
+        <div v-else class="bg-base-200 rounded-md overflow-auto h-[600px]">
+          <table class="table w-full table-compact">
+            <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
+              <tr class="border-b-[0px] text-sm font-semibold">
+                <th>Rank</th>
+                <th>Service</th>
+                <th>Compute Units</th>
+                <th>Market Share</th>
+                <th>Submissions</th>
+                <th>Efficiency</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="service in topServicesByPerformance" :key="service.service_id" class="hover:bg-base-300 transition-colors duration-200 border-b-[0px]">
-                <td class="dark:bg-base-200 bg-white font-bold py-1">
+              <tr v-for="service in topServicesByPerformance" :key="service.service_id" class="hover:bg-gray-100 dark:hover:bg-[#384059] dark:bg-base-200 bg-white border-0 rounded-xl">
+                <td class="dark:bg-base-200 bg-white font-bold">
                   <span class="badge badge-sm" :class="service.rank === 1 ? 'badge-primary' : service.rank === 2 ? 'badge-secondary' : service.rank === 3 ? 'badge-accent' : 'badge-ghost'">
                     #{{ service.rank }}
                   </span>
                 </td>
-                <td class="dark:bg-base-200 bg-white py-1">
+                <td class="dark:bg-base-200 bg-white">
                   <span class="badge badge-primary badge-xs">{{ service.service_id }}</span>
                 </td>
-                <td class="dark:bg-base-200 bg-white py-1">{{ formatNumber(service.total_claimed_compute_units) }}</td>
-                <td class="dark:bg-base-200 bg-white py-1">
+                <td class="dark:bg-base-200 bg-white">{{ formatNumber(service.total_claimed_compute_units) }}</td>
+                <td class="dark:bg-base-200 bg-white">
                   <div class="flex items-center gap-1">
                     <div class="flex-1 bg-base-300 rounded-full h-2 overflow-hidden">
                       <div 
@@ -1207,10 +1716,10 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
                     <span class="text-xs font-semibold min-w-[40px]">{{ service.percentage_of_total.toFixed(2) }}%</span>
                   </div>
                 </td>
-                <td class="dark:bg-base-200 bg-white py-1">{{ formatNumber(service.submission_count) }}</td>
-                <td class="dark:bg-base-200 bg-white py-1">
-                  <span :class="service.avg_efficiency_percent >= 95 ? 'text-success' : service.avg_efficiency_percent >= 80 ? 'text-warning' : 'text-error'">
-                    {{ service.avg_efficiency_percent.toFixed(2) }}%
+                <td class="dark:bg-base-200 bg-white">{{ formatNumber(service.submission_count) }}</td>
+                <td class="dark:bg-base-200 bg-white">
+                  <span :class="Number(service.avg_efficiency_percent) >= 95 ? 'text-success' : Number(service.avg_efficiency_percent) >= 80 ? 'text-warning' : 'text-error'">
+                    {{ Number(service.avg_efficiency_percent).toFixed(2) }}%
                   </span>
                 </td>
               </tr>
@@ -1248,30 +1757,30 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
         <div v-else-if="topServicesByComputeUnits.length === 0" class="text-center py-4 text-gray-500 text-xs">
           No data found
         </div>
-        <div v-else class="overflow-auto">
-          <table class="table table-compact w-full text-xs">
-            <thead class="bg-white sticky top-0">
-              <tr class="border-b-[0px]">
-                <th class="py-1">Service ID</th>
-                <th class="py-1">Compute Units</th>
-                <th class="py-1">Submissions</th>
-                <th class="py-1">Efficiency</th>
-                <th class="py-1">Avg Reward/Relay</th>
+        <div v-else class="bg-base-200 rounded-md overflow-auto h-[40vh]">
+          <table class="table w-full table-compact">
+            <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
+              <tr class="border-b-[0px] text-sm font-semibold">
+                <th>Service ID</th>
+                <th>Compute Units</th>
+                <th>Submissions</th>
+                <th>Efficiency</th>
+                <th>Avg Reward/Relay</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="service in topServicesByComputeUnits" :key="service.service_id" class="hover:bg-base-300 transition-colors duration-200 border-b-[0px]">
-                <td class="dark:bg-base-200 bg-white py-1">
+              <tr v-for="service in topServicesByComputeUnits" :key="service.service_id" class="hover:bg-gray-100 dark:hover:bg-[#384059] dark:bg-base-200 bg-white border-0 rounded-xl">
+                <td class="dark:bg-base-200 bg-white">
                   <span class="badge badge-primary badge-xs">{{ service.service_id }}</span>
                 </td>
-                <td class="dark:bg-base-200 bg-white py-1">{{ formatComputeUnits(parseInt(service.total_claimed_compute_units)) }}</td>
-                <td class="dark:bg-base-200 bg-white py-1">{{ formatNumber(parseInt(service.submission_count)) }}</td>
-                <td class="dark:bg-base-200 bg-white py-1">
+                <td class="dark:bg-base-200 bg-white">{{ formatComputeUnits(parseInt(service.total_claimed_compute_units)) }}</td>
+                <td class="dark:bg-base-200 bg-white">{{ formatNumber(parseInt(service.submission_count)) }}</td>
+                <td class="dark:bg-base-200 bg-white">
                   <span :class="parseFloat(service.avg_efficiency_percent) >= 95 ? 'text-success' : parseFloat(service.avg_efficiency_percent) >= 80 ? 'text-warning' : 'text-error'">
                     {{ parseFloat(service.avg_efficiency_percent).toFixed(2) }}%
                   </span>
                 </td>
-                <td class="dark:bg-base-200 bg-white py-1">-</td>
+                <td class="dark:bg-base-200 bg-white">-</td>
               </tr>
             </tbody>
           </table>
@@ -1281,68 +1790,14 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
 
     <!-- Reward Share Tab: Complete Layout -->
     <div v-if="props.tabView === 'reward-share'" class="space-y-3">
-      <!-- Top Row: Delegated Rewards (Left) + Rewards Distribution (Right) -->
+      <!-- Top Row: Reward Share Distribution (Left) + Top Reward Earners (Right) -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        <!-- Delegated Rewards Panel -->
+        <!-- Section 1: Reward Share Distribution -->
         <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3">
           <div class="flex items-center justify-between mb-3">
-            <div class="text-sm font-semibold">Delegated Rewards</div>
-            <span class="badge badge-sm badge-outline">24H</span>
-          </div>
-          <div class="mb-2">
-            <input 
-              v-model="rewardShareSearchQuery"
-              type="text" 
-              placeholder="Search by Address" 
-              class="input input-bordered input-sm w-full"
-            />
-          </div>
-          <div class="overflow-auto max-h-96">
-            <table class="table table-compact w-full text-xs">
-              <thead>
-                <tr>
-                  <th class="py-1">Account</th>
-                  <th class="py-1">Rewards (POKT)</th>
-                  <th class="py-1">Share %</th>
-                  <th class="py-1">Nodes</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-if="loadingRewardShare" class="text-center">
-                  <td colspan="4" class="py-4">
-                    <div class="loading loading-spinner loading-sm"></div>
-                  </td>
-                </tr>
-                <tr v-else-if="delegatedRewards.length === 0" class="text-center">
-                  <td colspan="4" class="py-4 text-gray-500">No data</td>
-                </tr>
-                <tr 
-                  v-for="item in delegatedRewards.filter(r => 
-                    !rewardShareSearchQuery || r.account.toLowerCase().includes(rewardShareSearchQuery.toLowerCase())
-                  )" 
-                  :key="item.account"
-                  class="hover:bg-base-300"
-                >
-                  <td class="py-1 font-mono text-xs truncate" style="max-width: 200px">{{ item.account }}</td>
-                  <td class="py-1">{{ item.rewards.toFixed(4) }}</td>
-                  <td class="py-1">{{ item.share.toFixed(3) }}%</td>
-                  <td class="py-1">{{ item.nodes }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Rewards Distribution Panel -->
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3">
-          <div class="flex items-center justify-between mb-3">
-            <div class="text-sm font-semibold">Rewards Distribution</div>
-            <div class="flex items-center gap-2">
-              <span class="badge badge-sm badge-outline">24H</span>
-              <label class="label cursor-pointer gap-1">
-                <span class="label-text text-xs">Show Fees</span>
-                <input type="checkbox" v-model="showFees" class="toggle toggle-xs" />
-              </label>
+            <div class="text-sm font-semibold">Reward Share Distribution</div>
+            <div class="text-xs text-base-content/60">
+              Total: {{ totalRewards.toFixed(2) }} POKT
             </div>
           </div>
           <div class="flex items-center justify-center h-80">
@@ -1350,72 +1805,262 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
               <div class="loading loading-spinner loading-md"></div>
               <span class="mt-2 text-xs">Loading...</span>
             </div>
-            <div v-else-if="rewardsDistribution.total === 0" class="text-gray-500 text-xs">
-              No data
+            <div v-else-if="rewardShareDistribution.length === 0" class="text-gray-500 text-xs">
+              No data available. Please select a validator or service from the filter modal.
             </div>
             <div v-else class="w-full">
               <ApexCharts 
                 type="donut" 
                 height="300" 
-                :options="rewardsDistributionChartOptions" 
-                :series="rewardsDistributionChartSeries" 
+                :options="rewardShareDistributionChartOptions" 
+                :series="rewardShareDistributionChartSeries" 
               />
             </div>
           </div>
         </div>
+
+        <!-- Section 2: Top Reward Earners -->
+        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3">
+          <div class="flex items-center justify-between mb-3">
+            <div class="text-sm font-semibold">Top Reward Earners</div>
+            <div class="mb-2">
+              <input 
+                v-model="rewardShareSearchQuery"
+                type="text" 
+                placeholder="Search by Address" 
+                class="input input-bordered input-sm w-full"
+              />
+            </div>
+          </div>
+          <div class="bg-base-200 rounded-md overflow-auto h-[40vh]">
+            <table class="table w-full table-compact">
+              <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
+                <tr class="border-b-[0px] text-sm font-semibold">
+                  <th>Rank</th>
+                  <th>Validator</th>
+                  <th>Rewards (POKT)</th>
+                  <th>Reward/Relay</th>
+                  <th>Efficiency</th>
+                  <th>Relays</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="loadingRewardShare" class="text-center">
+                  <td colspan="7" class="py-8">
+                    <div class="flex justify-center items-center">
+                      <div class="loading loading-spinner loading-md"></div>
+                      <span class="ml-2">Loading...</span>
+                    </div>
+                  </td>
+                </tr>
+                <tr v-else-if="topRewardEarners.length === 0" class="text-center">
+                  <td colspan="7" class="py-8">
+                    <div class="text-gray-500">No data</div>
+                  </td>
+                </tr>
+                <tr 
+                  v-for="item in topRewardEarners.filter(r => 
+                    !rewardShareSearchQuery || 
+                    r.operator_address.toLowerCase().includes(rewardShareSearchQuery.toLowerCase()) ||
+                    (r.moniker && r.moniker.toLowerCase().includes(rewardShareSearchQuery.toLowerCase()))
+                  )" 
+                  :key="item.operator_address"
+                  class="hover:bg-gray-100 dark:hover:bg-[#384059] dark:bg-base-200 bg-white border-0 rounded-xl"
+                >
+                  <td class="dark:bg-base-200 bg-white font-bold">
+                    <span class="badge badge-sm" :class="item.rank === 1 ? 'badge-primary' : item.rank === 2 ? 'badge-secondary' : item.rank === 3 ? 'badge-accent' : 'badge-ghost'">
+                      #{{ item.rank }}
+                    </span>
+                  </td>
+                  <td class="dark:bg-base-200 bg-white font-mono text-xs truncate" style="max-width: 150px">
+                    {{ item.moniker || item.operator_address.substring(0, 12) + '...' }}
+                  </td>
+                  <td class="dark:bg-base-200 bg-white font-semibold text-success">{{ item.total_rewards.toFixed(4) }}</td>
+                  <td class="dark:bg-base-200 bg-white text-xs">{{ format.formatToken({ denom: 'upokt', amount: String(item.reward_per_relay) }) }}</td>
+                  <td class="dark:bg-base-200 bg-white">
+                    <span :class="item.efficiency >= 95 ? 'text-success' : item.efficiency >= 80 ? 'text-warning' : 'text-error'" class="text-xs">
+                      {{ item.efficiency.toFixed(2) }}%
+                    </span>
+                  </td>
+                  <td class="dark:bg-base-200 bg-white text-xs">{{ formatNumber(item.total_relays) }}</td>
+                  <td class="dark:bg-base-200 bg-white">
+                    <span v-if="item.status" class="badge badge-xs" :class="item.status === 'BOND_STATUS_BONDED' ? 'badge-success' : 'badge-warning'">
+                      {{ item.status.replace('BOND_STATUS_', '') }}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
-      <!-- Bottom: Rewards by Addresses -->
+      <!-- Middle Row: Reward Efficiency Analysis (Left) + Reward by Service (Right) -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <!-- Section 3: Reward Efficiency Analysis -->
+        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3">
+          <div class="flex items-center justify-between mb-3">
+            <div class="text-sm font-semibold">Reward Efficiency Analysis</div>
+          </div>
+          <div class="bg-base-200 rounded-md overflow-auto h-[40vh]">
+            <table class="table w-full table-compact">
+              <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
+                <tr class="border-b-[0px] text-sm font-semibold">
+                  <th>Validator</th>
+                  <th>Rewards/CU</th>
+                  <th>Reward/Relay</th>
+                  <th>Efficiency</th>
+                  <th>Total Rewards</th>
+                  <th>Relays</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="loadingRewardShare" class="text-center">
+                  <td colspan="6" class="py-8">
+                    <div class="flex justify-center items-center">
+                      <div class="loading loading-spinner loading-md"></div>
+                      <span class="ml-2">Loading...</span>
+                    </div>
+                  </td>
+                </tr>
+                <tr v-else-if="rewardEfficiencyAnalysis.length === 0" class="text-center">
+                  <td colspan="6" class="py-8">
+                    <div class="text-gray-500">No data</div>
+                  </td>
+                </tr>
+                <tr 
+                  v-for="item in rewardEfficiencyAnalysis" 
+                  :key="item.operator_address"
+                  class="hover:bg-gray-100 dark:hover:bg-[#384059] dark:bg-base-200 bg-white border-0 rounded-xl"
+                >
+                  <td class="dark:bg-base-200 bg-white font-mono text-xs truncate" style="max-width: 150px">
+                    {{ item.moniker || item.operator_address.substring(0, 12) + '...' }}
+                  </td>
+                  <td class="dark:bg-base-200 bg-white text-xs">{{ item.reward_per_compute_unit.toFixed(6) }}</td>
+                  <td class="dark:bg-base-200 bg-white text-xs">{{ format.formatToken({ denom: 'upokt', amount: String(item.reward_per_relay) }) }}</td>
+                  <td class="dark:bg-base-200 bg-white">
+                    <span :class="item.efficiency >= 95 ? 'text-success' : item.efficiency >= 80 ? 'text-warning' : 'text-error'" class="text-xs">
+                      {{ item.efficiency.toFixed(2) }}%
+                    </span>
+                  </td>
+                  <td class="dark:bg-base-200 bg-white text-xs font-semibold text-success">{{ item.total_rewards.toFixed(4) }}</td>
+                  <td class="dark:bg-base-200 bg-white text-xs">{{ formatNumber(item.total_relays) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Section 4: Reward by Service -->
+        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3">
+          <div class="flex items-center justify-between mb-3">
+            <div class="text-sm font-semibold">Reward by Service</div>
+          </div>
+          <div class="bg-base-200 rounded-md overflow-auto h-[40vh]">
+            <table class="table w-full table-compact">
+              <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
+                <tr class="border-b-[0px] text-sm font-semibold">
+                  <th>Validator</th>
+                  <th>Total Rewards</th>
+                  <th>Services</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="loadingRewardShare" class="text-center">
+                  <td colspan="3" class="py-8">
+                    <div class="flex justify-center items-center">
+                      <div class="loading loading-spinner loading-md"></div>
+                      <span class="ml-2">Loading...</span>
+                    </div>
+                  </td>
+                </tr>
+                <tr v-else-if="rewardsByService.length === 0" class="text-center">
+                  <td colspan="3" class="py-8">
+                    <div class="text-gray-500">No data</div>
+                  </td>
+                </tr>
+                <tr 
+                  v-for="item in rewardsByService" 
+                  :key="item.validator.operator_address"
+                  class="hover:bg-gray-100 dark:hover:bg-[#384059] dark:bg-base-200 bg-white border-0 rounded-xl"
+                >
+                  <td class="dark:bg-base-200 bg-white font-mono text-xs truncate" style="max-width: 200px">
+                    {{ item.validator.moniker || item.validator.operator_address.substring(0, 12) + '...' }}
+                  </td>
+                  <td class="dark:bg-base-200 bg-white font-semibold text-success">{{ item.total_rewards.toFixed(4) }} POKT</td>
+                  <td class="dark:bg-base-200 bg-white">
+                    <span class="badge badge-primary badge-sm">{{ item.total_services }}</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom: Reward Trends Over Time -->
       <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3">
         <div class="flex items-center justify-between mb-3">
-          <div class="text-sm font-semibold">Rewards by Addresses</div>
+          <div class="text-sm font-semibold">Reward Trends Over Time</div>
           <div class="flex items-center gap-2">
-            <select class="select select-bordered select-xs">
-              <option>All selected</option>
-            </select>
+            <!-- Metric Toggles -->
+            <label class="label cursor-pointer gap-1">
+              <input type="checkbox" v-model="rewardTrendsMetrics.rewards" class="checkbox checkbox-xs" />
+              <span class="label-text text-xs">Rewards</span>
+            </label>
+            <label class="label cursor-pointer gap-1">
+              <input type="checkbox" v-model="rewardTrendsMetrics.rewardPerRelay" class="checkbox checkbox-xs" />
+              <span class="label-text text-xs">Reward/Relay</span>
+            </label>
+            <label class="label cursor-pointer gap-1">
+              <input type="checkbox" v-model="rewardTrendsMetrics.efficiency" class="checkbox checkbox-xs" />
+              <span class="label-text text-xs">Efficiency</span>
+            </label>
+            <!-- Date Range -->
             <input 
               type="date" 
-              v-model="rewardShareDateRange.start"
-              @change="loadRewardShareData()"
+              :value="rewardShareDateRange.start ? new Date(rewardShareDateRange.start).toISOString().split('T')[0] : ''"
+              @change="(e) => { const target = e.target as HTMLInputElement; if (target?.value) { rewardShareDateRange.start = new Date(target.value).toISOString(); loadRewardShareData(); } }"
               class="input input-bordered input-xs"
             />
             <span class="text-xs">to</span>
             <input 
               type="date" 
-              v-model="rewardShareDateRange.end"
-              @change="loadRewardShareData()"
+              :value="rewardShareDateRange.end ? new Date(rewardShareDateRange.end).toISOString().split('T')[0] : ''"
+              @change="(e) => { const target = e.target as HTMLInputElement; if (target?.value) { rewardShareDateRange.end = new Date(target.value).toISOString(); loadRewardShareData(); } }"
               class="input input-bordered input-xs"
             />
           </div>
         </div>
         <div class="mb-2">
           <div class="text-lg font-bold">
-            Rewards {{ rewardsByAddresses.reduce((sum, d) => sum + d.rewards, 0).toFixed(2) }} POKT
+            Total Rewards: {{ rewardTrends.reduce((sum, d) => sum + d.total_rewards, 0).toFixed(2) }} POKT
           </div>
         </div>
-        <div class="h-64 relative">
+        <div class="h-80 relative">
           <div v-if="loadingRewardShare" class="flex items-center justify-center h-full">
             <div class="loading loading-spinner loading-md"></div>
           </div>
-          <div v-else-if="rewardsByAddresses.length === 0" class="flex items-center justify-center h-full text-gray-500 text-xs">
-            No data
+          <div v-else-if="rewardTrends.length === 0" class="flex items-center justify-center h-full text-gray-500 text-xs">
+            No data available. Please select a validator or service from the filter modal.
           </div>
           <div v-else>
             <ApexCharts 
-              :type="rewardsByAddressesChartType" 
-              height="250" 
-              :options="rewardsByAddressesChartOptions" 
-              :series="rewardsByAddressesChartSeries"
-              :key="`rewardsByAddresses-${rewardsByAddressesChartType}`"
+              :type="rewardTrendsChartType" 
+              height="300" 
+              :options="rewardTrendsChartOptions" 
+              :series="rewardTrendsChartSeries"
+              :key="`rewardTrends-${rewardTrendsChartType}`"
             />
           </div>
           <!-- Chart Type Selector - Bottom Right -->
-          <div v-if="!loadingRewardShare && rewardsByAddresses.length > 0" class="absolute bottom-2 right-2 tabs tabs-boxed bg-base-200 dark:bg-base-300">
+          <div v-if="!loadingRewardShare && rewardTrends.length > 0" class="absolute bottom-2 right-2 tabs tabs-boxed bg-base-200 dark:bg-base-300">
             <button
-              @click="rewardsByAddressesChartType = 'bar'"
+              @click="rewardTrendsChartType = 'bar'"
               :class="[
                 'tab',
-                rewardsByAddressesChartType === 'bar' 
+                rewardTrendsChartType === 'bar' 
                   ? 'tab-active bg-[#09279F] text-white' 
                   : ''
               ]"
@@ -1423,10 +2068,10 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
               <Icon icon="mdi:chart-bar" class="text-sm" />
             </button>
             <button
-              @click="rewardsByAddressesChartType = 'area'"
+              @click="rewardTrendsChartType = 'area'"
               :class="[
                 'tab',
-                rewardsByAddressesChartType === 'area' 
+                rewardTrendsChartType === 'area' 
                   ? 'tab-active bg-[#09279F] text-white' 
                   : ''
               ]"
@@ -1434,10 +2079,10 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
               <Icon icon="mdi:chart-areaspline" class="text-sm" />
             </button>
             <button
-              @click="rewardsByAddressesChartType = 'line'"
+              @click="rewardTrendsChartType = 'line'"
               :class="[
                 'tab',
-                rewardsByAddressesChartType === 'line' 
+                rewardTrendsChartType === 'line' 
                   ? 'tab-active bg-[#09279F] text-white' 
                   : ''
               ]"
@@ -1455,6 +2100,13 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
 @media (max-width: 768px) {
   .table { font-size: 0.75rem; }
   th, td { padding: 0.5rem; }
+}
+.page-btn:hover {
+  background-color: #e9ecef;
+}
+.page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>
 
