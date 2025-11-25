@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { computed, ref, watch } from 'vue';
 import ApexCharts from 'vue3-apexcharts';
+import { Icon } from '@iconify/vue';
 import { useBaseStore, useBlockchain } from '@/stores';
 import { getMarketPriceChartConfig, colorVariables } from '@/components/charts/apexChartConfig';
 import type { ValidatorPerformanceRow } from '@/types/validators';
@@ -42,13 +43,22 @@ watch(() => props.filters, (f) => {
   totals.filters.value = { ...f, group_by: 'total', page: 1, limit: props.pageSize || 25 };
 }, { deep: true });
 
+// Check if data is aggregated (multiple suppliers)
+const isAggregated = computed(() => {
+  const rows = (daily.list.value?.data || []) as ValidatorPerformanceRow[];
+  if (rows.length === 0) return false;
+  // If any row has null supplier_operator_address, it's aggregated
+  return rows.some(r => r.supplier_operator_address === null);
+});
+
 // Summary KPIs from daily data (aggregate last 7 days)
 const kpis = computed(() => {
   const rows = (daily.list.value?.data || []) as ValidatorPerformanceRow[];
   const byValidator = new Map<string, { relays: number; cu: number; effWeighted: number; effWeight: number }>();
   let validatorsCount = 0;
   rows.forEach(r => {
-    const key = r.supplier_operator_address;
+    // Use bucket as key for aggregated data, supplier_operator_address for individual
+    const key = r.supplier_operator_address || `aggregated-${r.bucket || 'total'}`;
     if (!byValidator.has(key)) {
       validatorsCount += 1;
       byValidator.set(key, { relays: 0, cu: 0, effWeighted: 0, effWeight: 0 });
@@ -74,8 +84,77 @@ const kpis = computed(() => {
   return { totalRelays, totalCU, avgEfficiency: eff, validatorsCount };
 });
 
+// Chart type selectors
+const relaysChartType = ref<'bar' | 'area' | 'line'>('area');
+const cuChartType = ref<'bar' | 'area' | 'line'>('area');
+
 // Chart series (daily by date)
-const chartOptions = computed(() => getMarketPriceChartConfig(baseStore.theme, (daily.list.value?.data || []).map(r => r.bucket || '')));
+const baseChartOptions = computed(() => getMarketPriceChartConfig(baseStore.theme, (daily.list.value?.data || []).map(r => r.bucket || '')));
+
+const relaysChartOptions = computed(() => {
+  const chartType = relaysChartType.value;
+  const base = baseChartOptions.value;
+  
+  const strokeConfig = chartType === 'bar' 
+    ? { width: 0 }
+    : {
+        curve: chartType === 'area' ? 'smooth' : 'straight',
+        width: base.stroke?.width || 1.5
+      };
+  
+  const fillConfig = chartType === 'bar'
+    ? { opacity: 1, type: 'solid' }
+    : {
+        type: chartType === 'area' ? 'gradient' : 'solid',
+        opacity: chartType === 'area' ? (base.fill?.opacity || 0.5) : 0,
+        gradient: chartType === 'area' ? base.fill?.gradient : undefined
+      };
+
+  return {
+    ...base,
+    chart: { ...base.chart, type: chartType },
+    stroke: strokeConfig,
+    fill: fillConfig,
+    markers: chartType === 'bar' ? { size: 0 } : chartType === 'line' ? {
+      size: 4,
+      strokeWidth: 0,
+      hover: { size: 6 }
+    } : { size: 2, hover: { size: 5 } }
+  };
+});
+
+const cuChartOptions = computed(() => {
+  const chartType = cuChartType.value;
+  const base = baseChartOptions.value;
+  
+  const strokeConfig = chartType === 'bar' 
+    ? { width: 0 }
+    : {
+        curve: chartType === 'area' ? 'smooth' : 'straight',
+        width: base.stroke?.width || 1.5
+      };
+  
+  const fillConfig = chartType === 'bar'
+    ? { opacity: 1, type: 'solid' }
+    : {
+        type: chartType === 'area' ? 'gradient' : 'solid',
+        opacity: chartType === 'area' ? (base.fill?.opacity || 0.5) : 0,
+        gradient: chartType === 'area' ? base.fill?.gradient : undefined
+      };
+
+  return {
+    ...base,
+    chart: { ...base.chart, type: chartType },
+    stroke: strokeConfig,
+    fill: fillConfig,
+    markers: chartType === 'bar' ? { size: 0 } : chartType === 'line' ? {
+      size: 4,
+      strokeWidth: 0,
+      hover: { size: 6 }
+    } : { size: 2, hover: { size: 5 } }
+  };
+});
+
 const relaysSeries = computed(() => [{ name: 'Relays', data: (daily.list.value?.data || []).map(r => r.total_relays || 0) }]);
 const cuSeries = computed(() => [{ name: 'Claimed CU', data: (daily.list.value?.data || []).map(r => r.total_claimed_compute_units || 0) }]);
 
@@ -116,20 +195,106 @@ function changePage(delta: number) {
         <div class="text-2xl font-bold" :class="effColor(kpis.avgEfficiency)">{{ kpis.avgEfficiency === null ? '-' : kpis.avgEfficiency.toFixed(2) + '%' }}</div>
       </div>
       <div class="dark:bg-base-100 bg-base-200 rounded-xl p-4">
-        <div class="text-xs text-secondary mb-1">Validators</div>
+        <div class="text-xs text-secondary mb-1">
+          {{ isAggregated ? 'Suppliers (Aggregated)' : 'Validators' }}
+        </div>
         <div class="text-2xl font-bold">{{ formatNum(kpis.validatorsCount) }}</div>
       </div>
     </div>
 
     <!-- Charts -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-      <div class="dark:bg-base-100 bg-base-200 p-3 rounded-xl">
+      <div class="dark:bg-base-100 bg-base-200 p-3 rounded-xl relative">
         <div class="text-sm mb-2">Relays by Day</div>
-        <ApexCharts type="area" height="260" :options="chartOptions" :series="relaysSeries" />
+        <ApexCharts 
+          :type="relaysChartType" 
+          height="260" 
+          :options="relaysChartOptions" 
+          :series="relaysSeries"
+          :key="`relays-${relaysChartType}`"
+        />
+        <!-- Chart Type Selector - Bottom Right -->
+        <div class="absolute bottom-2 right-2 tabs tabs-boxed bg-base-200 dark:bg-base-300">
+          <button
+            @click="relaysChartType = 'bar'"
+            :class="[
+              'tab',
+              relaysChartType === 'bar' 
+                ? 'tab-active bg-[#09279F] text-white' 
+                : ''
+            ]"
+            title="Bar Chart">
+            <Icon icon="mdi:chart-bar" class="text-sm" />
+          </button>
+          <button
+            @click="relaysChartType = 'area'"
+            :class="[
+              'tab',
+              relaysChartType === 'area' 
+                ? 'tab-active bg-[#09279F] text-white' 
+                : ''
+            ]"
+            title="Area Chart">
+            <Icon icon="mdi:chart-areaspline" class="text-sm" />
+          </button>
+          <button
+            @click="relaysChartType = 'line'"
+            :class="[
+              'tab',
+              relaysChartType === 'line' 
+                ? 'tab-active bg-[#09279F] text-white' 
+                : ''
+            ]"
+            title="Line Chart">
+            <Icon icon="mdi:chart-line" class="text-sm" />
+          </button>
+        </div>
       </div>
-      <div class="dark:bg-base-100 bg-base-200 p-3 rounded-xl">
+      <div class="dark:bg-base-100 bg-base-200 p-3 rounded-xl relative">
         <div class="text-sm mb-2">Claimed CU by Day</div>
-        <ApexCharts type="area" height="260" :options="chartOptions" :series="cuSeries" />
+        <ApexCharts 
+          :type="cuChartType" 
+          height="260" 
+          :options="cuChartOptions" 
+          :series="cuSeries"
+          :key="`cu-${cuChartType}`"
+        />
+        <!-- Chart Type Selector - Bottom Right -->
+        <div class="absolute bottom-2 right-2 tabs tabs-boxed bg-base-200 dark:bg-base-300">
+          <button
+            @click="cuChartType = 'bar'"
+            :class="[
+              'tab',
+              cuChartType === 'bar' 
+                ? 'tab-active bg-[#09279F] text-white' 
+                : ''
+            ]"
+            title="Bar Chart">
+            <Icon icon="mdi:chart-bar" class="text-sm" />
+          </button>
+          <button
+            @click="cuChartType = 'area'"
+            :class="[
+              'tab',
+              cuChartType === 'area' 
+                ? 'tab-active bg-[#09279F] text-white' 
+                : ''
+            ]"
+            title="Area Chart">
+            <Icon icon="mdi:chart-areaspline" class="text-sm" />
+          </button>
+          <button
+            @click="cuChartType = 'line'"
+            :class="[
+              'tab',
+              cuChartType === 'line' 
+                ? 'tab-active bg-[#09279F] text-white' 
+                : ''
+            ]"
+            title="Line Chart">
+            <Icon icon="mdi:chart-line" class="text-sm" />
+          </button>
+        </div>
       </div>
     </div>
 
@@ -149,8 +314,8 @@ function changePage(delta: number) {
             </tr>
           </thead>
           <tbody class="bg-base-100">
-            <tr v-for="row in tableRows" :key="row.supplier_operator_address" class="hover:bg-base-300">
-              <td>{{ row.moniker || 'Unknown' }}</td>
+            <tr v-for="(row, idx) in tableRows" :key="row.supplier_operator_address || `aggregated-${idx}`" class="hover:bg-base-300">
+              <td>{{ row.moniker || (row.supplier_operator_address === null ? 'Aggregated' : 'Unknown') }}</td>
               <td>{{ row.website_domain || '-' }}</td>
               <td class="text-right">{{ formatNum(row.total_relays) }}</td>
               <td class="text-right">{{ formatNum(row.total_claimed_compute_units) }}</td>
