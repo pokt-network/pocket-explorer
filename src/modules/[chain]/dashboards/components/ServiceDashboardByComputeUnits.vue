@@ -529,17 +529,19 @@ const rewardTrendsChartOptions = computed(() => {
         width: 2
       };
   
-  const fillConfig = chartType === 'bar'
+  const fillConfig: any = chartType === 'bar'
     ? { opacity: 1, type: 'solid' }
     : {
         type: chartType === 'area' ? 'gradient' : 'solid',
         opacity: chartType === 'area' ? 0.3 : 0,
-        gradient: chartType === 'area' ? {
-          shadeIntensity: 1,
-          opacityFrom: 0.7,
-          opacityTo: 0.3,
-          stops: [0, 90, 100]
-        } : undefined
+        ...(chartType === 'area' ? {
+          gradient: {
+            shadeIntensity: 1,
+            opacityFrom: 0.7,
+            opacityTo: 0.3,
+            stops: [0, 90, 100]
+          }
+        } : {})
       };
 
   return {

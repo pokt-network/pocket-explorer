@@ -102,12 +102,14 @@ const relaysChartOptions = computed(() => {
         width: base.stroke?.width || 1.5
       };
   
-  const fillConfig = chartType === 'bar'
+  const fillConfig: any = chartType === 'bar'
     ? { opacity: 1, type: 'solid' }
     : {
         type: chartType === 'area' ? 'gradient' : 'solid',
         opacity: chartType === 'area' ? (base.fill?.opacity || 0.5) : 0,
-        gradient: chartType === 'area' ? base.fill?.gradient : undefined
+        ...(chartType === 'area' && (base.fill as any)?.gradient ? {
+          gradient: (base.fill as any).gradient
+        } : {})
       };
 
   return {
@@ -134,12 +136,14 @@ const cuChartOptions = computed(() => {
         width: base.stroke?.width || 1.5
       };
   
-  const fillConfig = chartType === 'bar'
+  const fillConfig: any = chartType === 'bar'
     ? { opacity: 1, type: 'solid' }
     : {
         type: chartType === 'area' ? 'gradient' : 'solid',
         opacity: chartType === 'area' ? (base.fill?.opacity || 0.5) : 0,
-        gradient: chartType === 'area' ? base.fill?.gradient : undefined
+        ...(chartType === 'area' && (base.fill as any)?.gradient ? {
+          gradient: (base.fill as any).gradient
+        } : {})
       };
 
   return {
