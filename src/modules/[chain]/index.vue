@@ -1591,7 +1591,7 @@ function formatBlockTime(secondsStr?: string | number) {
                   'tab',
                   networkGrowthTab === 'core-services' ? 'tab-active bg-[#09279F] text-white' : ''
                 ]">
-                Core Services
+                Services
               </button>
             </div>
           </div>

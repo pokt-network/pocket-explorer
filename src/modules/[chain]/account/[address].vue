@@ -4,6 +4,7 @@ import {
   useFormatter,
   useStakingStore,
   useTxDialog,
+  useCoingecko,
 } from '@/stores';
 import DynamicComponent from '@/components/dynamic/DynamicComponent.vue';
 import DonutChart from '@/components/charts/DonutChart.vue';
@@ -38,6 +39,7 @@ const blockchain = useBlockchain();
 const stakingStore = useStakingStore();
 const dialog = useTxDialog();
 const format = useFormatter();
+const coingecko = useCoingecko();
 const account = ref({} as AuthAccount);
 const applications = ref({} as Application);
 const gateways = ref({} as Gateway);
@@ -124,6 +126,26 @@ function resetAccountState() {
   totalTxCount.value = 0
 }
 
+// Get POKT coingecko_id from blockchain config
+const poktCoingeckoId = computed(() => {
+  const poktAsset = blockchain.current?.assets?.find(
+    (a: any) => a.base === 'upokt' || a.base?.toLowerCase() === 'upokt'
+  );
+  return poktAsset?.coingecko_id || 'pocket-network';
+});
+
+// Fetch POKT price
+async function loadPoktPrice() {
+  const coinId = poktCoingeckoId.value;
+  if (coinId) {
+    try {
+      await coingecko.fetchCoinPrice([coinId]);
+    } catch (error) {
+      console.error('Error fetching POKT price:', error);
+    }
+  }
+}
+
 async function loadAll(address: string) {
   // Increment token to invalidate any in-flight requests from previous address
   const token = ++activeLoadToken
@@ -131,6 +153,7 @@ async function loadAll(address: string) {
   // Fire in parallel; each callee checks the token before mutating state
   void loadAccount(address)
   void loadAddressPerformance(address)
+  void loadPoktPrice()
 }
 
 onMounted(() => {
@@ -225,6 +248,72 @@ const donutData = computed(() => {
   //   amount: format.tokenDisplayNumber(r)
   // })) || [];
   return [...balanceSlices, ...delegationSlices /*, ...rewardSlices*/];
+});
+
+// USD Value Computed Properties
+const poktPrice = computed(() => {
+  const coinId = poktCoingeckoId.value;
+  if (!coinId || !coingecko.prices[coinId]) {
+    return null;
+  }
+  const priceData = coingecko.prices[coinId];
+  return priceData.usd ? parseFloat(priceData.usd) : null;
+});
+
+// Helper function to get USD value for a token amount (in base units)
+function getUsdValue(amount: string | number, denom: string): string {
+  // Only calculate USD for POKT tokens (skip MACT and others)
+  const denomUpper = String(denom).toUpperCase();
+  if (denomUpper.includes('MACT') || !denomUpper.includes('POKT')) {
+    return '';
+  }
+  
+  const price = poktPrice.value;
+  if (!price || !amount) {
+    return '';
+  }
+  
+  // Convert from base units (upokt) to display units (POKT)
+  const amountInPokt = Number(amount) / Math.pow(10, 6);
+  const usdValue = amountInPokt * price;
+  
+  // Format with commas and 2 decimal places
+  if (usdValue < 0.01) {
+    return `$${usdValue.toFixed(4)}`;
+  }
+  return `$${usdValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+// Total USD value of the portfolio
+const totalUsdValue = computed(() => {
+  const price = poktPrice.value;
+  if (!price) {
+    return null;
+  }
+  
+  let total = 0;
+  
+  // Sum all POKT balances
+  balances.value.forEach((balance) => {
+    const denomUpper = balance.denom.toUpperCase();
+    if (!denomUpper.includes('MACT') && denomUpper.includes('POKT')) {
+      const amountInPokt = Number(balance.amount) / Math.pow(10, 6);
+      total += amountInPokt * price;
+    }
+  });
+  
+  // Sum all POKT delegations/stakes
+  delegations.value.forEach((delegation) => {
+    if (delegation.balance?.amount && delegation.balance?.denom) {
+      const denomUpper = delegation.balance.denom.toUpperCase();
+      if (denomUpper.includes('POKT')) {
+        const amountInPokt = Number(delegation.balance.amount) / Math.pow(10, 6);
+        total += amountInPokt * price;
+      }
+    }
+  });
+  
+  return total;
 });
 
 async function loadAccount(address: string) {
@@ -828,16 +917,22 @@ async function loadAddressPerformance(address: string) {
         <div class="rounded-xl border dark:border-gray-700 border-[#FFB206] mb-4 overflow-auto flex-1">
           <div class="flex justify-between text-main mb-4 dark:bg-base-100 bg-base-200 px-4 py-2 w-full">
             <h2 class="text-2xl font-semibold text-[#171C1F] dark:text-[#ffffff;]">{{ $t('account.assets') }}</h2>
+            <div v-if="totalUsdValue !== null" class="flex items-center">
+              <span class="text-sm text-[#64748B] dark:text-gray-400 mr-2">Total Portfolio Value:</span>
+              <span class="text-lg font-bold text-[#171C1F] dark:text-[#ffffff]">
+                ${{ totalUsdValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+              </span>
+            </div>
           </div>
-          <div class="grid md:!grid-cols-2">
+          <div class="grid md:!grid-cols-3">
             <div class="md:!col-span-1">
               <DonutChart 
-                :series="donutData.map(x => x.amount)" 
-                :labels="donutData.map(x => x.label)"
-                :colors="donutData.map(x => x.color)"
+                :series="donutData.filter(x => !x.isMACT).map(x => x.amount)" 
+                :labels="donutData.filter(x => !x.isMACT).map(x => x.label)"
+                :colors="donutData.filter(x => !x.isMACT).map(x => x.color)"
               />
             </div>
-            <div class="md:!col-span-1 md:!mt-0">
+            <div class="md:!col-span-2 md:!mt-0 overflow-scroll">
               <!-- list-->
               <div class="">
                 <!--balances  -->
@@ -871,6 +966,10 @@ async function loadAddressPerformance(address: string) {
                         class="text-sm font-semibold whitespace-nowrap"
                         :class="{ 'text-gray-400': item.isMACT }">
                         {{ item.type === 'balance' ? format.formatToken((item as any).balanceItem) : format.formatToken((item as any).delegationItem?.balance) }}
+                        <span v-if="!item.isMACT && (item.type === 'balance' ? getUsdValue((item as any).balanceItem?.amount, (item as any).balanceItem?.denom) : getUsdValue((item as any).delegationItem?.balance?.amount, (item as any).delegationItem?.balance?.denom))"
+                          class="text-xs text-gray-500 dark:text-gray-400 ml-1">
+                          ({{ item.type === 'balance' ? getUsdValue((item as any).balanceItem?.amount, (item as any).balanceItem?.denom) : getUsdValue((item as any).delegationItem?.balance?.amount, (item as any).delegationItem?.balance?.denom) }})
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -996,18 +1095,24 @@ async function loadAddressPerformance(address: string) {
       <!-- Assets -->
       <div class="w-full">
         <div class="rounded-xl border w-full dark:border-gray-700 border-[#FFB206] mb-4 overflow-auto">
-          <div class="flex justify-between text-main mb-4 dark:bg-base-100 bg-base-200 px-4 py-2 w-full">
+          <div class="flex flex-col sm:flex-row justify-between text-main mb-4 dark:bg-base-100 bg-base-200 px-4 py-2 w-full">
             <h2 class="text-2xl font-semibold text-[#171C1F] dark:text-[#ffffff;]">{{ $t('account.assets') }}</h2>
+            <div v-if="totalUsdValue !== null" class="flex items-center mt-2 sm:mt-0">
+              <span class="text-sm text-[#64748B] dark:text-gray-400 mr-2">Total Portfolio Value:</span>
+              <span class="text-lg font-bold text-[#171C1F] dark:text-[#ffffff]">
+                ${{ totalUsdValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+              </span>
+            </div>
           </div>
-          <div class="grid md:!grid-cols-2">
+          <div class="grid md:!grid-cols-3">
             <div class="md:!col-span-1">
               <DonutChart 
-                :series="donutData.map(x => x.amount)" 
-                :labels="donutData.map(x => x.label)"
-                :colors="donutData.map(x => x.color)"
+                :series="donutData.filter(x => !x.isMACT).map(x => x.amount)" 
+                :labels="donutData.filter(x => !x.isMACT).map(x => x.label)"
+                :colors="donutData.filter(x => !x.isMACT).map(x => x.color)"
               />
             </div>
-            <div class="md:!col-span-1 md:!mt-0">
+            <div class="md:!col-span-2 md:!mt-0 overflow-scroll">
               <!-- list-->
               <div class="">
                 <!--balances  -->
@@ -1041,6 +1146,10 @@ async function loadAddressPerformance(address: string) {
                         class="text-sm font-semibold whitespace-nowrap"
                         :class="{ 'text-gray-400': item.isMACT }">
                         {{ item.type === 'balance' ? format.formatToken((item as any).balanceItem) : format.formatToken((item as any).delegationItem?.balance) }}
+                        <span v-if="!item.isMACT && (item.type === 'balance' ? getUsdValue((item as any).balanceItem?.amount, (item as any).balanceItem?.denom) : getUsdValue((item as any).delegationItem?.balance?.amount, (item as any).delegationItem?.balance?.denom))"
+                          class="text-xs text-gray-500 dark:text-gray-400 ml-1">
+                          ({{ item.type === 'balance' ? getUsdValue((item as any).balanceItem?.amount, (item as any).balanceItem?.denom) : getUsdValue((item as any).delegationItem?.balance?.amount, (item as any).delegationItem?.balance?.denom) }})
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -1697,8 +1806,9 @@ async function loadAddressPerformance(address: string) {
     </div>
 
     <!-- Pagination -->
-    <div class="flex justify-between items-center gap-4 my-6 px-6">
-      <div class="flex items-center gap-2">
+    <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4 my-6 px-3 md:px-6">
+      <!-- Page Size Selector -->
+      <div class="flex items-center gap-2 justify-center md:justify-start">
         <span class="text-sm text-gray-600">Show:</span>
         <select 
           v-model="txItemsPerPage" 
@@ -1709,43 +1819,52 @@ async function loadAddressPerformance(address: string) {
           <option :value="50">50</option>
           <option :value="100">100</option>
         </select>
-        <span class="text-sm text-gray-600">per page</span>
+        <span class="text-sm text-gray-600 hidden sm:inline">per page</span>
       </div>
 
-      <div class="flex items-center gap-2">
-        <span class="text-sm text-gray-600">
+      <!-- Pagination Info and Controls -->
+      <div class="flex flex-col sm:flex-row items-center gap-3 sm:gap-2">
+        <!-- Info Text - Hidden on mobile, shown on tablet+ -->
+        <span class="text-sm text-gray-600 hidden md:inline">
           Showing {{ ((currentTxPage - 1) * txItemsPerPage) + 1 }} to {{ Math.min(currentTxPage * txItemsPerPage, totalTxCount) }} of {{ totalTxCount }} transactions
         </span>
         
+        <!-- Compact Info for Mobile -->
+        <span class="text-xs text-gray-600 md:hidden text-center">
+          {{ totalTxCount }} total
+        </span>
+        
+        <!-- Pagination Buttons -->
         <div class="flex items-center gap-1">
+          <!-- First/Last buttons - Hidden on mobile -->
           <button
-            class="page-btn bg-[#f8f9fa] border border-[#ccc] rounded px-[10px] py-[5px] cursor-pointer text-[#007bff] transition-colors duration-200 hover:bg-[#e9ecef] disabled:opacity-50 disabled:cursor-not-allowed text-[14px]" 
+            class="page-btn bg-[#f8f9fa] border border-[#ccc] rounded px-[10px] py-[5px] cursor-pointer text-[#007bff] transition-colors duration-200 hover:bg-[#e9ecef] disabled:opacity-50 disabled:cursor-not-allowed text-[14px] hidden sm:inline-block" 
             @click="currentTxPage = 1"
             :disabled="currentTxPage === 1 || totalTxPages === 0"
           >
             First
           </button>
           <button
-            class="page-btn bg-[#f8f9fa] border border-[#ccc] rounded px-[10px] py-[5px] cursor-pointer text-[#007bff] transition-colors duration-200 hover:bg-[#e9ecef] disabled:opacity-50 disabled:cursor-not-allowed text-[14px]" 
+            class="page-btn bg-[#f8f9fa] border border-[#ccc] rounded px-[8px] sm:px-[10px] py-[5px] cursor-pointer text-[#007bff] transition-colors duration-200 hover:bg-[#e9ecef] disabled:opacity-50 disabled:cursor-not-allowed text-[14px]" 
             @click="currentTxPage--"
             :disabled="currentTxPage === 1 || totalTxPages === 0"
           >
             &lt;
           </button>
 
-          <span class="text-xs px-2">
+          <span class="text-xs px-2 whitespace-nowrap">
             Page {{ currentTxPage }} of {{ totalTxPages }}
           </span>
 
           <button
-            class="page-btn bg-[#f8f9fa] border border-[#ccc] rounded px-[10px] py-[5px] cursor-pointer text-[#007bff] transition-colors duration-200 hover:bg-[#e9ecef] disabled:opacity-50 disabled:cursor-not-allowed text-[14px]" 
+            class="page-btn bg-[#f8f9fa] border border-[#ccc] rounded px-[8px] sm:px-[10px] py-[5px] cursor-pointer text-[#007bff] transition-colors duration-200 hover:bg-[#e9ecef] disabled:opacity-50 disabled:cursor-not-allowed text-[14px]" 
             @click="currentTxPage++"
             :disabled="currentTxPage === totalTxPages || totalTxPages === 0"
           >
             &gt;
           </button>
           <button
-            class="page-btn bg-[#f8f9fa] border border-[#ccc] rounded px-[10px] py-[5px] cursor-pointer text-[#007bff] transition-colors duration-200 hover:bg-[#e9ecef] disabled:opacity-50 disabled:cursor-not-allowed text-[14px]" 
+            class="page-btn bg-[#f8f9fa] border border-[#ccc] rounded px-[10px] py-[5px] cursor-pointer text-[#007bff] transition-colors duration-200 hover:bg-[#e9ecef] disabled:opacity-50 disabled:cursor-not-allowed text-[14px] hidden sm:inline-block" 
             @click="currentTxPage = totalTxPages"
             :disabled="currentTxPage === totalTxPages || totalTxPages === 0"
           >
