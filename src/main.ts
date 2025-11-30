@@ -5,16 +5,19 @@ import '@/style.css';
 import { createApp, ref } from 'vue';
 import { createPinia } from 'pinia';
 import LazyLoad from 'lazy-load-vue3';
+import { createHead } from '@vueuse/head';
 
 import router from './router';
 import { useBaseStore } from './stores/useBaseStore';
 
 // Create vue app
 const app = createApp(App);
+const head = createHead();
 // Use plugins
 app.use(i18n);
 app.use(createPinia());
 app.use(router);
+app.use(head);
 app.use(LazyLoad, { component: true });
 // Mount vue app
 app.mount('#app');

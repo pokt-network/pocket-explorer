@@ -11,8 +11,9 @@ import DonutChart from '@/components/charts/DonutChart.vue';
 import ApexCharts from 'vue3-apexcharts';
 import { RouterLink } from 'vue-router';
 import { computed, ref } from '@vue/reactivity';
-import { onMounted, watch, onUnmounted } from 'vue';
+import { onMounted, watch, onUnmounted, watchEffect } from 'vue';
 import { Icon } from '@iconify/vue';
+import { useSEO } from '@/composables/useSEO';
 
 import type {
   AuthAccount,
@@ -132,6 +133,27 @@ const poktCoingeckoId = computed(() => {
     (a: any) => a.base === 'upokt' || a.base?.toLowerCase() === 'upokt'
   );
   return poktAsset?.coingecko_id || 'pocket-network';
+});
+
+// SEO Meta Tags
+const chainName = computed(() => blockchain.current?.chainName || props.chain || 'Pocket Network');
+const accountTitle = computed(() => {
+  const shortAddress = props.address ? `${props.address.substring(0, 12)}...${props.address.substring(props.address.length - 6)}` : 'Account';
+  return `Account ${shortAddress} - ${chainName.value}`;
+});
+const accountDescription = computed(() => {
+  const balance = balances.value.find(b => b.denom === 'upokt');
+  const formattedBalance = balance ? format.formatTokenAmount(balance) : '0';
+  return `View account ${props.address?.substring(0, 16)}... on ${chainName.value}. Balance: ${formattedBalance} POKT. View account details, transactions, delegations, and staking information on Pocket Network Explorer.`;
+});
+watchEffect(() => {
+  if (props.address) {
+    useSEO({
+      title: accountTitle.value,
+      description: accountDescription.value,
+      keywords: `${chainName.value}, account ${props.address}, wallet address, account balance, blockchain account, account details`,
+    });
+  }
 });
 
 // Fetch POKT price
@@ -1806,7 +1828,7 @@ async function loadAddressPerformance(address: string) {
     </div>
 
     <!-- Pagination -->
-    <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4 my-6 px-3 md:px-6">
+    <div class="flex flex-row md:flex-col md:justify-between md:items-center gap-4 my-6 px-3 md:px-6">
       <!-- Page Size Selector -->
       <div class="flex items-center gap-2 justify-center md:justify-start">
         <span class="text-sm text-gray-600">Show:</span>

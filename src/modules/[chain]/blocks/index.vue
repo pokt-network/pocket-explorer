@@ -4,6 +4,7 @@ import { useStakingStore, useBaseStore, useFormatter } from '@/stores'
 import { PageRequest } from '@/types'
 import { useBlockchain } from '@/stores'
 import { Icon } from '@iconify/vue';
+import { useSEO } from '@/composables/useSEO';
 
 const props = defineProps(['chain'])
 const tab = ref('blocks')
@@ -12,6 +13,14 @@ const stakingStore = useStakingStore();
 stakingStore.init()
 const format = useFormatter()
 const blockchain = useBlockchain()
+
+// SEO Meta Tags
+const chainName = computed(() => blockchain.current?.chainName || props.chain || 'Pocket Network');
+useSEO({
+  title: `${chainName.value} Blocks`,
+  description: `Browse all blocks on the ${chainName.value} blockchain. View block height, transactions, validators, timestamps, and block details on the Pocket Network Explorer.`,
+  keywords: `${chainName.value}, blocks, blockchain blocks, block explorer, block height, block details`,
+});
 
 const currentBlockHeight = computed(() => {
   return base.latest?.block?.header?.height ?? 0

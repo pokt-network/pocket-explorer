@@ -6,6 +6,7 @@ import { Icon } from '@iconify/vue'
 import { fetchTransactions, type ApiTransaction, type TransactionFilters } from '@/libs/transactions'
 import { secp256k1PubKeyToAccountAddress } from '@/libs/address'
 import { isBech32Address } from '@/libs/utils'
+import { useSEO } from '@/composables/useSEO';
 
 const props = defineProps(['chain'])
 const router = useRouter()
@@ -14,6 +15,14 @@ const tab = ref('recent')
 const base = useBaseStore()
 const chainStore = useBlockchain()
 const format = useFormatter()
+
+// SEO Meta Tags
+const chainName = computed(() => chainStore.current?.chainName || props.chain || 'Pocket Network');
+useSEO({
+  title: `${chainName.value} Transactions`,
+  description: `Explore all transactions on the ${chainName.value} blockchain. Search, filter, and view transaction details, hashes, fees, and status on the Pocket Network Explorer.`,
+  keywords: `${chainName.value}, transactions, tx, transaction hash, blockchain transactions, transaction explorer`,
+});
 
 const hashReg = /^[A-Z\d]{64}$/
 const hash = ref('')

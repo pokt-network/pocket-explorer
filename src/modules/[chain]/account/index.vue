@@ -4,9 +4,19 @@ import { useBaseStore, useBlockchain, useFormatter } from '@/stores';
 import { PageRequest, type AuthAccount, type Pagination } from '@/types';
 import { onMounted } from 'vue';
 import PaginationBar from '@/components/PaginationBar.vue';
+import { useSEO } from '@/composables/useSEO';
+
 const props = defineProps(['chain']);
 
 const chainStore = useBlockchain()
+
+// SEO Meta Tags
+const chainName = computed(() => chainStore.current?.chainName || props.chain || 'Pocket Network');
+useSEO({
+  title: `${chainName.value} Accounts`,
+  description: `Browse all accounts on the ${chainName.value} blockchain. View account addresses, balances, account numbers, sequences, and account details on the Pocket Network Explorer.`,
+  keywords: `${chainName.value}, accounts, wallet addresses, account explorer, blockchain accounts, account balance`,
+});
 
 const accounts = ref([] as AuthAccount[])
 const pageRequest = ref(new PageRequest())

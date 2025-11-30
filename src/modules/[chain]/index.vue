@@ -15,6 +15,7 @@ import {
 import { onMounted, ref, watch, nextTick, onBeforeUnmount } from 'vue';
 import { useIndexModule, colorMap } from './indexStore';
 import { computed } from '@vue/reactivity';
+import { useSEO } from '@/composables/useSEO';
 
 // import CardStatisticsVertical from '@/components/CardStatisticsVertical.vue';
 import ProposalListItem from '@/components/ProposalListItem.vue';
@@ -33,6 +34,14 @@ const format = useFormatter();
 // const stakingStore = useStakingStore();
 const paramStore = useParamStore()
 const base = useBaseStore()
+
+// SEO Meta Tags
+const chainName = computed(() => blockchain.current?.chainName || props.chain || 'Pocket Network');
+useSEO({
+  title: `${chainName.value} Dashboard`,
+  description: `Explore the ${chainName.value} blockchain dashboard. View real-time blocks, transactions, validators, network statistics, and node runner performance on the Pocket Network Explorer.`,
+  keywords: `${chainName.value}, blockchain dashboard, network statistics, validators, node runners`,
+});
 // const coinInfo = computed(() => {
 //   return store.coinInfo;
 // });

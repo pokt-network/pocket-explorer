@@ -5,19 +5,37 @@ import TxsElement from '@/components/dynamic/TxsElement.vue';
 import DynamicComponent from '@/components/dynamic/DynamicComponent.vue';
 import { computed } from '@vue/reactivity';
 import { onBeforeRouteUpdate } from 'vue-router';
-import { useBaseStore, useFormatter } from '@/stores';
+import { useBaseStore, useFormatter, useBlockchain } from '@/stores';
 import type { Block } from '@/types';
 import Countdown from '@/components/Countdown.vue';
+import { useSEO } from '@/composables/useSEO';
 
 const props = defineProps(['height', 'chain']);
 
 const store = useBaseStore();
 const format = useFormatter()
+const blockchain = useBlockchain();
 const current = ref({} as Block)
 const target = ref(Number(props.height || 0))
 
 const height = computed(() => {
   return Number(current.value.block?.header?.height || props.height || 0);
+});
+
+// SEO Meta Tags
+const chainName = computed(() => blockchain.current?.chainName || props.chain || 'Pocket Network');
+const blockTitle = computed(() => `Block #${height.value} - ${chainName.value}`);
+const blockDescription = computed(() => {
+  const txCount = current.value.block?.data?.txs?.length || 0;
+  const blockHash = current.value.block_id?.hash || '';
+  return `View block #${height.value} on ${chainName.value}. Block hash: ${blockHash.substring(0, 16)}..., ${txCount} transactions, validator information, and block details on Pocket Network Explorer.`;
+});
+watchEffect(() => {
+  useSEO({
+    title: blockTitle.value,
+    description: blockDescription.value,
+    keywords: `${chainName.value}, block ${height.value}, block hash, blockchain block, block details`,
+  });
 });
 
 const isFutureBlock = computed({

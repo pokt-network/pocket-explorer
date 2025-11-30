@@ -10,8 +10,8 @@ import { JsonViewer } from "vue3-json-viewer"
 // if you used v1.0.5 or latster ,you should add import "vue3-json-viewer/dist/index.css"
 import "vue3-json-viewer/dist/index.css";
 
-import { watch } from 'vue'
-
+import { watch, watchEffect } from 'vue'
+import { useSEO } from '@/composables/useSEO';
 
 const props = defineProps(['hash', 'chain']);
 
@@ -48,6 +48,25 @@ const messages = computed(() => {
         }
         return x
     }) || [];
+});
+
+// SEO Meta Tags
+const chainName = computed(() => blockchain.current?.chainName || props.chain || 'Pocket Network');
+const txTitle = computed(() => `Transaction ${props.hash?.substring(0, 16)}... - ${chainName.value}`);
+const txDescription = computed(() => {
+  const status = tx.value.tx_response?.code === 0 ? 'successful' : 'failed';
+  const height = tx.value.tx_response?.height || 'N/A';
+  const msgCount = messages.value.length;
+  return `View transaction ${props.hash?.substring(0, 16)}... on ${chainName.value}. Status: ${status}, Block: ${height}, ${msgCount} message(s). Transaction details, fees, and messages on Pocket Network Explorer.`;
+});
+watchEffect(() => {
+  if (props.hash) {
+    useSEO({
+      title: txTitle.value,
+      description: txDescription.value,
+      keywords: `${chainName.value}, transaction ${props.hash}, tx hash, blockchain transaction, transaction details`,
+    });
+  }
 });
 
  // 🧠 Clean formatted JSON
