@@ -13,6 +13,7 @@ const list = ref<Gateway[]>([]);
 const loading = ref(false);
 const pageRequest = ref(new PageRequest());
 const pageResponse = ref({} as Pagination);
+const balanceLoading = ref<Record<string, boolean>>({});
 
 const currentPage = ref(1);
 const itemsPerPage = ref(25);
@@ -61,18 +62,11 @@ async function loadGateways() {
     const response = await chainStore.rpc.getGateways(pageRequest.value);
     list.value = response.gateways || [];
     pageResponse.value = response.pagination || {};
-    // 🔹 Fallback fetch for missing balances
-    for (const app of list.value) {
-      if (!app.balance || !app.balance.amount) {
-        try {
-          const bal: PaginatedBalances = await chainStore.rpc.getBankBalances(app.address)
-          app.balance = bal.balances.find(b => b.denom === 'upokt') || { denom: 'upokt', amount: '0' }
-        } catch (e) {
-          console.error('Error fetching balance for', app.address, e)
-          app.balance = { denom: 'TOKEN', amount: '0' }
-        }
-      }
-    }
+
+    // 🔹 Trigger async, batched balance fetching (non-blocking for main loading state)
+    fetchBalancesInBatches().catch((e) => {
+      console.error('Error fetching gateway balances in batches:', e);
+    });
   } catch (error) {
     console.error('Error loading gateways:', error);
     list.value = [];
@@ -86,6 +80,49 @@ async function waitForRpc() {
   while (!chainStore.rpc) {
     console.log('⏳ Waiting for chainStore.rpc...');
     await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+}
+
+// 🔹 Fetch balances concurrently in batches of 10 without blocking table render
+async function fetchBalancesInBatches() {
+  if (!chainStore.rpc) {
+    await waitForRpc();
+  }
+
+  const itemsNeedingBalance = list.value.filter(
+    (gw) => !gw.balance || !gw.balance.amount
+  );
+
+  const batchSize = 10;
+
+  for (let i = 0; i < itemsNeedingBalance.length; i += batchSize) {
+    const batch = itemsNeedingBalance.slice(i, i + batchSize);
+
+    await Promise.all(
+      batch.map(async (gw) => {
+        const key = gw.address;
+        if (!key) return;
+
+        balanceLoading.value[key] = true;
+
+        try {
+          const bal: PaginatedBalances = await chainStore.rpc!.getBankBalances(
+            gw.address
+          );
+          const upokt =
+            bal.balances.find((b) => b.denom === 'upokt') || {
+              denom: 'upokt',
+              amount: '0',
+            };
+          gw.balance = upokt;
+        } catch (e) {
+          console.error('Error fetching balance for', gw.address, e);
+          gw.balance = gw.balance || { denom: 'upokt', amount: '0' };
+        } finally {
+          balanceLoading.value[key] = false;
+        }
+      })
+    );
   }
 }
 
@@ -191,7 +228,14 @@ onMounted(() => {
               </span>
             </td>
             <td class="font-bold dark:text-secondary">{{ format.formatToken(item.stake) }}</td>
-            <td class="dark:text-secondary">{{ item.balance ? format.formatToken(item.balance) : '-' }}</td>
+            <td class="dark:text-secondary">
+              <span v-if="balanceLoading[item.address] && !item.balance">
+                <span class="loading loading-spinner loading-xs"></span>
+              </span>
+              <span v-else>
+                {{ item.balance ? format.formatToken(item.balance) : '-' }}
+              </span>
+            </td>
           </tr>
         </tbody>
       </table>

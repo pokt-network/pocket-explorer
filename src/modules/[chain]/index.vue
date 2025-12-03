@@ -218,6 +218,7 @@ const blocksPage = ref(1);
 const blocksLimit = ref(25);
 const blocksTotal = ref(0);
 const blocksTotalPages = ref(0);
+const avgBlockProductionTime = ref<string | null>(null);
 
 async function loadBlocks() {
   loadingBlocks.value = true;
@@ -229,6 +230,7 @@ async function loadBlocks() {
       blocks.value = result.data || [];
       blocksTotal.value = result.meta?.total || 0;
       blocksTotalPages.value = result.meta?.totalPages || 0;
+      avgBlockProductionTime.value = Number(result.meta?.avgBlockProductionTime || null).toFixed(2) || null;
     } else {
       blocks.value = [];
       blocksTotal.value = 0;
@@ -831,8 +833,8 @@ async function loadNetworkGrowthTimeSeries(windowDays: number = 7) {
     chartCategories.value = labels;
 
     historicalData.value.series[0].data = applications as never[];
-    historicalData.value.series[1].data = suppliers as never[];
-    historicalData.value.series[2].data = gateways as never[];
+    historicalData.value.series[1].data = gateways as never[];
+    historicalData.value.series[2].data = suppliers as never[];
     historicalData.value.series[3].data = services as never[];
     historicalData.value.series[4].data = relaysDaily as never[];
     historicalData.value.series[5].data = computeUnitsDaily as never[];
@@ -1118,7 +1120,7 @@ function formatBlockTime(secondsStr?: string | number) {
                 <Icon icon="mdi:timer-outline" class="text-sm text-[#64748B] mr-1" />
                 <span class="text-xs text-secondary">Avg Block Time (24h)</span>
               </div>
-              <div class="text-xl text-main flex items-center justify-center font-medium"> {{ averageBlockTime }}s
+              <div class="text-xl text-main flex items-center justify-center font-medium"> {{ avgBlockProductionTime || 0  }}s
               </div>
             </div>
           </div>
@@ -1308,7 +1310,7 @@ function formatBlockTime(secondsStr?: string | number) {
                     <span class="text-[10px] max-[1024px]:text-[8px] max-[1024px]:font-bold text-secondary">Avg Block Time (24h)</span>
                   </div>
                   <div class="text-xl max-[1024px]:text-xs text-main flex items-center justify-center font-medium">
-                    {{ averageBlockTime }}s
+                    {{ avgBlockProductionTime || 0 }}s
                   </div>
                 </div>
               </div>

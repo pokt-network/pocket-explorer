@@ -13,6 +13,7 @@ const list = ref<Supplier[]>([]);
 const loading = ref(false);
 const pageRequest = ref(new PageRequest());
 const pageResponse = ref<Pagination>({} as Pagination);
+const balanceLoading = ref<Record<string, boolean>>({});
 
 // 🔹 Pagination state
 const currentPage = ref(1);
@@ -63,18 +64,10 @@ async function loadSuppliers() {
     list.value = response.supplier || [];
     pageResponse.value = response.pagination || {};
 
-    // 🔹 Fallback fetch for missing balances
-    for (const app of list.value) {
-      if (!app.balance || !app.balance.amount) {
-        try {
-          const bal: PaginatedBalances = await chainStore.rpc.getBankBalances(app.operator_address)
-          app.balance = bal.balances.find(b => b.denom === 'upokt') || { denom: 'upokt', amount: '0' }
-        } catch (e) {
-          console.error('Error fetching balance for', app.operator_address, e)
-          app.balance = { denom: 'TOKEN', amount: '0' }
-        }
-      }
-    }
+    // 🔹 Trigger async, batched balance fetching (non-blocking for main loading state)
+    fetchBalancesInBatches().catch((e) => {
+      console.error('Error fetching supplier balances in batches:', e);
+    });
   } catch (error) {
     console.error('Error loading suppliers:', error);
     list.value = [];
@@ -88,6 +81,49 @@ async function waitForRpc() {
   while (!chainStore.rpc) {
     console.log('⏳ Waiting for chainStore.rpc...');
     await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+}
+
+// 🔹 Fetch balances concurrently in batches of 10 without blocking table render
+async function fetchBalancesInBatches() {
+  if (!chainStore.rpc) {
+    await waitForRpc();
+  }
+
+  const itemsNeedingBalance = list.value.filter(
+    (s) => !s.balance || !s.balance.amount
+  );
+
+  const batchSize = 10;
+
+  for (let i = 0; i < itemsNeedingBalance.length; i += batchSize) {
+    const batch = itemsNeedingBalance.slice(i, i + batchSize);
+
+    await Promise.all(
+      batch.map(async (s) => {
+        const key = s.operator_address;
+        if (!key) return;
+
+        balanceLoading.value[key] = true;
+
+        try {
+          const bal: PaginatedBalances = await chainStore.rpc!.getBankBalances(
+            s.operator_address
+          );
+          const upokt =
+            bal.balances.find((b) => b.denom === 'upokt') || {
+              denom: 'upokt',
+              amount: '0',
+            };
+          s.balance = upokt;
+        } catch (e) {
+          console.error('Error fetching balance for', s.operator_address, e);
+          s.balance = s.balance || { denom: 'upokt', amount: '0' };
+        } finally {
+          balanceLoading.value[key] = false;
+        }
+      })
+    );
   }
 }
 
@@ -303,7 +339,12 @@ const statusText = computed(() => (value.value === 'stake' ? 'Staked' : 'Unstake
               {{ format.formatToken(item.stake) }}
             </td>
             <td class="dark:text-secondary">
-              {{ format.formatToken(item.balance) }}
+              <span v-if="balanceLoading[item.operator_address] && !item.balance">
+                <span class="loading loading-spinner loading-xs"></span>
+              </span>
+              <span v-else>
+                {{ item.balance ? format.formatToken(item.balance) : '-' }}
+              </span>
             </td>
             <td>{{ item.services?.length || 0 }}</td>
             <td>
