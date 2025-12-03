@@ -34,7 +34,10 @@ export function useSEO(options: {
     if (canonical) {
       return canonical;
     }
-    return `${baseUrl}${route.fullPath}`;
+    if (route?.fullPath) {
+      return `${baseUrl}${route.fullPath}`;
+    }
+    return baseUrl;
   };
 
   const getImage = () => {
