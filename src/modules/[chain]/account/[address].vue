@@ -1828,7 +1828,7 @@ async function loadAddressPerformance(address: string) {
     </div>
 
     <!-- Pagination -->
-    <div class="flex flex-row md:flex-col md:justify-between md:items-center gap-4 my-6 px-3 md:px-6">
+    <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4 my-6 px-3 md:px-6">
       <!-- Page Size Selector -->
       <div class="flex items-center gap-2 justify-center md:justify-start">
         <span class="text-sm text-gray-600">Show:</span>
