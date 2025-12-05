@@ -149,7 +149,7 @@ const performanceInsights = computed(() => {
       type: 'positive',
       icon: 'mdi:clock-outline',
       title: 'Peak Performance Hour',
-      description: `Best performance at ${peakHour[0]}:00 (${(Number(peakHour[1]) / 1000000).toFixed(2)}M upokt)`,
+      description: `Best performance at ${peakHour[0]}:00 (${(Number(peakHour[1]) / 1000000).toFixed(4)} POKT)`,
     });
   }
 

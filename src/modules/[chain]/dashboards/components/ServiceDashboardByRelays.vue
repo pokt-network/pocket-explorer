@@ -3,7 +3,7 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import { Icon } from '@iconify/vue';
 import ApexCharts from 'vue3-apexcharts';
-import { useBlockchain } from '@/stores';
+import { useBlockchain, useFormatter } from '@/stores';
 
 const props = defineProps<{
   chain?: string;
@@ -14,6 +14,7 @@ const props = defineProps<{
 }>();
 
 const chainStore = useBlockchain();
+const format = useFormatter();
 
 // Map frontend chain names to API chain names
 const getApiChainName = (chainName: string) => {
@@ -181,12 +182,12 @@ const selectedApplication = ref('');
 const startDate = ref('');
 const endDate = ref('');
 
-const rewardsChartSeries = ref([{ name: 'Total Rewards (upokt)', data: [] as number[] }]);
+const rewardsChartSeries = ref([{ name: 'Total Rewards (POKT)', data: [] as number[] }]);
 const efficiencyChartSeries = ref([{ name: 'Avg Efficiency %', data: [] as number[] }]);
 const relaysChartSeries = ref([{ name: 'Total Relays', data: [] as number[] }]);
 
 // Bar chart for top services by rewards (most recent hour)
-const topServicesChartSeries = ref([{ name: 'Rewards (upokt)', data: [] as number[] }]);
+const topServicesChartSeries = ref([{ name: 'Rewards (POKT)', data: [] as number[] }]);
 const topServicesChartType = ref<'bar' | 'area' | 'line'>('bar');
 const topServicesChartCategories = ref<string[]>([]);
 
@@ -221,7 +222,11 @@ const topServicesChartOptions = computed(() => {
   return {
     chart: { type: chartType, height: 360, toolbar: { show: false } },
     colors: ['#A3E635'],
-    dataLabels: { enabled: chartType === 'bar', formatter: (v: number) => (v / 1000000).toFixed(2) + 'M', style: { colors: ['#000'] } },
+    dataLabels: { enabled: chartType === 'bar', formatter: (v: number) => {
+      if (v >= 1000000) return (v / 1000000).toFixed(2) + 'M';
+      if (v >= 1000) return (v / 1000).toFixed(1) + 'K';
+      return v.toFixed(4);
+    }, style: { colors: ['#000'] } },
     plotOptions: chartType === 'bar' ? { bar: { horizontal: false, columnWidth: '55%', borderRadius: 4 } } : {},
     stroke: strokeConfig,
     fill: fillConfig,
@@ -232,8 +237,12 @@ const topServicesChartOptions = computed(() => {
       hover: { size: 6 }
     } : { size: 2, hover: { size: 5 } },
     xaxis: { categories: topServicesChartCategories.value, labels: { style: { colors: 'rgb(116, 109, 105)' }, rotate: -45, rotateAlways: false } },
-    yaxis: { labels: { style: { colors: 'rgb(116, 109, 105)' }, formatter: (v: number) => (v / 1000000).toFixed(2) + 'M' } },
-    tooltip: { theme: 'dark', y: { formatter: (v: number) => v.toLocaleString() + ' upokt' } }
+    yaxis: { labels: { style: { colors: 'rgb(116, 109, 105)' }, formatter: (v: number) => {
+      if (v >= 1000000) return (v / 1000000).toFixed(2) + 'M';
+      if (v >= 1000) return (v / 1000).toFixed(1) + 'K';
+      return v.toFixed(4);
+    } } },
+    tooltip: { theme: 'dark', y: { formatter: (v: number) => v.toFixed(4) + ' POKT' } }
   };
 });
 
@@ -274,7 +283,7 @@ const timeSeriesChartOptions = computed(() => {
           if (v >= 1000) return (v / 1000).toFixed(1) + 'K';
           return v.toFixed(0);
         }},
-        title: { text: 'Rewards (upokt) / Relays', style: { color: '#A3E635' } }
+        title: { text: 'Rewards (POKT) / Relays', style: { color: '#A3E635' } }
       },
       {
         opposite: true,
@@ -285,8 +294,8 @@ const timeSeriesChartOptions = computed(() => {
       }
     ],
     tooltip: { theme: 'dark', shared: true, y: [
-      { formatter: (v: number) => v.toLocaleString() + ' upokt/relays' },
-      { formatter: (v: number) => v.toLocaleString() + ' upokt/relays' },
+      { formatter: (v: number) => (v / 1000000).toFixed(4) + ' POKT/relays' },
+      { formatter: (v: number) => (v / 1000000).toFixed(4) + ' POKT/relays' },
       { formatter: (v: number) => v.toFixed(2) + '%' }
     ]},
     legend: { position: 'top', horizontalAlign: 'right' }
@@ -305,12 +314,12 @@ const barChartOptions = computed(() => ({
   plotOptions: { bar: { horizontal: false, columnWidth: '55%', borderRadius: 4 } },
   grid: { borderColor: 'rgba(255, 255, 255, 0.1)' },
   xaxis: { categories: rewardsDistributionChart.value.labels, labels: { style: { colors: 'rgb(116, 109, 105)' }, rotate: -45 } },
-  yaxis: { labels: { style: { colors: 'rgb(116, 109, 105)' }, formatter: (v: number) => {
+    yaxis: { labels: { style: { colors: 'rgb(116, 109, 105)' }, formatter: (v: number) => {
     if (v >= 1000000) return (v / 1000000).toFixed(2) + 'M';
     if (v >= 1000) return (v / 1000).toFixed(1) + 'K';
-    return v.toFixed(0);
+    return v.toFixed(4);
   }}},
-  tooltip: { theme: 'dark' }
+  tooltip: { theme: 'dark', y: { formatter: (v: number) => v.toFixed(4) + ' POKT' } }
 }));
 
 const pieChartOptions = computed(() => ({
@@ -485,9 +494,9 @@ function updateServiceCharts() {
   const topN = Math.min(20, sorted.length);
   const topServices = sorted.slice(0, topN);
 
-  // Rewards Distribution
+  // Rewards Distribution (convert from upokt to POKT)
   rewardsDistributionChart.value = {
-    series: topServices.map(s => parseInt(s.total_rewards_upokt || '0')),
+    series: topServices.map(s => parseInt(s.total_rewards_upokt || '0') / 1000000),
     labels: topServices.map(s => s.service_id || 'unknown')
   };
 
@@ -503,9 +512,9 @@ function updateServiceCharts() {
     labels: topServices.map(s => s.service_id || 'unknown')
   };
 
-  // Reward Per Relay
+  // Reward Per Relay (convert from upokt to POKT)
   rewardPerRelayChart.value = {
-    series: topServices.map(s => parseFloat(s.avg_reward_per_relay || '0')),
+    series: topServices.map(s => parseFloat(s.avg_reward_per_relay || '0') / 1000000),
     labels: topServices.map(s => s.service_id || 'unknown')
   };
 
@@ -583,10 +592,6 @@ function applyFilters() {
 }
 
 function formatNumber(num: number | string): string { return new Intl.NumberFormat().format(typeof num === 'string' ? parseInt(num) : num); }
-function formatUpokt(upokt: number | string): string { 
-  const value = typeof upokt === 'string' ? parseInt(upokt) : upokt;
-  return (value / 1000000).toFixed(4);
-}
 
 // Watch for filter changes and reload data
 watch(() => props.filters, () => {
@@ -646,7 +651,7 @@ onMounted(() => {
         </div>
         <div class="dark:bg-base-100 bg-base-200 rounded-lg p-2">
           <div class="text-xs text-secondary mb-1">Total Rewards</div>
-          <div class="text-lg font-bold">{{ formatUpokt(summaryStats.total_rewards_upokt) }}</div>
+          <div class="text-lg font-bold">{{ format.formatToken({ denom: 'upokt', amount: String(summaryStats.total_rewards_upokt) }) }}</div>
         </div>
       </div>
     </div>
@@ -706,7 +711,7 @@ onMounted(() => {
                 </span>
                 <span class="font-medium">{{ service.service_id }}</span>
               </div>
-              <span class="text-secondary">{{ formatUpokt(service.total_rewards_upokt) }} POKT</span>
+              <span class="text-secondary">{{ format.formatToken({ denom: 'upokt', amount: String(service.total_rewards_upokt) }) }}</span>
             </div>
           </div>
         </div>
@@ -761,7 +766,7 @@ onMounted(() => {
             type="bar" 
             height="300" 
             :options="barChartOptions" 
-            :series="[{ name: 'Rewards (upokt)', data: rewardsDistributionChart.series }]"
+            :series="[{ name: 'Rewards (POKT)', data: rewardsDistributionChart.series.map(v => v / 1000000) }]"
           />
         </div>
 
@@ -868,7 +873,7 @@ onMounted(() => {
                   <span class="badge badge-primary">{{ service.service_id || '-' }}</span>
                 </td>
                 <td class="dark:bg-base-200 bg-white text-xs">{{ service.chain || '-' }}</td>
-                <td class="dark:bg-base-200 bg-white font-medium">{{ formatUpokt(service.total_rewards_upokt) }} POKT</td>
+                <td class="dark:bg-base-200 bg-white font-medium">{{ format.formatToken({ denom: 'upokt', amount: String(service.total_rewards_upokt) }) }}</td>
                 <td class="dark:bg-base-200 bg-white">{{ formatNumber(parseInt(service.total_relays || '0')) }}</td>
                 <td class="dark:bg-base-200 bg-white">{{ formatNumber(parseInt(service.total_submissions || '0')) }}</td>
                 <td class="dark:bg-base-200 bg-white">
@@ -876,11 +881,11 @@ onMounted(() => {
                     {{ parseFloat(service.avg_efficiency_percent || '0').toFixed(2) }}%
                   </span>
                 </td>
-                <td class="dark:bg-base-200 bg-white">{{ parseFloat(service.avg_reward_per_relay || '0').toFixed(2) }} upokt</td>
+                <td class="dark:bg-base-200 bg-white">{{ format.formatToken({ denom: 'upokt', amount: String(service.avg_reward_per_relay || '0') }) }}</td>
                 <td class="dark:bg-base-200 bg-white text-xs">{{ formatNumber(parseInt(service.total_claimed_compute_units || '0')) }}</td>
                 <td class="dark:bg-base-200 bg-white text-xs">{{ formatNumber(parseInt(service.total_estimated_compute_units || '0')) }}</td>
-                <td class="dark:bg-base-200 bg-white text-xs">{{ formatNumber(parseInt(service.max_reward_per_submission || '0')) }}</td>
-                <td class="dark:bg-base-200 bg-white text-xs">{{ formatNumber(parseInt(service.min_reward_per_submission || '0')) }}</td>
+                <td class="dark:bg-base-200 bg-white text-xs">{{ format.formatToken({ denom: 'upokt', amount: String(service.max_reward_per_submission || '0') }) }}</td>
+                <td class="dark:bg-base-200 bg-white text-xs">{{ format.formatToken({ denom: 'upokt', amount: String(service.min_reward_per_submission || '0') }) }}</td>
               </tr>
             </tbody>
           </table>

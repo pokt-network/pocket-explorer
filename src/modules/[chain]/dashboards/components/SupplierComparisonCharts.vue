@@ -202,7 +202,7 @@ const comparisonChartOptions = computed(() => ({
   yaxis: {
     labels: { style: { colors: 'rgb(116, 109, 105)' }, formatter: (v: number) => (v / 1000000).toFixed(2) + 'M' },
   },
-  tooltip: { theme: 'dark', y: { formatter: (v: number) => v.toLocaleString() + ' upokt' } },
+  tooltip: { theme: 'dark', y: { formatter: (v: number) => (v / 1000000).toFixed(4) + ' POKT' } },
   legend: { position: 'top', horizontalAlign: 'right' },
 }));
 

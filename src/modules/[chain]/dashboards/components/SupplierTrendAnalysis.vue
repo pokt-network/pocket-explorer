@@ -222,7 +222,7 @@ const trendChartOptions = computed(() => ({
   yaxis: {
     labels: { style: { colors: 'rgb(116, 109, 105)' }, formatter: (v: number) => (v / 1000000).toFixed(2) + 'M' },
   },
-  tooltip: { theme: 'dark', y: { formatter: (v: number) => v ? v.toLocaleString() + ' upokt' : '' } },
+  tooltip: { theme: 'dark', y: { formatter: (v: number) => v ? (v / 1000000).toFixed(4) + ' POKT' : '' } },
   legend: { position: 'top', horizontalAlign: 'right' },
   markers: {
     size: [4, 4, 0, 0, 0],
@@ -345,7 +345,7 @@ onMounted(() => {
           <div class="p-3 bg-base-200 dark:bg-base-300 rounded">
             <div class="text-xs text-secondary mb-1">Predicted Total Rewards</div>
             <div class="text-lg font-bold">
-              {{ ((predictionMode === '24h' ? predictions24h : predictions7d).reduce((sum, p) => sum + p.predicted_rewards, 0) / 1000000).toFixed(2) }}M upokt
+              {{ ((predictionMode === '24h' ? predictions24h : predictions7d).reduce((sum, p) => sum + p.predicted_rewards, 0) / 1000000).toFixed(4) }} POKT
             </div>
           </div>
           <div class="p-3 bg-base-200 dark:bg-base-300 rounded">

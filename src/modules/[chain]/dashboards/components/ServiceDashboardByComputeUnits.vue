@@ -343,7 +343,7 @@ const rewardsChartOptions = ref({
   markers: { size: 0 },
   xaxis: { categories: [] as string[], labels: { style: { colors: 'rgb(116, 109, 105)' } } },
   yaxis: { labels: { style: { colors: 'rgb(116, 109, 105)' }, formatter: (v: number) => (v / 1000000).toFixed(1) + 'M' } },
-  tooltip: { theme: 'dark', y: { formatter: (v: number) => v.toLocaleString() + ' upokt' } }
+  tooltip: { theme: 'dark', y: { formatter: (v: number) => (v / 1000000).toFixed(4) + ' POKT' } }
 });
 
 const efficiencyChartOptions = ref({
@@ -497,8 +497,8 @@ const rewardTrendsChartSeries = computed(() => {
   
   if (rewardTrendsMetrics.value.rewardPerRelay) {
     series.push({
-      name: 'Reward per Relay (upokt)',
-      data: trends.map(t => t.reward_per_relay),
+      name: 'Reward per Relay (POKT)',
+      data: trends.map(t => t.reward_per_relay / 1000000),
       yAxisIndex: 0
     });
   }
@@ -567,7 +567,7 @@ const rewardTrendsChartOptions = computed(() => {
           style: { colors: 'rgb(116, 109, 105)' },
           formatter: (v: number) => v.toFixed(2)
         },
-        title: { text: 'Rewards (POKT) / Reward per Relay (upokt)', style: { color: 'rgb(116, 109, 105)' } }
+        title: { text: 'Rewards (POKT) / Reward per Relay (POKT)', style: { color: 'rgb(116, 109, 105)' } }
       },
       {
         opposite: true,
@@ -763,7 +763,7 @@ const comparisonMetrics = computed(() => {
 function updateCharts() {
   const sorted = [...rewardAnalytics.value].sort((a, b) => new Date(a.hour_bucket).getTime() - new Date(b.hour_bucket).getTime());
   const labels = sorted.map(d => new Date(d.hour_bucket).toLocaleString());
-  rewardsChartSeries.value = [{ name: 'Total Rewards', data: sorted.map(d => d.total_rewards_upokt) }];
+  rewardsChartSeries.value = [{ name: 'Total Rewards (POKT)', data: sorted.map(d => d.total_rewards_upokt / 1000000) }];
   efficiencyChartSeries.value = [{ name: 'Efficiency %', data: sorted.map(d => d.avg_efficiency_percent) }];
   relaysChartSeries.value = [{ name: 'Total Relays', data: sorted.map(d => d.total_relays) }];
   rewardsChartOptions.value = { ...rewardsChartOptions.value, xaxis: { ...rewardsChartOptions.value.xaxis, categories: labels } };
@@ -1329,7 +1329,7 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
           </div>
           <div class="text-xl font-bold text-success">{{ format.formatToken({ denom: 'upokt', amount: String(summaryStats.total_rewards_upokt) }) }}</div>
           <div class="text-xs text-secondary mt-1">
-            Avg/Relay: {{ format.formatToken({ denom: 'upokt', amount: String(parseFloat(summaryStats.avg_reward_per_relay || '0')) }) }}
+            Avg/Relay: {{ format.formatToken({ denom: 'upokt', amount: String(summaryStats.avg_reward_per_relay || '0') }) }}
           </div>
         </div>
       </div>

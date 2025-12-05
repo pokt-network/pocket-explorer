@@ -1622,7 +1622,7 @@ async function loadAddressPerformance(address: string) {
               <td class="dark:bg-base-200 bg-white" v-if="performanceType === 'application'">{{
                 formatNumber(row.unique_suppliers || 0) }}</td>
               <td class="dark:bg-base-200 bg-white">{{ formatNumber(row.unique_services || 0) }}</td>
-              <td class="dark:bg-base-200 bg-white">{{ (row.avg_reward_per_relay || 0).toFixed(4) }}</td>
+              <td class="dark:bg-base-200 bg-white">{{ format.formatToken({ denom: 'upokt', amount: String(row.avg_reward_per_relay || 0) }) }}</td>
             </tr>
           </tbody>
         </table>
@@ -1828,7 +1828,7 @@ async function loadAddressPerformance(address: string) {
     </div>
 
     <!-- Pagination -->
-    <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4 my-6 px-3 md:px-6">
+    <div class="flex flex-col md:!flex-row md:justify-between md:items-center gap-4 my-6 px-3 md:px-6">
       <!-- Page Size Selector -->
       <div class="flex items-center gap-2 justify-center md:justify-start">
         <span class="text-sm text-gray-600">Show:</span>
