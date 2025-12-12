@@ -740,70 +740,110 @@ async function loadNetworkStats() {
     // Update cache timestamp
     networkStatsCacheTime.value = now;
 
-    // After updating current totals from node, try to load server time series
-    await loadNetworkGrowthTimeSeries().catch(() => {
-      // Fallback to client-side generated data if API fails
-      generateHistoricalData();
+    // Load both performance and entities data in parallel in the background
+    // This ensures both tabs have data ready immediately for instant switching
+    Promise.allSettled([
+      loadNetworkGrowthPerformance(),
+      loadNetworkGrowthEntities()
+    ]).then((results) => {
+      // Check if both failed - only then fallback to generated data
+      const allFailed = results.every(result => result.status === 'rejected');
+      if (allFailed) {
+        console.warn('Both network growth endpoints failed, using fallback data');
+        generateHistoricalData();
+      }
     });
   } catch (error) {
     console.error("Error loading network stats:", error);
   }
 }
 
-// Load time series for network growth from server API and build chart series
-async function loadNetworkGrowthTimeSeries(windowDays: number = 7) {
+// Load performance metrics (relays and compute units) from fast endpoint
+async function loadNetworkGrowthPerformance(windowDays: number = 7) {
   try {
     const params = new URLSearchParams();
     params.append('window', String(windowDays));
     params.append('chain', apiChainName);
 
-    const response = await fetch(`/api/v1/network-growth?${params.toString()}`);
+    const response = await fetch(`/api/v1/network-growth/performance?${params.toString()}`);
     const result = await response.json();
 
     if (!response.ok) {
-      console.error('Error loading network growth:', result);
-      throw new Error('Network growth API error');
+      console.error('Error loading network growth performance:', result);
+      throw new Error('Network growth performance API error');
     }
 
     const timeline = result?.data?.timeline || [];
 
-    // Pre-aggregate by day because API may return two rows per day (entities vs relays/CU)
-    const byDay = new Map<string, { day: string; applications: number; suppliers: number; gateways: number; services: number; relays: number; compute_units: number }>();
-    for (const item of timeline) {
-      // Normalize to YYYY-MM-DD
-      const key = (item.day || '').slice(0, 10);
-      if (!key) continue;
-      const prev = byDay.get(key) || { day: key, applications: 0, suppliers: 0, gateways: 0, services: 0, relays: 0, compute_units: 0 };
-      prev.applications += Number(item.applications || 0);
-      prev.suppliers += Number(item.suppliers || 0);
-      prev.gateways += Number(item.gateways || 0);
-      prev.services += Number(item.services || 0);
-      prev.relays += Number(item.relays || 0);
-      prev.compute_units += Number(item.compute_units || 0);
-      byDay.set(key, prev);
+    // Sort days ascending
+    const daysAsc = timeline.sort((a: any, b: any) => (a.day || '').localeCompare(b.day || ''));
+
+    // Build labels and extract relays/compute units data
+    const labels: string[] = [];
+    const relaysDaily: number[] = [];
+    const computeUnitsDaily: number[] = [];
+    
+    for (const dayItem of daysAsc) {
+      const dayStr = (dayItem.day || '').slice(0, 10);
+      if (!dayStr) continue;
+      
+      const d = new Date(dayStr + 'T00:00:00Z');
+      labels.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+      relaysDaily.push(Number(dayItem.relays || 0));
+      computeUnitsDaily.push(Number(dayItem.compute_units || 0));
     }
 
-    // Sort days ascending
-    const daysAsc = Array.from(byDay.values()).sort((a, b) => a.day.localeCompare(b.day));
+    // Update chart categories (only if not already set or if this is the first data loaded)
+    if (chartCategories.value.length === 0 || chartCategories.value.length === labels.length) {
+      chartCategories.value = labels;
+    }
 
-    // Build labels (e.g., "Jan 15") and transform API daily counts into cumulative
+    // Update performance series (relays and compute units)
+    historicalData.value.series[4].data = relaysDaily as never[];
+    historicalData.value.series[5].data = computeUnitsDaily as never[];
+  } catch (e) {
+    console.error('Error loading network growth performance:', e);
+    // Don't throw - allow entities to still load if performance fails
+  }
+}
+
+// Load entity statistics (applications, suppliers, gateways, services) from entities endpoint
+async function loadNetworkGrowthEntities(windowDays: number = 7) {
+  try {
+    const params = new URLSearchParams();
+    params.append('window', String(windowDays));
+    params.append('chain', apiChainName);
+
+    const response = await fetch(`/api/v1/network-growth/entities?${params.toString()}`);
+    const result = await response.json();
+
+    if (!response.ok) {
+      console.error('Error loading network growth entities:', result);
+      throw new Error('Network growth entities API error');
+    }
+
+    const timeline = result?.data?.timeline || [];
+
+    // Sort days ascending
+    const daysAsc = timeline.sort((a: any, b: any) => (a.day || '').localeCompare(b.day || ''));
+
+    // Build labels and extract entity data
     const labels: string[] = [];
     const applicationsDaily: number[] = [];
     const suppliersDaily: number[] = [];
     const gatewaysDaily: number[] = [];
     const servicesDaily: number[] = [];
-    // Relays and Compute Units (daily sums)
-    const relaysDaily: number[] = [];
-    const computeUnitsDaily: number[] = [];
+    
     for (const dayItem of daysAsc) {
-      const d = new Date(dayItem.day + 'T00:00:00Z');
+      const dayStr = (dayItem.day || '').slice(0, 10);
+      if (!dayStr) continue;
+      
+      const d = new Date(dayStr + 'T00:00:00Z');
       labels.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
       applicationsDaily.push(Number(dayItem.applications || 0));
       suppliersDaily.push(Number(dayItem.suppliers || 0));
       gatewaysDaily.push(Number(dayItem.gateways || 0));
       servicesDaily.push(Number(dayItem.services || 0));
-      relaysDaily.push(Number(dayItem.relays || 0));
-      computeUnitsDaily.push(Number(dayItem.compute_units || 0));
     }
 
     // Current totals from node
@@ -829,18 +869,19 @@ async function loadNetworkGrowthTimeSeries(windowDays: number = 7) {
     const gateways = toCumulative(gatewaysDaily, totalGateways);
     const services = toCumulative(servicesDaily, totalServices);
 
-    // Update chart categories and series
-    chartCategories.value = labels;
+    // Update chart categories (only if not already set or if this is the first data loaded)
+    if (chartCategories.value.length === 0 || chartCategories.value.length === labels.length) {
+      chartCategories.value = labels;
+    }
 
+    // Update entity series (applications, gateways, suppliers, services)
     historicalData.value.series[0].data = applications as never[];
     historicalData.value.series[1].data = gateways as never[];
     historicalData.value.series[2].data = suppliers as never[];
     historicalData.value.series[3].data = services as never[];
-    historicalData.value.series[4].data = relaysDaily as never[];
-    historicalData.value.series[5].data = computeUnitsDaily as never[];
   } catch (e) {
-    // Propagate to allow caller to fallback
-    throw e;
+    console.error('Error loading network growth entities:', e);
+    // Don't throw - allow performance to still load if entities fails
   }
 }
 
