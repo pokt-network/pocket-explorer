@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useBlockchain, useFormatter } from '@/stores'
 import { PageRequest, type Pagination, type Application, type Coin } from '@/types'
 import type { PaginatedBalances } from '@/types/bank'
+import { Icon } from '@iconify/vue'
 
 const props = defineProps<{ chain: string }>()
 
@@ -27,6 +28,12 @@ const expandedDelegateeRows = ref<Record<string, boolean>>({})
 const value = ref('stake')
 const statusText = computed(() => (value.value === 'stake' ? 'Staked' : 'Unstaked'))
 
+// Filter and sort state variables
+const serviceFilter = ref('')
+const statusFilter = ref('all')
+const sortBy = ref<'stake' | 'services' | 'status'>('stake')
+const sortOrder = ref<'asc' | 'desc'>('desc')
+
 // Server-side pagination logic
 const totalPages = computed(() => {
   const total = parseInt(pageResponse.value.total || '0')
@@ -36,12 +43,79 @@ const totalPages = computed(() => {
 
 const totalApplications = computed(() => parseInt(pageResponse.value.total || '0'))
 
-// Client-side sorting (applied after server returns page data)
+// Extract unique service names from all loaded applications
+const availableServices = computed(() => {
+  const services = new Set<string>()
+  list.value.forEach((app) => {
+    if (app.service_configs && Array.isArray(app.service_configs)) {
+      app.service_configs.forEach((sc: any) => {
+        const serviceName = sc.service_name?.length > 0 ? sc.service_name : sc.service_id
+        if (serviceName) {
+          services.add(serviceName)
+        }
+      })
+    }
+  })
+  return Array.from(services).sort()
+})
+
+// Filter by service helper function
+function filterByService(item: Application, serviceName: string): boolean {
+  if (!serviceName) return true
+  if (!item.service_configs || !Array.isArray(item.service_configs)) return false
+  
+  return item.service_configs.some((sc: any) => {
+    const scName = sc.service_name?.length > 0 ? sc.service_name : sc.service_id
+    return scName === serviceName
+  })
+}
+
+// Client-side filtering and sorting (applied after server returns page data)
 const sortedList = computed(() => {
-  return [...list.value].sort((a, b) => {
-    const aStake = parseInt(a.stake.amount || '0')
-    const bStake = parseInt(b.stake.amount || '0')
-    return bStake - aStake // high to low
+  // First apply service filter (client-side)
+  let filtered = list.value.filter((item) => filterByService(item, serviceFilter.value))
+  
+  // Then apply sorting
+  return filtered.sort((a, b) => {
+    if (sortBy.value === 'stake') {
+      const aStake = parseInt(a.stake?.amount || '0')
+      const bStake = parseInt(b.stake?.amount || '0')
+      return sortOrder.value === 'desc' ? bStake - aStake : aStake - bStake
+    } else if (sortBy.value === 'services') {
+      const aServices = a.service_configs?.length || 0
+      const bServices = b.service_configs?.length || 0
+      if (aServices !== bServices) {
+        return sortOrder.value === 'desc' ? bServices - aServices : aServices - bServices
+      }
+      // If same count, sort alphabetically by first service name
+      const aFirstService = a.service_configs?.[0] 
+        ? (a.service_configs[0].service_name?.length > 0 ? a.service_configs[0].service_name : a.service_configs[0].service_id) || ''
+        : ''
+      const bFirstService = b.service_configs?.[0]
+        ? (b.service_configs[0].service_name?.length > 0 ? b.service_configs[0].service_name : b.service_configs[0].service_id) || ''
+        : ''
+      const comparison = aFirstService.localeCompare(bFirstService)
+      return sortOrder.value === 'desc' ? -comparison : comparison
+    } else if (sortBy.value === 'status') {
+      const aStatus = getApplicationStatus(a)
+      const bStatus = getApplicationStatus(b)
+      const aIsStaked = aStatus.label === 'Staked'
+      const bIsStaked = bStatus.label === 'Staked'
+      
+      if (aIsStaked !== bIsStaked) {
+        // Staked comes before Unstaked when descending, vice versa when ascending
+        if (sortOrder.value === 'desc') {
+          return aIsStaked ? -1 : 1
+        } else {
+          return aIsStaked ? 1 : -1
+        }
+      }
+      // If same status, sort by stake amount
+      const aStake = parseInt(a.stake?.amount || '0')
+      const bStake = parseInt(b.stake?.amount || '0')
+      return sortOrder.value === 'desc' ? bStake - aStake : aStake - bStake
+    }
+    return 0
   })
 })
 
@@ -56,27 +130,72 @@ watch(itemsPerPage, () => {
   loadApplications()
 })
 
-// Load data from RPC
+// 🔹 Watch for filter changes (reset pagination and reload)
+watch(serviceFilter, () => {
+  currentPage.value = 1
+  loadApplications()
+})
+
+watch(statusFilter, () => {
+  currentPage.value = 1
+  loadApplications()
+})
+
+// 🔹 Watch for sort changes (no API call needed, just re-sort client-side via computed)
+// Note: sortBy and sortOrder changes are handled automatically by the sortedList computed property
+
+// Load data from API
 async function loadApplications() {
-  if (!chainStore.rpc) {
-    await waitForRpc()
-  }
-  
   loading.value = true
   try {
-    pageRequest.value.setPageSize(itemsPerPage.value)
-    pageRequest.value.setPage(currentPage.value)
-    pageRequest.value.count_total = true
+    // Build API URL with query parameters
+    const params = new URLSearchParams()
+    params.append('chain', apiChainName.value)
+    params.append('page', currentPage.value.toString())
+    params.append('limit', itemsPerPage.value.toString())
     
-    const response = await chainStore.rpc.getApplications(pageRequest.value)
-    list.value = response.applications || []
-    pageResponse.value = response.pagination || {}
-
-    // 🔹 Trigger async, batched balance fetching (non-blocking for main loading state)
-    fetchBalancesInBatches().catch((e) => {
-      console.error('Error fetching application balances in batches:', e)
-    })
-
+    // Add status filter if not 'all'
+    if (statusFilter.value !== 'all') {
+      params.append('status', statusFilter.value)
+    }
+    
+    const apiUrl = `/api/v1/applications?${params.toString()}`
+    const apiRes = await fetch(apiUrl)
+    const apiData = await apiRes.json()
+    
+    if (apiRes.ok && apiData.data) {
+      // Map API response format to Application type structure
+      list.value = apiData.data.map((item: any) => ({
+        address: item.address,
+        stake: {
+          denom: item.stake_denom || item.stake?.denom || 'upokt',
+          amount: (item.staked_amount || item.stake?.amount || '0').toString()
+        },
+        balance: item.balance, // May need to fetch separately
+        service_configs: item.service_configs || item.services || [],
+        delegatee_gateway_addresses: item.delegatee_gateway_addresses || [],
+        status: item.status,
+        unstake_session_end_height: item.unstake_session_end_height,
+        unbonding_time: item.unbonding_time,
+        unbonding_height: item.unbonding_height,
+        state: item.state
+      }))
+      
+      // Map pagination response
+      pageResponse.value = {
+        total: apiData.meta?.total?.toString() || '0',
+        next_key: undefined
+      }
+      
+      // 🔹 Trigger async, batched balance fetching (non-blocking for main loading state)
+      fetchBalancesInBatches().catch((e) => {
+        console.error('Error fetching application balances in batches:', e)
+      })
+    } else {
+      console.error('Error loading applications from API:', apiData)
+      list.value = []
+      pageResponse.value = {} as Pagination
+    }
   } catch (error) {
     console.error('Error loading applications:', error)
     list.value = []
@@ -289,6 +408,61 @@ async function loadNetworkStats() {
           <div class="text-xs text-[#64748B]">Unstaking Tokens</div>
           <div class="font-bold">{{ format.formatToken({ denom: 'upokt', amount: networkStats.totalUnstakingTokens.toString() }) }}</div>
         </span>
+      </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="bg-base-200 dark:bg-base-100 rounded-xl p-4 mb-4">
+      <div class="flex items-center gap-2 flex-wrap">
+        <!-- Services Filter -->
+        <div class="flex items-center gap-1.5">
+          <Icon icon="mdi:filter" class="text-base-content/60 text-sm" />
+          <select 
+            v-model="serviceFilter" 
+            class="select select-bordered select-xs h-8 min-h-8 px-2 text-xs w-40"
+          >
+            <option value="">All Services</option>
+            <option v-for="service in availableServices" :key="service" :value="service">
+              {{ service }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Status Filter -->
+        <div class="flex items-center gap-1.5">
+          <Icon icon="mdi:check-circle-outline" class="text-base-content/60 text-sm" />
+          <select 
+            v-model="statusFilter" 
+            class="select select-bordered select-xs h-8 min-h-8 px-2 text-xs w-28"
+          >
+            <option value="all">All</option>
+            <option value="staked">Staked</option>
+            <option value="unstaked">Unstaked</option>
+          </select>
+        </div>
+
+        <!-- Sort By -->
+        <div class="flex items-center gap-1.5">
+          <Icon icon="mdi:sort" class="text-base-content/60 text-sm" />
+          <select 
+            v-model="sortBy" 
+            class="select select-bordered select-xs h-8 min-h-8 px-2 text-xs w-32"
+          >
+            <option value="stake">Stake</option>
+            <option value="services">Services</option>
+            <option value="status">Status</option>
+          </select>
+        </div>
+
+        <!-- Sort Order Toggle -->
+        <button
+          @click="sortOrder = sortOrder === 'desc' ? 'asc' : 'desc'"
+          class="btn btn-xs h-8 min-h-8 px-2 gap-1"
+          :class="sortOrder === 'desc' ? 'btn-primary' : 'btn-ghost'"
+          :title="sortOrder === 'desc' ? 'Descending' : 'Ascending'"
+        >
+          <Icon :icon="sortOrder === 'desc' ? 'mdi:sort-descending' : 'mdi:sort-ascending'" class="text-sm" />
+        </button>
       </div>
     </div>
 
