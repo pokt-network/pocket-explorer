@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-base-100 dark:bg-[#00125b] px-4">
+  <div class="min-h-screen flex items-center justify-center bg-base-100 px-4">
     <div class="max-w-2xl w-full text-center">
       <!-- Icon -->
       <div class="mb-8 flex justify-center">
