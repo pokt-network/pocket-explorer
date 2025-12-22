@@ -787,16 +787,11 @@ const chartOptions = computed(() => {
       intersect: false,
       y: {
         formatter: function (value: number, opts: any) {
-          const i = opts?.seriesIndex ?? 0;
           if (isCoreServices) {
-            return `Entities: ${formatWithCommas(value)}`;
+            return `${formatWithCommas(value)}`;
           }
-          if (performanceMetric.value === 'relays') {
-            return `Relays: ${formatCompact(value)}`;
-          }
-          // For compute units, use the series name from the data
-          const seriesName = opts?.w?.globals?.seriesNames?.[i] || 'Compute Units';
-          return `${seriesName}: ${formatCompact(value)}`;
+          // For performance metrics (relays and compute units), use compact format
+          return `${formatCompact(value)}`;
         }
       }
     }
