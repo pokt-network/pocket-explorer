@@ -523,7 +523,8 @@ const historicalData = ref({
     { name: 'Suppliers', data: [], yAxisIndex: 0 },
     { name: 'Services', data: [], yAxisIndex: 0 },
     { name: 'Relays', data: [], yAxisIndex: 1 },
-    { name: 'Compute Units', data: [], yAxisIndex: 1 }
+    { name: 'Proof Submissions CU', data: [], yAxisIndex: 1 },
+    { name: 'Settled Claims CU', data: [], yAxisIndex: 1 }
   ]
 });
 
@@ -547,19 +548,40 @@ const activeNetworkGrowthSeries = computed(() => {
       yAxisIndex: 0 // Use first y-axis
     }));
   } else {
-    // Return only the selected Performance metric (Relays or Compute Units)
-    const relaysIndex = 4; // Relays is at index 4
-    const computeUnitsIndex = 5; // Compute Units is at index 5
-    const selectedIndex = performanceMetric.value === 'relays' ? relaysIndex : computeUnitsIndex;
-    const selectedSeries = historicalData.value.series[selectedIndex];
-    
-    if (selectedSeries && selectedSeries.data && selectedSeries.data.length > 0) {
-      return [{
-        ...selectedSeries,
-        yAxisIndex: 0 // Use single y-axis for the selected metric
-      }];
+    // Return the selected Performance metric (Relays or both Compute Units series)
+    if (performanceMetric.value === 'relays') {
+      const relaysIndex = 4; // Relays is at index 4
+      const selectedSeries = historicalData.value.series[relaysIndex];
+      
+      if (selectedSeries && selectedSeries.data && selectedSeries.data.length > 0) {
+        return [{
+          ...selectedSeries,
+          yAxisIndex: 0 // Use single y-axis for relays
+        }];
+      }
+      return [];
+    } else {
+      // Return both compute units series (Proof Submissions and Settled Claims)
+      const proofSubmissionsIndex = 5; // Proof Submissions CU is at index 5
+      const settledClaimsIndex = 6; // Settled Claims CU is at index 6
+      const proofSubmissionsSeries = historicalData.value.series[proofSubmissionsIndex];
+      const settledClaimsSeries = historicalData.value.series[settledClaimsIndex];
+      
+      const result = [];
+      if (proofSubmissionsSeries && proofSubmissionsSeries.data && proofSubmissionsSeries.data.length > 0) {
+        result.push({
+          ...proofSubmissionsSeries,
+          yAxisIndex: 0
+        });
+      }
+      if (settledClaimsSeries && settledClaimsSeries.data && settledClaimsSeries.data.length > 0) {
+        result.push({
+          ...settledClaimsSeries,
+          yAxisIndex: 0
+        });
+      }
+      return result;
     }
-    return [];
   }
 });
 
@@ -568,18 +590,21 @@ const chartOptions = computed(() => {
   const isCoreServices = networkGrowthTab.value === 'core-services';
   const chartType = networkGrowthChartType.value;
   
-  // Base colors - Core Services: first 4, Performance: single color based on selection
+  // Base colors - Core Services: first 4, Performance: single color for relays, two colors for compute units
   const colors = isCoreServices 
     ? ['#FFB206', '#09279F', '#5E9AE4', '#60BC29']
-    : performanceMetric.value === 'relays' ? ['#A855F7'] : ['#EF4444'];
+    : performanceMetric.value === 'relays' 
+      ? ['#A855F7'] 
+      : ['#EF4444', '#F97316']; // Red for Proof Submissions, Orange for Settled Claims
   
   // Stroke configuration based on chart type
+  const isComputeUnits = !isCoreServices && performanceMetric.value === 'compute-units';
   const strokeConfig = chartType === 'bar' 
     ? { width: 0 } // No stroke for bar charts
     : {
         curve: chartType === 'area' ? 'smooth' : 'straight',
-        width: isCoreServices ? [2.5, 2.5, 2.5, 2.5] : 2.5,
-        dashArray: isCoreServices ? [0, 0, 0, 0] : 0
+        width: isCoreServices ? [2.5, 2.5, 2.5, 2.5] : (isComputeUnits ? [2.5, 2.5] : 2.5),
+        dashArray: isCoreServices ? [0, 0, 0, 0] : (isComputeUnits ? [0, 5] : 0) // Dashed line for settled claims
       };
   
   // Fill configuration
@@ -587,7 +612,7 @@ const chartOptions = computed(() => {
     ? { opacity: 1, type: 'solid' }
     : {
         type: chartType === 'area' ? 'gradient' : 'solid',
-        opacity: chartType === 'line' ? 0 : (isCoreServices ? [0.15, 0.15, 0.15, 0.15] : 0.15),
+        opacity: chartType === 'line' ? 0 : (isCoreServices ? [0.15, 0.15, 0.15, 0.15] : (isComputeUnits ? [0.15, 0.15] : 0.15)),
         gradient: chartType === 'area' ? {
           shadeIntensity: 1,
           opacityFrom: 0.7,
@@ -652,11 +677,11 @@ const chartOptions = computed(() => {
       }
     },
     markers: chartType === 'bar' ? { size: 0 } : chartType === 'line' ? {
-      size: 4,
+      size: isComputeUnits ? [4, 4] : 4,
       strokeWidth: 0,
       hover: { size: 6 }
     } : {
-      size: 2,
+      size: isComputeUnits ? [2, 2] : 2,
       strokeWidth: 0,
       hover: { size: 5 }
     },
@@ -697,8 +722,12 @@ const chartOptions = computed(() => {
           if (isCoreServices) {
             return `Entities: ${formatWithCommas(value)}`;
           }
-          const metricName = performanceMetric.value === 'relays' ? 'Relays' : 'Compute Units';
-          return `${metricName}: ${formatCompact(value)}`;
+          if (performanceMetric.value === 'relays') {
+            return `Relays: ${formatCompact(value)}`;
+          }
+          // For compute units, use the series name from the data
+          const seriesName = opts?.w?.globals?.seriesNames?.[i] || 'Compute Units';
+          return `${seriesName}: ${formatCompact(value)}`;
         }
       }
     }
@@ -781,7 +810,8 @@ async function loadNetworkGrowthPerformance(windowDays: number = 7) {
     // Build labels and extract relays/compute units data
     const labels: string[] = [];
     const relaysDaily: number[] = [];
-    const computeUnitsDaily: number[] = [];
+    const proofSubmissionsCUDaily: number[] = [];
+    const settledClaimsCUDaily: number[] = [];
     
     for (const dayItem of daysAsc) {
       const dayStr = (dayItem.day || '').slice(0, 10);
@@ -790,7 +820,8 @@ async function loadNetworkGrowthPerformance(windowDays: number = 7) {
       const d = new Date(dayStr + 'T00:00:00Z');
       labels.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
       relaysDaily.push(Number(dayItem.relays || 0));
-      computeUnitsDaily.push(Number(dayItem.compute_units || 0));
+      proofSubmissionsCUDaily.push(Number(dayItem.proof_submissions_computed_units || 0));
+      settledClaimsCUDaily.push(Number(dayItem.settled_claims_computed_units || 0));
     }
 
     // Update chart categories (only if not already set or if this is the first data loaded)
@@ -798,9 +829,10 @@ async function loadNetworkGrowthPerformance(windowDays: number = 7) {
       chartCategories.value = labels;
     }
 
-    // Update performance series (relays and compute units)
+    // Update performance series (relays, proof submissions CU, and settled claims CU)
     historicalData.value.series[4].data = relaysDaily as never[];
-    historicalData.value.series[5].data = computeUnitsDaily as never[];
+    historicalData.value.series[5].data = proofSubmissionsCUDaily as never[];
+    historicalData.value.series[6].data = settledClaimsCUDaily as never[];
   } catch (e) {
     console.error('Error loading network growth performance:', e);
     // Don't throw - allow entities to still load if performance fails
