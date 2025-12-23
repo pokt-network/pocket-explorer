@@ -246,29 +246,29 @@ const statusText = computed(() => (value.value === 'stake' ? 'Staked' : 'Unstake
 </script>
 
 <template>
-  <div class="mb-[2vh]">
-    <p class="bg-[#09279F] dark:bg-base-100 text-2xl rounded-xl px-4 py-4 my-4 font-bold text-white">Suppliers</p>
+  <div class="mb-[2vh] pt-[6.5rem]">
+    <p class="bg-[#ffffff] hover:bg-base-200 text-2xl w-full px-4 py-4 my-4 font-bold text-[#000000] dark:text-[#ffffff] rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">Suppliers</p>
 
     <div class="grid sm:grid-cols-1 md:grid-cols-4 py-4 gap-4 mb-4">
-      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+      <div class="flex bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <span>
           <div class="text-xs text-[#64748B]">Staked Suppliers</div>
           <div class="font-bold">{{ networkStats.suppliers.toLocaleString() }}</div>
         </span>
       </div>
-      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+      <div class="flex bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <span>
           <div class="text-xs text-[#64748B]">Staked Tokens</div>
           <div class="font-bold">{{ format.formatToken({ denom: 'upokt', amount: networkStats.totalStakedTokens.toString() }) }}</div>
         </span>
       </div>
-      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+      <div class="flex bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <span>
           <div class="text-xs text-[#64748B]">Unstaking Suppliers</div>
           <div class="font-bold">{{ networkStats.unstakingCount.toLocaleString() }}</div>
         </span>
       </div>
-      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+      <div class="flex bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <span>
           <div class="text-xs text-[#64748B]">Unstaking Tokens</div>
           <div class="font-bold">{{ format.formatToken({ denom: 'upokt', amount: networkStats.totalUnstakingTokens.toString() }) }}</div>
@@ -278,10 +278,10 @@ const statusText = computed(() => (value.value === 'stake' ? 'Staked' : 'Unstake
 
     <!-- Scroll hataya gaya -->
     <div
-      class="bg-base-200 dark:bg-base-100 rounded-xl p-3"
+      class="bg-[#ffffff] hover:bg-base-200 p-3 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg overflow-x-auto"
     >
       <table class="table w-full table-compact rounded-xl">
-        <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
+        <thead class="dark:bg-[rgba(255,255,255,.03)] bg-base-200 sticky top-0 border-0">
           <tr class="text-sm font-semibold">
             <td>Rank</td>
             <td>Address</td>
@@ -311,7 +311,7 @@ const statusText = computed(() => (value.value === 'stake' ? 'Staked' : 'Unstake
             v-else
             v-for="(item, index) in sortedList"
             :key="item.operator_address"
-            class="hover:bg-gray-100 dark:hover:bg-[#384059] dark:bg-base-200 bg-white border-0 rounded-xl"
+            class="hover:bg-gray-100 dark:hover:bg-[rgba(255,255,255,0.06)] dark:bg-base-200 bg-white border-0 rounded-xl"
           >
             <td>{{ index + 1 + (currentPage - 1) * itemsPerPage }}</td>
             <td>

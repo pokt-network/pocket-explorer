@@ -915,10 +915,10 @@ async function loadAddressPerformance(address: string) {
 }
 </script>
 <template>
-<div>
+<div class="pt-[6.5rem]">
   <div v-if="account">
       <!-- address -->
-      <div class="bg-[#09279F] dark:bg-base-100 text-2xl rounded-xl px-4 py-4 my-4 font-bold text-[#ffffff]">
+      <div class="bg-[#ffffff] hover:bg-base-200 text-2xl w-full px-4 py-4 my-4 font-bold text-[#000000] dark:text-[#ffffff] rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <div class="flex items-center">
           <!-- content -->
           <div class="flex items-center flex-1 space-x-3">
@@ -936,8 +936,8 @@ async function loadAddressPerformance(address: string) {
     <div class="desktop-address flex flex-1 overflow-auto gap-8 mb-4">
       <!-- Assets and Performance Summary -->
       <div class="flex flex-row overflow-auto gap-8 w-full">
-        <div class="rounded-xl border dark:border-gray-700 border-[#FFB206] mb-4 overflow-auto flex-1">
-          <div class="flex justify-between text-main mb-4 dark:bg-base-100 bg-base-200 px-4 py-2 w-full">
+        <div class="bg-base-200 mb-4 rounded-xl hover:bg-base-300 dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] shadow-md bg-gradient-to-b border border-[#FFB206] dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg overflow-x-auto">
+          <div class="flex justify-between text-main mb-4 dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] bg-base-200  px-4 py-2 w-full">
             <h2 class="text-2xl font-semibold text-[#171C1F] dark:text-[#ffffff;]">{{ $t('account.assets') }}</h2>
             <div v-if="totalUsdValue !== null" class="flex items-center">
               <span class="text-sm text-[#64748B] dark:text-gray-400 mr-2">Total Portfolio Value:</span>
@@ -946,7 +946,7 @@ async function loadAddressPerformance(address: string) {
               </span>
             </div>
           </div>
-          <div class="grid md:!grid-cols-3">
+          <div class="grid md:!grid-cols-3 bg-[#ffffff] dark:bg-[rgba(255,255,255,.03)]">
             <div class="md:!col-span-1">
               <DonutChart 
                 :series="donutData.filter(x => !x.isMACT).map(x => x.amount)" 
@@ -1022,12 +1022,12 @@ async function loadAddressPerformance(address: string) {
               {{ performanceType === 'supplier' ? 'Performance Summary' : 'Usage Summary' }}
             </h3>
 
-            <span class="text-xs text-secondary bg-base-200 dark:bg-base-300 px-3 py-1 rounded-full">
+            <span class="bg-[#ffffff] hover:bg-base-200 px-3 py-1 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
               Last {{ performanceRows.length }} days
             </span>
           </div>
           <div v-if="performanceType !== 'unknown' && summaryMetrics" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="dark:bg-base-100 bg-base-200 rounded-xl p-4">
+            <div class="bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
                   <div class="w-8 h-8 dark:bg-base-200 bg-[#A3E635] rounded-lg flex items-center justify-center">
@@ -1040,7 +1040,7 @@ async function loadAddressPerformance(address: string) {
                     String(summaryMetrics.totalRewards) }) }}</div>
               </div>
             </div>
-            <div class="dark:bg-base-100 bg-base-200 rounded-xl p-4">
+            <div class="bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
                   <div class="w-8 h-8 dark:bg-base-200 bg-[#5E9AE4] rounded-lg flex items-center justify-center">
@@ -1051,7 +1051,7 @@ async function loadAddressPerformance(address: string) {
                 <div class="text-xl font-bold">{{ formatNumber(summaryMetrics.totalRelays) }}</div>
               </div>
             </div>
-            <div class="dark:bg-base-100 bg-base-200 rounded-xl p-4">
+            <div class="bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
                   <div class="w-8 h-8 dark:bg-base-200 bg-[#FFB206] rounded-lg flex items-center justify-center">
@@ -1062,7 +1062,7 @@ async function loadAddressPerformance(address: string) {
                 <div class="text-xl font-bold">{{ summaryMetrics.avgEfficiency.toFixed(2) }}%</div>
               </div>
             </div>
-            <div class="dark:bg-base-100 bg-base-200 rounded-xl p-4">
+            <div class="bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
                   <div class="w-8 h-8 dark:bg-base-200 bg-[#60BC29] rounded-lg flex items-center justify-center">
@@ -1074,7 +1074,7 @@ async function loadAddressPerformance(address: string) {
               </div>
             </div>
             <div v-if="performanceType === 'supplier' && summaryMetrics.uniqueApplications"
-              class="dark:bg-base-100 bg-base-200 rounded-xl p-4">
+              class="bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
                   <div class="w-8 h-8 dark:bg-base-200 bg-[#09279F] rounded-lg flex items-center justify-center">
@@ -1086,7 +1086,7 @@ async function loadAddressPerformance(address: string) {
               </div>
             </div>
             <div v-if="performanceType === 'application' && summaryMetrics.uniqueSuppliers"
-              class="dark:bg-base-100 bg-base-200 rounded-xl p-4">
+              class="bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
                   <div class="w-8 h-8 dark:bg-base-200 bg-[#09279F] rounded-lg flex items-center justify-center">
@@ -1097,7 +1097,7 @@ async function loadAddressPerformance(address: string) {
                 <div class="text-xl font-bold">{{ formatNumber(summaryMetrics.uniqueSuppliers) }}</div>
               </div>
             </div>
-            <div v-if="summaryMetrics.uniqueServices" class="dark:bg-base-100 bg-base-200 rounded-xl p-4">
+            <div v-if="summaryMetrics.uniqueServices" class="bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
                   <div class="w-8 h-8 dark:bg-base-200 bg-[#A3E635] rounded-lg flex items-center justify-center">
@@ -1116,8 +1116,8 @@ async function loadAddressPerformance(address: string) {
     <div class="mobile-address flex flex-col gap-4 w-full lg:hidden">
       <!-- Assets -->
       <div class="w-full">
-        <div class="rounded-xl border w-full dark:border-gray-700 border-[#FFB206] mb-4 overflow-auto">
-          <div class="flex flex-col sm:flex-row justify-between text-main mb-4 dark:bg-base-100 bg-base-200 px-4 py-2 w-full">
+        <div class="bg-base-200 mb-4 rounded-xl hover:bg-base-300 dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] shadow-md bg-gradient-to-b border border-[#FFB206] dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg overflow-x-auto">
+          <div class="flex flex-col sm:flex-row justify-between text-main mb-4 dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] bg-base-200 px-4 py-2 w-full">
             <h2 class="text-2xl font-semibold text-[#171C1F] dark:text-[#ffffff;]">{{ $t('account.assets') }}</h2>
             <div v-if="totalUsdValue !== null" class="flex items-center mt-2 sm:mt-0">
               <span class="text-sm text-[#64748B] dark:text-gray-400 mr-2">Total Portfolio Value:</span>
@@ -1126,7 +1126,7 @@ async function loadAddressPerformance(address: string) {
               </span>
             </div>
           </div>
-          <div class="grid md:!grid-cols-3">
+          <div class="grid md:!grid-cols-3 bg-[#ffffff] dark:bg-[rgba(255,255,255,.03)]">
             <div class="md:!col-span-1">
               <DonutChart 
                 :series="donutData.filter(x => !x.isMACT).map(x => x.amount)" 
@@ -1201,12 +1201,12 @@ async function loadAddressPerformance(address: string) {
               {{ performanceType === 'supplier' ? 'Performance Summary' : 'Usage Summary' }}
             </h3>
 
-            <span class="text-xs text-secondary bg-base-200 dark:bg-base-300 px-3 py-1 rounded-full">
+            <span class="text-xs text-secondary bg-base-200 dark:bg-base-300 px-3 py-1 rounded-full shadow-md hover:shadow-lg transition-shadow duration-300">
               Last {{ performanceRows.length }} days
             </span>
           </div>
           <div v-if="performanceType !== 'unknown' && summaryMetrics" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="dark:bg-base-100 bg-base-200 rounded-xl p-4">
+            <div class="bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
                   <div class="w-8 h-8 dark:bg-base-200 bg-[#A3E635] rounded-lg flex items-center justify-center">
@@ -1219,7 +1219,7 @@ async function loadAddressPerformance(address: string) {
                     String(summaryMetrics.totalRewards) }) }}</div>
               </div>
             </div>
-            <div class="dark:bg-base-100 bg-base-200 rounded-xl p-4">
+            <div class="bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
                   <div class="w-8 h-8 dark:bg-base-200 bg-[#5E9AE4] rounded-lg flex items-center justify-center">
@@ -1230,7 +1230,7 @@ async function loadAddressPerformance(address: string) {
                 <div class="text-xl font-bold">{{ formatNumber(summaryMetrics.totalRelays) }}</div>
               </div>
             </div>
-            <div class="dark:bg-base-100 bg-base-200 rounded-xl p-4">
+            <div class="bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
                   <div class="w-8 h-8 dark:bg-base-200 bg-[#FFB206] rounded-lg flex items-center justify-center">
@@ -1241,7 +1241,7 @@ async function loadAddressPerformance(address: string) {
                 <div class="text-xl font-bold">{{ summaryMetrics.avgEfficiency.toFixed(2) }}%</div>
               </div>
             </div>
-            <div class="dark:bg-base-100 bg-base-200 rounded-xl p-4">
+            <div class="bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
                   <div class="w-8 h-8 dark:bg-base-200 bg-[#60BC29] rounded-lg flex items-center justify-center">
@@ -1253,7 +1253,7 @@ async function loadAddressPerformance(address: string) {
               </div>
             </div>
             <div v-if="performanceType === 'supplier' && summaryMetrics.uniqueApplications"
-              class="dark:bg-base-100 bg-base-200 rounded-xl p-4">
+              class="bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
                   <div class="w-8 h-8 dark:bg-base-200 bg-[#09279F] rounded-lg flex items-center justify-center">
@@ -1265,7 +1265,7 @@ async function loadAddressPerformance(address: string) {
               </div>
             </div>
             <div v-if="performanceType === 'application' && summaryMetrics.uniqueSuppliers"
-              class="dark:bg-base-100 bg-base-200 rounded-xl p-4">
+              class="bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
                   <div class="w-8 h-8 dark:bg-base-200 bg-[#09279F] rounded-lg flex items-center justify-center">
@@ -1276,7 +1276,7 @@ async function loadAddressPerformance(address: string) {
                 <div class="text-xl font-bold">{{ formatNumber(summaryMetrics.uniqueSuppliers) }}</div>
               </div>
             </div>
-            <div v-if="summaryMetrics.uniqueServices" class="dark:bg-base-100 bg-base-200 rounded-xl p-4">
+            <div v-if="summaryMetrics.uniqueServices" class="bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
                   <div class="w-8 h-8 dark:bg-base-200 bg-[#A3E635] rounded-lg flex items-center justify-center">
@@ -1298,24 +1298,24 @@ async function loadAddressPerformance(address: string) {
           Services ({{ suppliers.services?.length }})
         </h2>
       </div>
-      <div class="bg-[#EFF2F5] dark:bg-base-100 px-0.5 pt-0.5 pb-0.5 rounded-xl shadow-md mb-4">
+      <div class="bg-base-200 px-0.5 pt-0.5 pb-0.5 rounded-xl hover:bg-base-300 shadow-md bg-gradient-to-b dark:bg-base-200 dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg overflow-x-auto">
         <div class="services-table-wrapper services-table-scroll rounded-xl">
           <table class="table table-compact w-full">
-            <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
+            <thead class="dark:bg-[rgba(255,255,255,.03)] bg-base-200 sticky top-0 border-0">
               <tr class="border-b-[0px] text-sm font-semibold">
-                <th class="dark:bg-base-100 bg-base-200">Service ID</th>
-                <th class="dark:bg-base-100 bg-base-200">JSON_RPC URL</th>
-                <th class="dark:bg-base-100 bg-base-200">WEBSOCKET URL</th>
-                <th class="dark:bg-base-100 bg-base-200">Revenue Share Addresses</th>
+                <th class="dark:bg-[rgba(255,255,255,.03)] bg-base-200 hover:bg-base-300">Service ID</th>
+                <th class="dark:bg-[rgba(255,255,255,.03)] bg-base-200 hover:bg-base-300">JSON_RPC URL</th>
+                <th class="dark:bg-[rgba(255,255,255,.03)] bg-base-200 hover:bg-base-300">WEBSOCKET URL</th>
+                <th class="dark:bg-[rgba(255,255,255,.03)] bg-base-200 hover:bg-base-300">Revenue Share Addresses</th>
               </tr>
             </thead>
-            <tbody class="bg-base-100 relative">
+            <tbody class="bg-[#ffffff] dark:bg-[rgba(255,255,255,.03)] relative">
               <template v-for="service in groupedSupplierServices" :key="service.serviceId">
-                <tr class="hover:bg-base-300 transition-colors rounded-xl duration-200 border-b-[0px]">
-                  <td class="dark:bg-base-200 bg-white align-top font-medium">
+                <tr class="dark:hover:bg-[rgba(255,255,255,0.06)] hover:bg-base-200 transition-colors rounded-xl duration-200 border-b-[0px]">
+                  <td class="align-top font-medium">
                     {{ service.serviceId }}
                   </td>
-                  <td class="dark:bg-base-200 bg-white align-top">
+                  <td class="align-top">
                     <a v-if="service.jsonRpcUrl" :href="service.jsonRpcUrl" target="_blank"
                       class="text-[#09279F] dark:text-warning hover:underline font-mono text-xs"
                       :title="service.jsonRpcUrl">
@@ -1323,7 +1323,7 @@ async function loadAddressPerformance(address: string) {
                     </a>
                     <span v-else class="text-xs text-gray-500">-</span>
                   </td>
-                  <td class="dark:bg-base-200 bg-white align-top">
+                  <td class="align-top">
                     <a v-if="service.websocketUrl" :href="service.websocketUrl" target="_blank"
                       class="text-[#09279F] dark:text-warning hover:underline font-mono text-xs"
                       :title="service.websocketUrl">
@@ -1331,7 +1331,7 @@ async function loadAddressPerformance(address: string) {
                     </a>
                     <span v-else class="text-xs text-gray-500">-</span>
                   </td>
-                  <td class="dark:bg-base-200 bg-white align-top">
+                  <td class="align-top">
                     <div v-if="service.revenueShares.length > 0" class="space-y-1">
                       <!-- Truncated view (first 1 address) -->
                       <template v-if="!isServiceExpanded(service.serviceId)">
@@ -1389,13 +1389,13 @@ async function loadAddressPerformance(address: string) {
     </div>
 
     <!-- Service Display (for Applications) -->
-    <div v-if="applications.service_configs?.length > 0" class="mb-4  mt-4">
+    <div v-if="applications.service_configs?.length > 0" class="mb-4 mt-4 shadow-md hover:shadow-lg transition-shadow duration-300">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-2xl card-title">
           Service
         </h2>
       </div>
-      <div class="bg-[#EFF2F5] dark:bg-base-100 px-4 py-4 rounded-xl shadow-md mb-4">
+      <div class="bg-[#ffffff] hover:bg-base-200 px-4 py-4 mb-4 rounded-xl shadow-md bg-gradient-to-b dark:bg-base-200 dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg overflow-x-auto">
         <div class="flex items-center gap-3">
           <span class="text-sm text-[#64748B] dark:text-secondary font-medium">Service ID:</span>
           <span class="badge badge-primary badge-lg font-mono">
@@ -1459,8 +1459,7 @@ async function loadAddressPerformance(address: string) {
 
     <!-- Charts -->
     <div v-if="performanceRows.length > 0 && !loadingPerformance" class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
-      <div
-        class="dark:bg-base-100 bg-base-200 pt-3 rounded-lg border-[3px] border-solid border-base-200 dark:border-base-100">
+      <div class="bg-base-200 pt-3 rounded-lg hover:bg-base-300 shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <div class="flex items-center mb-4">
           <div class="text-lg font-semibold text-main ml-5">Daily Rewards Trend</div>
         </div>
@@ -1512,8 +1511,7 @@ async function loadAddressPerformance(address: string) {
           </div>
         </div>
       </div>
-      <div
-        class="dark:bg-base-100 bg-base-200 pt-3 rounded-lg border-[3px] border-solid border-base-200 dark:border-base-100">
+      <div class="bg-base-200 pt-3 rounded-lg hover:bg-base-300 shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <div class="flex items-center mb-4">
           <div class="text-lg font-semibold text-main ml-5">Daily Relays Trend</div>
         </div>
@@ -1569,14 +1567,14 @@ async function loadAddressPerformance(address: string) {
 
     <!-- Detailed Table -->
     <div v-if="performanceRows.length > 0"
-      class="bg-[#EFF2F5] dark:bg-base-100 px-0.5 pt-0.5 pb-0.5 rounded-xl shadow-md mb-4">
+      class="bg-[#ffffff] hover:bg-base-200 px-0.5 pt-0.5 pb-0.5 rounded-lg shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
       <div class="flex items-center mb-4 pt-3">
           <div class="text-lg font-semibold text-main ml-5">Performance Summary (Last {{ performanceRows.length }} days)</div>
         </div>
       <div class="services-table-wrapper services-table-scroll rounded-xl">
         <table class="table table-compact w-full">
-          <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
-            <tr class="dark:bg-base-100 bg-base-200 border-b-[0px] text-sm font-semibold">
+          <thead class="dark:bg-[rgba(255,255,255,.03)] bg-base-200 sticky top-0 border-0">
+            <tr class="dark:bg-[rgba(255,255,255,.03)] bg-base-200 border-b-[0px] text-sm font-semibold">
               <th class="">Day</th>
               <th class="">Rewards (POKT)</th>
               <th class="">Relays</th>
@@ -1593,7 +1591,7 @@ async function loadAddressPerformance(address: string) {
               <td colspan="10" class="py-8">
                 <div class="flex justify-center items-center">
                   <div class="loading loading-spinner loading-md"></div>
-                  <span class="ml-2">Loading performance data...</span>
+                  <span class="ml-2">Loading performance data...</span>Top Services Performance
                 </div>
               </td>
             </tr>
@@ -1633,9 +1631,9 @@ async function loadAddressPerformance(address: string) {
     {{ $t('account.transactions') }}
   </h2>
   <!-- Transactions -->
-  <div class="bg-[#EFF2F5] dark:bg-base-100 px-0.5 pt-0.5 pb-4 rounded-xl shadow-md mb-4">
+  <div class="bg-base-200 px-0.5 pt-0.5 mb-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
     <!-- Filter Section - Compact & Modern -->
-    <div class="bg-base-200 dark:bg-base-300 rounded-lg border border-base-300 dark:border-base-400 mb-4">
+    <div class="bg-[#ffffff] dark:bg-[rgba(255,255,255,.03)] rounded-lg border border-base-300 dark:border-base-400 mb-2">
       <!-- Main Filter Bar -->
       <div class="flex flex-wrap items-center gap-3 px-4 py-3">
         <!-- Type Tabs - Compact Horizontal -->
@@ -1655,7 +1653,7 @@ async function loadAddressPerformance(address: string) {
             class="px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200"
             :class="selectedTypeTab === typeOption.value
               ? 'bg-[#007bff] text-white shadow-sm'
-              : 'bg-base-100 dark:bg-base-200 text-base-content hover:bg-base-300 dark:hover:bg-base-100 border border-base-300 dark:border-base-400'"
+              : 'bg-base-100 text-base-content hover:bg-base-200 dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)]  border border-base-300 dark:border-base-400'"
           >
             {{ typeOption.label }}
           </button>
@@ -1669,7 +1667,7 @@ async function loadAddressPerformance(address: string) {
           <!-- Status -->
           <div class="flex items-center gap-1.5">
             <Icon icon="mdi:check-circle-outline" class="text-base-content/60 text-sm" />
-            <select v-model="txStatusFilter" class="select select-bordered select-xs h-8 min-h-8 px-2 text-xs w-24">
+            <select v-model="txStatusFilter" class="select select-bordered select-xs h-8 min-h-8 px-2 text-xs w-24 hover:bg-base-200 dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)]">
               <option value="">All</option>
               <option value="success">Success</option>
               <option value="failed">Failed</option>
@@ -1679,7 +1677,7 @@ async function loadAddressPerformance(address: string) {
           <!-- Sort By -->
           <div class="flex items-center gap-1.5">
             <Icon icon="mdi:sort" class="text-base-content/60 text-sm" />
-            <select v-model="txSortBy" class="select select-bordered select-xs h-8 min-h-8 px-2 text-xs w-28">
+            <select v-model="txSortBy" class="select select-bordered select-xs h-8 min-h-8 px-2 text-xs w-28 hover:bg-base-200 dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)]">
               <option value="timestamp">Time</option>
               <option value="amount">Amount</option>
               <option value="fee">Fee</option>
@@ -1769,10 +1767,10 @@ async function loadAddressPerformance(address: string) {
       </div>
     </div>
 
-    <div class="services-table-wrapper services-table-scroll rounded-xl">
+    <div class="services-table-wrapper services-table-scroll bg-base-200 px-0.5 pt-0.5 pb-4 mb-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg overflow-auto">
       <table class="table table-compact w-full">
-        <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
-          <tr class="dark:bg-base-100 bg-base-200 border-b-[0px] text-sm font-semibold">
+        <thead class="bg-base-200 dark:bg-[rgba(255,255,255,.03)] sticky top-0 border-0">
+          <tr class="border-b-[0px] text-sm font-semibold">
             <th class="">{{ $t('account.height') }}</th>
             <th class="">{{ $t('account.hash') }}</th>
             <th class="">{{ $t('account.type') }}</th>
@@ -1795,7 +1793,7 @@ async function loadAddressPerformance(address: string) {
               <div class="text-center">{{ $t('account.no_transactions') }}</div>
             </td>
           </tr>
-          <tr v-for="(item, index) in txs" :key="item.hash" class="hover:bg-gray-100 dark:hover:bg-[#384059] dark:bg-base-200 bg-white border-0 rounded-xl">
+          <tr v-for="(item, index) in txs" :key="item.hash" class="hover:bg-gray-100 dark:hover:bg-[rgba(255,255,255,0.03)]  dark:bg-base-200 bg-white border-0 rounded-xl">
             <td class="text-sm py-3">
               <RouterLink :to="`/${chain}/blocks/${item.block_height}`" class="dark:text-primary text-[#09279F] dark:invert">
                 {{ item.block_height }}</RouterLink>
@@ -1901,7 +1899,7 @@ async function loadAddressPerformance(address: string) {
 
 
   <!-- Account -->
-  <div v-if="account" class="dark:bg-base-100 bg-base-200 px-0.5 pt-0.5 pb-0.5 rounded-xl mb-4">
+  <div v-if="account" class="dark:bg-[rgba(255,255,255,.03)]  bg-[#ffffff] px-0.5 pt-0.5 pb-0.5 rounded-xl mb-4 shadow-md bg-gradient-to-b border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
     <h2 class="card-title text-2xl px-4 py-2">{{ $t('account.acc') }}</h2>
     <DynamicComponent :value="account" />
   </div>

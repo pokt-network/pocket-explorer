@@ -125,10 +125,10 @@ const formattedJson = computed(() => {
 
 </script>
 <template>
-<div>    
+<div class="pt-[6.5rem]">    
     <div>
-        <h2 class="bg-[#09279F] dark:bg-base-100 text-3xl rounded-2xl px-4 py-4 my-4 font-bold text-[#ffffff;]">{{ $t('tx.title') }}</h2>
-        <div v-if="tx.tx_response" class="bg-base-100 px-4 pt-3 pb-4 rounded-2xl mb-4 border dark:border-base-100">
+        <h2 class="bg-[#ffffff] hover:bg-base-200 dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] text-3xl rounded-2xl px-4 py-4 my-4 font-bold text-[#000000] dark:text-[#ffffff] shadow-md hover:shadow-lg transition-shadow duration-300">{{ $t('tx.title') }}</h2>
+        <div v-if="tx.tx_response" class="px-4 pt-3 pb-4 rounded-2xl mb-4 bg-[#ffffff] hover:bg-base-200 dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] shadow-md bg-gradient-to-b border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
             <div class="overflow-hidden">
                <table class="text-sm border-none divide-none w-full rounded-xl">
                <tbody>
@@ -203,17 +203,17 @@ const formattedJson = computed(() => {
         </div>
     </div>
     
-        <div v-if="tx.tx_response" class="bg-[#EFF2F5;] dark:bg-base-100 rounded-xl border dark:border-base-100 mb-4">
-            <h2 class="card-title truncate text-2xl mt-2 ml-4 font-semibold align-middle">
-                {{ $t('account.messages') }} ({{ messages.length }})
-            </h2>
-            <div v-for="(msg, i) in messages">
-                <div class="mt-2 mb-4">
-                    <DynamicComponent :value="msg" />
-                </div>
-            </div>
-            <div v-if="messages.length === 0">{{ $t('tx.no_messages') }}</div>
-        </div>
+      <div v-if="tx.tx_response" class="rounded-xl mb-4 bg-[#ffffff] hover:bg-base-200 dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] shadow-md bg-gradient-to-b border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
+        <h2 class="card-title truncate text-2xl mt-2 ml-4 font-semibold align-middle">
+          {{ $t('account.messages') }} ({{ messages.length }})
+        </h2>
+        <div v-for="(msg, i) in messages">
+          <div class="mt-2 mb-4">
+            <DynamicComponent :value="msg" />
+          </div>
+          </div>
+        <div v-if="messages.length === 0">{{ $t('tx.no_messages') }}</div>
+      </div>
 
         <!-- <div v-if="tx.tx_response" class="bg-base-100 px-4 pt-3 pb-4 mb-4 rounded-xl shadow">
             <div class="flex items-center justify-between mb-2">
@@ -227,25 +227,19 @@ const formattedJson = computed(() => {
             </div>
         </div> -->
 
-
-
-                <div v-if="tx.tx_response" class="bg-base-100 px-4 pt-3 pb-4 mb-4 rounded-xl shadow">
-            <div class="flex items-center justify-between mb-2">
-                <h2 class="card-title truncate text-2xl">JSON</h2>
-            </div>
-
-            <div v-if="Object.keys(formattedTxData).length > 0"
-                 class="bg-base-200 p-4 rounded-xl overflow-auto max-h-[600px]">
-                
-                <!-- Interactive JSON Viewer -->
-                <JsonTreeViewer :data="formattedTxData" />
-            </div>
-
-            <div v-else class="p-4 text-center text-gray-500">
-                Loading transaction data...
-            </div>
+      <div v-if="tx.tx_response" class="px-4 pt-3 pb-4 mb-4 rounded-xl bg-[#ffffff] hover:bg-base-200 dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] shadow-md bg-gradient-to-b border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="card-title truncate text-2xl">JSON</h2>
         </div>
-
+        <div v-if="Object.keys(formattedTxData).length > 0"
+          class="bg-base-200 p-4 rounded-xl overflow-auto max-h-[600px]">
+          <!-- Interactive JSON Viewer -->
+          <JsonTreeViewer :data="formattedTxData" />
+        </div>
+        <div v-else class="p-4 text-center text-gray-500">
+          Loading transaction data...
+        </div>
+      </div>
     </div>
 </div>    
 </template>

@@ -339,10 +339,10 @@ function goToLast() {
 
 </script>
 <template>
-    <div>  
-        <p class="bg-[#09279F] dark:bg-base-100 text-2xl rounded-xl px-4 py-4 my-4 font-bold text-white">Validators</p>
+    <div class="pt-[6.5rem]">  
+        <p class="bg-[#ffffff] hover:bg-base-200 text-2xl w-full px-4 py-4 my-4 font-bold text-[#000000] dark:text-[#ffffff]  rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">Validators</p>
         <div class="grid sm:grid-cols-1 md:grid-cols-4 py-4 gap-4 mb-4">
-            <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+            <div class="flex bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
                 <span>
                     <div class="bg-[#5E9AE4] relative w-9 h-9 rounded overflow-hidden flex items-center justify-center mr-2">
                         <Icon class="text-[#ffffff]" icon="mdi:trending-up" size="32" />
@@ -354,7 +354,7 @@ function goToLast() {
                     <div class="font-bold">{{ format.percent(mintStore.inflation) }}</div>
                 </span>
             </div>
-            <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+            <div class="flex bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
                 <span>
                     <div class="bg-[#5E9AE4] relative w-9 h-9 rounded overflow-hidden flex items-center justify-center mr-2">
                         <Icon class="text-[#ffffff]" icon="mdi:lock-open-outline" size="32" />
@@ -366,7 +366,7 @@ function goToLast() {
                     <div class="font-bold">{{ formatSeconds(staking.params?.unbonding_time) }}</div>
                 </span>
             </div>
-            <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+            <div class="flex bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
                 <span>
                     <div class="bg-[#5E9AE4] relative w-9 h-9 rounded overflow-hidden flex items-center justify-center mr-2">
                         <Icon class="text-[#ffffff]" icon="mdi:alert-octagon-outline" size="32" />
@@ -378,7 +378,7 @@ function goToLast() {
                     <div class="font-bold">{{ format.percent(slashing.slash_fraction_double_sign) }}</div>
                 </span>
             </div>
-            <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+            <div class="flex bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
                 <span>
                     <div class="bg-[#5E9AE4] relative w-9 h-9 rounded overflow-hidden flex items-center justify-center mr-2">
                         <Icon class="text-[#ffffff]" icon="mdi:pause" size="32" />
@@ -393,7 +393,7 @@ function goToLast() {
         </div>
 
         <div>
-        <div class="bg-base-100 rounded-xl mb-4">
+        <div class="bg-base-200 mb-4 rounded-xl hover:bg-base-300 shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg overflow-x-auto">
             <div v-if="isLoading" class="flex justify-center items-center p-8 rounded-xl">
             <span class="loading loading-spinner loading-lg"></span>
             </div>
@@ -401,10 +401,10 @@ function goToLast() {
             <!-- scroll hataya -->
             <div
             v-else
-            class="bg-base-200 dark:bg-base-100 rounded-xl dark:border-base-200 px-4 pt-2 pb-2"
+            class="bg-base-200 hover:bg-base-300 dark:bg-[rgba(255,255,255,.03)] rounded-xl dark:border-base-200 px-4 pt-2 pb-2"
             >
             <table class="table w-full rounded-xl">
-                <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
+                <thead class="dark:bg-[rgba(255,255,255,.03)] bg-base-200 sticky top-0 border-0">
                 <tr class="text-sm font-semibold">
                     <td style="width: 3rem">{{ $t('staking.rank') }}</td>
                     <td>Logo</td>
@@ -422,7 +422,7 @@ function goToLast() {
                 <tr
                     v-for="({ v, rank, logo, statusBadge }, i) in paginatedValidators"
                     :key="v.operator_address"
-                    class="hover:bg-gray-100 dark:hover:bg-[#384059] dark:bg-base-200 bg-white border-0 rounded-xl"
+                    class="hover:bg-gray-100 dark:hover:bg-[rgba(255,255,255,0.06)] dark:bg-base-200 bg-white border-0 rounded-xl"
                 >
                     <!-- rank -->
                     <td>
