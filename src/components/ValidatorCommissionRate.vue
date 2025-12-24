@@ -118,7 +118,7 @@ const chartConfig = computed(() => {
 </script>
 
 <template>
-    <div class="rounded-2xl border border-[#FFB206;] dark:border-gray-700 mb-4 overflow-auto">
+    <div class="rounded-2xl border border-[#FFB206;] dark:border-gray-700 mb-4 overflow-auto shadow-md hover:shadow-lg transition-shadow duration-300">
         <div class="dark:bg-base-100 bg-base-200 px-4 py-2">
             <h2 class="text-2xl font-semibold text-[#171C1F] dark:text-[#ffffff;]">Commission Rate</h2>
         </div>

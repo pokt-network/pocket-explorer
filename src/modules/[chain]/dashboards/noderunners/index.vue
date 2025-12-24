@@ -207,16 +207,17 @@ watch(activeTab, (newTab) => {
 </script>
 
 <template>
-  <div>
+  <div class="pt-[6.5rem]">
     <div class="flex items-center justify-between my-4">
       <p class="text-2xl rounded-xl px-4 py-2 font-bold">
         Supplier Performance Dashboard
       </p>
-      <button class="btn btn-sm" @click="openFilters()">Filter</button>
+      <button class="btn btn-sm dark:bg-[rgba(255,255,255,.03);] dark:hover:bg-[rgba(255,255,255,0.06)]" @click="openFilters()">Filter</button>
     </div>
 
     <!-- Active Filters Display -->
-    <div v-if="filters.owner_address || filters.supplier_address || filters.start_date || filters.end_date" class="mb-4 p-3 bg-base-200 dark:bg-base-100 rounded-lg border border-base-300">
+    <div v-if="filters.owner_address || filters.supplier_address || filters.start_date || filters.end_date" 
+      class="flex bg-[#ffffff] hover:bg-base-200 p-3 mb-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
       <div class="flex items-center gap-2 flex-wrap">
         <span class="text-xs font-semibold text-base-content/70 mr-1">Active Filters:</span>
         
@@ -283,16 +284,16 @@ watch(activeTab, (newTab) => {
     </div>
 
     <!-- Tabs -->
-    <div class="tabs tabs-boxed mb-4">
+    <div class="flex bg-[#ffffff] hover:bg-base-200 p-3 mb-4 gap-2 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
       <button 
-        class="tab" 
+        class="tab dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] rounded-md" 
         :class="{ 'tab-active': activeTab === 'summary' }"
         @click="activeTab = 'summary'"
       >
         Summary
       </button>
       <button 
-        class="tab" 
+        class="tab dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] rounded-md" 
         :class="{ 'tab-active': activeTab === 'chain' }"
         @click="activeTab = 'chain'"
       >
@@ -313,7 +314,7 @@ watch(activeTab, (newTab) => {
         Analytics
       </button> -->
       <button 
-        class="tab" 
+        class="tab dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] rounded-md" 
         :class="{ 'tab-active': activeTab === 'reward-share' }"
         @click="activeTab = 'reward-share'"
       >
@@ -391,7 +392,7 @@ watch(activeTab, (newTab) => {
     </div>
 
     <div v-else-if="activeTab === 'transactions'">
-      <div class="bg-[#EFF2F5] dark:bg-base-100 px-0.5 pt-0.5 pb-4 rounded-xl shadow-md mb-4">
+      <div class="bg-[#EFF2F5] dark:bg-[rgba(255,255,255,.03);] dark:hover:bg-[rgba(255,255,255,0.06)] px-0.5 pt-0.5 pb-4 rounded-xl shadow-md mb-4">
         <!-- Filter Section - Compact & Modern -->
         <div class="bg-base-200 dark:bg-base-300 rounded-lg border border-base-300 dark:border-base-400 mb-4">
           <!-- Main Filter Bar -->
@@ -544,7 +545,7 @@ watch(activeTab, (newTab) => {
 
         <div class="bg-base-200 rounded-md overflow-auto">
           <table class="table w-full table-compact">
-            <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
+            <thead class="dark:bg-[rgba(255,255,255,.03);] dark:hover:bg-[rgba(255,255,255,0.06)] bg-base-200 sticky top-0 border-0">
               <tr class="border-b-[0px] text-sm font-semibold">
                 <th>Hash</th>
                 <th>Block</th>

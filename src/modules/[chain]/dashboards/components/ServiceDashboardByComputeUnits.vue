@@ -1256,7 +1256,7 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
 
     <!-- No Data Message - Only show when filters are expected but not provided (for supplier/validator dashboards) -->
     <div v-if="(!props.tabView || props.tabView === 'summary') && props.filters !== undefined && !props.filters?.supplier_address && !props.filters?.owner_address" class="mb-4">
-      <div class="alert alert-info">
+      <div class="alert alert-info flex p-3 mb-4 gap-2 rounded-xl bg-[#ffffff] hover:bg-base-200 shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <Icon icon="mdi:information-outline" class="text-xl" />
         <div>
           <h3 class="font-bold">No Filters Selected</h3>
@@ -1268,42 +1268,44 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
     <!-- Top Row: Enhanced KPI Boxes -->
     <div v-if="summaryStats && (props.filters?.supplier_address || props.filters?.owner_address)" class="mb-3">
       <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3 border-l-4 border-primary">
+        <div class="bg-[#ffffff] rounded-lg p-3 hover:bg-base-200 bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] dark:border-white/10 dark:shadow-[0 solid #e5e7eb] border-l-4 border-primary shadow-md hover:shadow-lg">
           <div class="text-xs text-secondary mb-1 flex items-center gap-1">
             <Icon icon="mdi:file-document-multiple" class="text-sm" />
             Submissions
           </div>
           <div class="text-xl font-bold">{{ formatNumber(parseInt(summaryStats.total_submissions)) }}</div>
         </div>
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3 border-l-4 border-secondary">
+        <div class="bg-[#ffffff] rounded-lg p-3 hover:bg-base-200 bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] dark:border-white/10 dark:shadow-[0 solid #e5e7eb] border-l-4 border-secondary shadow-md hover:shadow-lg">
           <div class="text-xs text-secondary mb-1 flex items-center gap-1">
             <Icon icon="mdi:account-group" class="text-sm" />
             Suppliers
           </div>
           <div class="text-xl font-bold">{{ formatNumber(parseInt(summaryStats.unique_suppliers)) }}</div>
         </div>
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3 border-l-4 border-accent">
+        <div class="bg-[#ffffff] rounded-lg p-3 hover:bg-base-200 bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] dark:border-white/10 dark:shadow-[0 solid #e5e7eb] border-l-4 border-primary shadow-md hover:shadow-lg">
           <div class="text-xs text-secondary mb-1 flex items-center gap-1">
             <Icon icon="mdi:application" class="text-sm" />
             Applications
           </div>
           <div class="text-xl font-bold">{{ formatNumber(parseInt(summaryStats.unique_applications)) }}</div>
         </div>
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3 border-l-4 border-info">
+        <div class="bg-[#ffffff] rounded-lg p-3 hover:bg-base-200 bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] dark:border-white/10 dark:shadow-[0 solid #e5e7eb] border-l-4 border-primary shadow-md hover:shadow-lg">
           <div class="text-xs text-secondary mb-1 flex items-center gap-1">
             <Icon icon="mdi:server-network" class="text-sm" />
             Services
           </div>
           <div class="text-xl font-bold">{{ formatNumber(parseInt(summaryStats.unique_services)) }}</div>
         </div>
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3 border-l-4 border-warning">
+        <div class="bg-[#ffffff] rounded-lg p-3 hover:bg-base-200 bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] dark:border-white/10 dark:shadow-[0 solid #e5e7eb] border-l-4 border-primary shadow-md hover:shadow-lg">
           <div class="text-xs text-secondary mb-1 flex items-center gap-1">
             <Icon icon="mdi:network" class="text-sm" />
             Total Relays
           </div>
           <div class="text-xl font-bold">{{ formatNumber(parseInt(summaryStats.total_relays)) }}</div>
         </div>
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3 border-l-4" :class="parseFloat(summaryStats.avg_efficiency_percent) >= 95 ? 'border-success' : parseFloat(summaryStats.avg_efficiency_percent) >= 80 ? 'border-warning' : 'border-error'">
+        <div 
+          class="bg-[#ffffff] rounded-lg p-3 hover:bg-base-200 bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] dark:border-white/10 dark:shadow-[0 solid #e5e7eb] border-l-4 border-primary shadow-md hover:shadow-lg"
+          :class="parseFloat(summaryStats.avg_efficiency_percent) >= 95 ? 'border-success' : parseFloat(summaryStats.avg_efficiency_percent) >= 80 ? 'border-warning' : 'border-error'">
           <div class="text-xs text-secondary mb-1 flex items-center gap-1">
             <Icon icon="mdi:gauge" class="text-sm" />
             Avg Efficiency
@@ -1312,7 +1314,7 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
             {{ parseFloat(summaryStats.avg_efficiency_percent).toFixed(2) }}%
           </div>
         </div>
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3 border-l-4 border-primary">
+        <div class="bg-[#ffffff] rounded-lg p-3 hover:bg-base-200 bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] dark:border-white/10 dark:shadow-[0 solid #e5e7eb] border-l-4 border-primary shadow-md hover:shadow-lg">
           <div class="text-xs text-secondary mb-1 flex items-center gap-1">
             <Icon icon="mdi:calculator" class="text-sm" />
             Compute Units
@@ -1322,7 +1324,7 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
             Est: {{ formatComputeUnits(parseInt(summaryStats.total_estimated_compute_units)) }}
           </div>
         </div>
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3 border-l-4 border-success">
+        <div class="bg-[#ffffff] rounded-lg p-3 hover:bg-base-200 bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] dark:border-white/10 dark:shadow-[0 solid #e5e7eb] border-l-4 border-primary shadow-md hover:shadow-lg">
           <div class="text-xs text-secondary mb-1 flex items-center gap-1">
             <Icon icon="mdi:currency-usd" class="text-sm" />
             Total Rewards
@@ -1336,7 +1338,7 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
     </div>
 
     <!-- Service Rewards Breakdown - Show in Summary tab -->
-    <div v-if="(!props.tabView || props.tabView === 'summary') && (props.filters?.supplier_address || props.filters?.owner_address)" class="dark:bg-base-100 bg-base-200 pt-3 rounded-lg border-[3px] border-solid border-base-200 dark:border-base-100 mb-3">
+    <div v-if="(!props.tabView || props.tabView === 'summary') && (props.filters?.supplier_address || props.filters?.owner_address)" class="bg-[#ffffff] hover:bg-base-200 pt-3 mb-3 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg overflow-x-auto">
       <div class="flex items-center justify-between mb-3 ml-4 mr-4">
         <div class="text-base font-semibold text-main flex items-center gap-2">
           <Icon icon="mdi:chart-pie" class="text-lg" />
@@ -1352,7 +1354,7 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
           No rewards data available for the selected filters
         </div>
         <table v-else class="table w-full table-compact">
-          <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
+          <thead class="dark:bg-[rgba(255,255,255,.03);] bg-base-200 sticky top-0 border-0">
             <tr class="border-b-[0px] text-sm font-semibold">
               <th>Service</th>
               <th>Total Rewards</th>
@@ -1364,7 +1366,7 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
             </tr>
           </thead>
           <tbody>
-            <tr v-for="service in serviceRewards" :key="service.service_id" class="hover:bg-gray-100 dark:hover:bg-[#384059] dark:bg-base-200 bg-white border-0 rounded-xl">
+            <tr v-for="service in serviceRewards" :key="service.service_id" class="hover:bg-base-200 dark:hover:bg-[#384059] dark:bg-base-200 bg-white border-0 rounded-xl">
               <td class="dark:bg-base-200 bg-white">
                 <span class="badge badge-primary badge-sm">{{ service.service_id }}</span>
               </td>
@@ -1398,14 +1400,14 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
     </div>
 
      <!-- Middle Section: Rewards Distribution Table (Large) - Show in Summary and Reward Share tabs -->
-    <div v-if="(!props.tabView || props.tabView === 'summary' || props.tabView === 'reward-share') && (props.filters?.supplier_address || props.filters?.owner_address)" class="dark:bg-base-100 bg-base-200 pt-3 rounded-lg border-[3px] border-solid border-base-200 dark:border-base-100 mb-3">
+    <div v-if="(!props.tabView || props.tabView === 'summary' || props.tabView === 'reward-share') && (props.filters?.supplier_address || props.filters?.owner_address)" class="bg-[#ffffff] hover:bg-base-200 pt-3 mb-3 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg overflow-x-auto">
       <div class="flex items-center justify-between mb-3 ml-4 mr-4">
         <div class="text-base font-semibold text-main">Rewards Distribution ({{ topServicesByPerformance.length }})</div>
         <div class="flex justify-end gap-4">
           <!-- LIMIT DROPDOWN -->
           <div class="flex items-center justify-end gap-2">
             <span class="text-xs text-secondary"> Limit:</span>
-            <select v-model="itemsPerPages" @change="loadTopServicesByPerformance()"  class="select select-bordered select-xs w-full text-xs">
+            <select v-model="itemsPerPages" @change="loadTopServicesByPerformance()"  class="select select-bordered select-xs w-full text-xs dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)]">
               <option :value="10">10</option>
               <option :value="20">20</option>
               <option :value="30">30</option>
@@ -1414,7 +1416,7 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
           </div>
           <div class="flex items-center gap-2">
             <span class="text-xs text-secondary">Days:</span>
-            <select v-model="performanceDays" @change="loadTopServicesByPerformance()" class="select select-bordered select-xs w-full text-xs">
+            <select v-model="performanceDays" @change="loadTopServicesByPerformance()" class="select select-bordered select-xs w-full text-xs dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)]">
               <option :value="7">7</option>
               <option :value="15">15</option>
               <option :value="30">30</option>
@@ -1431,7 +1433,7 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
           No data found
         </div>
         <table v-else class="table w-full table-compact">
-          <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
+          <thead class="dark:bg-[rgba(255,255,255,.03);] bg-base-200 sticky top-0 border-0">
             <tr class="border-b-[0px] text-sm font-semibold">
               <th>Rank</th>
               <th>Service</th>
@@ -1481,12 +1483,12 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-3 items-stretch" v-if="!props.tabView || props.tabView === 'summary'">
 
       <!-- Proof Submissions Table (Compact) - Show in Summary tab only -->
-      <div v-if="(!props.tabView || props.tabView === 'summary') && (props.filters?.supplier_address || props.filters?.owner_address)" class="dark:bg-base-100 bg-base-200 pt-2 rounded-lg border-[3px] border-solid border-base-200 dark:border-base-100 mb-3 h-full">
+      <div v-if="(!props.tabView || props.tabView === 'summary') && (props.filters?.supplier_address || props.filters?.owner_address)" class="bg-[#ffffff] hover:bg-base-200 pt-2 mb-3 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg overflow-x-auto">
         <div class="flex items-center justify-between mb-2 ml-3 mr-3">
           <div class="text-sm font-semibold text-main">Proof Submissions</div>
           <div class="flex items-center gap-1">
             <span class="text-xs text-secondary">Show:</span>
-            <select v-model="itemsPerPage" @change="loadProofSubmissions()" class="select select-bordered select-xs w-full text-xs">
+            <select v-model="itemsPerPage" @change="loadProofSubmissions()" class="select select-bordered select-xs w-full text-xs dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)]">
               <option :value="25">25</option>
               <option :value="50">50</option>
               <option :value="100">100</option>
@@ -1495,7 +1497,7 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
         </div>
         <div class="bg-base-200 rounded-md overflow-auto h-[35vh]">
           <table class="table w-full table-compact">
-            <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
+            <thead class="dark:bg-[rgba(255,255,255,.03);] bg-base-200 sticky top-0 border-0">
               <tr class="border-b-[0px] text-sm font-semibold">
                 <th>Tx Hash</th>
                 <th>Service</th>
@@ -1581,14 +1583,14 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
       </div>
 
       <!-- Right Column: Services Chart -->
-      <div v-if="props.filters?.supplier_address || props.filters?.owner_address" class="dark:bg-base-100 bg-base-200 rounded-lg p-3 h-full">
+      <div v-if="props.filters?.supplier_address || props.filters?.owner_address" class="bg-[#ffffff] hover:bg-base-200 p-3 mb-3 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg overflow-x-auto">
         <div class="flex items-center justify-between mb-3">
           <div class="text-sm font-semibold mb-2">Services</div>
           <div class="flex justify-end gap-4">
             <!-- LIMIT DROPDOWN -->
             <div class="flex items-center justify-end gap-2">
               <span class="text-xs text-secondary"> Limit:</span>
-              <select v-model="itemsPerPages" @change="loadTopServicesByPerformance()"  class="select select-bordered select-xs w-full text-xs">
+              <select v-model="itemsPerPages" @change="loadTopServicesByPerformance()"  class="select select-bordered select-xs w-full text-xs dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)]">
                 <option :value="10">10</option>
                 <option :value="20">20</option>
                 <option :value="30">30</option>
@@ -1597,7 +1599,7 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
             </div>
             <div class="flex items-center gap-2">
               <span class="text-xs text-secondary">Days:</span>
-              <select v-model="performanceDays" @change="loadTopServicesByPerformance()" class="select select-bordered select-xs w-full text-xs">
+              <select v-model="performanceDays" @change="loadTopServicesByPerformance()" class="select select-bordered select-xs w-full text-xs dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)]">
                 <option :value="7">7</option>
                 <option :value="15">15</option>
                 <option :value="30">30</option>
@@ -1663,7 +1665,7 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
     </div>
 
     <!-- Performance Tab: Show Performance Table -->
-    <div v-if="props.tabView === 'performance'" class="dark:bg-base-100 bg-base-200 pt-3 rounded-lg border-[3px] border-solid border-base-200 dark:border-base-100 mb-3">
+    <div v-if="props.tabView === 'performance'" class="dark:bg-[rgba(255,255,255,.03);] bg-base-200 pt-3 rounded-lg border-[3px] border-solid border-base-200 dark:border-base-100 mb-3">
       <div class="flex items-center justify-between mb-3 ml-4 mr-4">
         <div class="text-base font-semibold text-main">Top Services Performance</div>
         <div class="flex items-center gap-2">
@@ -1685,7 +1687,7 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
         </div>
         <div v-else class="bg-base-200 rounded-md overflow-auto h-[600px]">
           <table class="table w-full table-compact">
-            <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
+            <thead class="dark:bg-[rgba(255,255,255,.03);] bg-base-200 sticky top-0 border-0">
               <tr class="border-b-[0px] text-sm font-semibold">
                 <th>Rank</th>
                 <th>Service</th>
@@ -1732,19 +1734,19 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
     </div>
 
     <!-- Chain Tab: Show Services by Service ID -->
-    <div v-if="props.tabView === 'chain'" class="dark:bg-base-100 bg-base-200 pt-3 rounded-lg border-[3px] border-solid border-base-200 dark:border-base-100 mb-3">
+    <div v-if="props.tabView === 'chain'" class="bg-[#ffffff] mb-3 pt-3 rounded-xl hover:bg-base-200 shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg overflow-x-auto">
       <div class="flex items-center justify-between mb-3 ml-4 mr-4">
         <div class="text-base font-semibold text-main">Services</div>
         <div class="flex items-center gap-2">
           <span class="text-xs text-secondary">Limit:</span>
-          <select v-model="topServicesLimit" @change="loadTopServicesByComputeUnits()" class="select select-bordered select-xs w-full text-xs">
+          <select v-model="topServicesLimit" @change="loadTopServicesByComputeUnits()" class="select select-bordered select-xs w-full text-xs dark:bg-[rgba(255,255,255,.03);]">
             <option :value="5">5</option>
             <option :value="10">10</option>
             <option :value="25">25</option>
             <option :value="50">50</option>
           </select>
           <span class="text-xs text-secondary">Days:</span>
-          <select v-model="topServicesDays" @change="loadTopServicesByComputeUnits()" class="select select-bordered select-xs w-full text-xs">
+          <select v-model="topServicesDays" @change="loadTopServicesByComputeUnits()" class="select select-bordered select-xs w-full text-xs dark:bg-[rgba(255,255,255,.03);]">
             <option :value="7">7</option>
             <option :value="15">15</option>
             <option :value="30">30</option>
@@ -1761,7 +1763,7 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
         </div>
         <div v-else class="bg-base-200 rounded-md overflow-auto h-[40vh]">
           <table class="table w-full table-compact">
-            <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
+            <thead class="dark:bg-[rgba(255,255,255,.03);] bg-base-200 sticky top-0 border-0">
               <tr class="border-b-[0px] text-sm font-semibold">
                 <th>Service ID</th>
                 <th>Compute Units</th>
@@ -1791,11 +1793,11 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
     </div>
 
     <!-- Reward Share Tab: Complete Layout -->
-    <div v-if="props.tabView === 'reward-share'" class="space-y-3">
+    <div v-if="props.tabView === 'reward-share'" class="space-y-3 mb-4">
       <!-- Top Row: Reward Share Distribution (Left) + Top Reward Earners (Right) -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <!-- Section 1: Reward Share Distribution -->
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3">
+        <div class="bg-[#ffffff] mb-3 p-3 rounded-xl hover:bg-base-200 shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg overflow-x-auto">
           <div class="flex items-center justify-between mb-3">
             <div class="text-sm font-semibold">Reward Share Distribution</div>
             <div class="text-xs text-base-content/60">
@@ -1822,7 +1824,7 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
         </div>
 
         <!-- Section 2: Top Reward Earners -->
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3">
+        <div class="bg-[#ffffff] mb-3 p-3 rounded-xl hover:bg-base-200 shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg overflow-x-auto">
           <div class="flex items-center justify-between mb-3">
             <div class="text-sm font-semibold">Top Reward Earners</div>
             <div class="mb-2">
@@ -1830,13 +1832,13 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
                 v-model="rewardShareSearchQuery"
                 type="text" 
                 placeholder="Search by Address" 
-                class="input input-bordered input-sm w-full"
+                class="input input-bordered input-sm w-full bg-base-200 dark:bg-[rgba(255,255,255,.03);]"
               />
             </div>
           </div>
           <div class="bg-base-200 rounded-md overflow-auto h-[40vh]">
             <table class="table w-full table-compact">
-              <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
+              <thead class="dark:bg-[rgba(255,255,255,.03);] bg-base-200 sticky top-0 border-0">
                 <tr class="border-b-[0px] text-sm font-semibold">
                   <th>Rank</th>
                   <th>Validator</th>
@@ -1901,13 +1903,13 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
       <!-- Middle Row: Reward Efficiency Analysis (Left) + Reward by Service (Right) -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <!-- Section 3: Reward Efficiency Analysis -->
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3">
+        <div class="bg-[#ffffff] mb-3 p-3 rounded-xl hover:bg-base-200 shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg overflow-x-auto">
           <div class="flex items-center justify-between mb-3">
             <div class="text-sm font-semibold">Reward Efficiency Analysis</div>
           </div>
           <div class="bg-base-200 rounded-md overflow-auto h-[40vh]">
             <table class="table w-full table-compact">
-              <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
+              <thead class="dark:bg-[rgba(255,255,255,.03);] bg-base-200 sticky top-0 border-0">
                 <tr class="border-b-[0px] text-sm font-semibold">
                   <th>Validator</th>
                   <th>Rewards/CU</th>
@@ -1955,13 +1957,13 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
         </div>
 
         <!-- Section 4: Reward by Service -->
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3">
+        <div class="bg-[#ffffff] mb-3 p-3 rounded-xl hover:bg-base-200 shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg overflow-x-auto">
           <div class="flex items-center justify-between mb-3">
             <div class="text-sm font-semibold">Reward by Service</div>
           </div>
           <div class="bg-base-200 rounded-md overflow-auto h-[40vh]">
             <table class="table w-full table-compact">
-              <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
+              <thead class="dark:bg-[rgba(255,255,255,.03);] bg-base-200 sticky top-0 border-0">
                 <tr class="border-b-[0px] text-sm font-semibold">
                   <th>Validator</th>
                   <th>Total Rewards</th>
@@ -2002,7 +2004,7 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
       </div>
 
       <!-- Bottom: Reward Trends Over Time -->
-      <div class="dark:bg-base-100 bg-base-200 rounded-lg p-3">
+      <div class="bg-[#ffffff] mb-3 p-3 rounded-xl hover:bg-base-200 shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg overflow-x-auto">
         <div class="flex items-center justify-between mb-3">
           <div class="text-sm font-semibold">Reward Trends Over Time</div>
           <div class="flex items-center gap-2">
@@ -2024,14 +2026,14 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
               type="date" 
               :value="rewardShareDateRange.start ? new Date(rewardShareDateRange.start).toISOString().split('T')[0] : ''"
               @change="(e) => { const target = e.target as HTMLInputElement; if (target?.value) { rewardShareDateRange.start = new Date(target.value).toISOString(); loadRewardShareData(); } }"
-              class="input input-bordered input-xs"
+              class="input input-bordered input-xs dark:bg-[rgba(255,255,255,.03);]"
             />
             <span class="text-xs">to</span>
             <input 
               type="date" 
               :value="rewardShareDateRange.end ? new Date(rewardShareDateRange.end).toISOString().split('T')[0] : ''"
               @change="(e) => { const target = e.target as HTMLInputElement; if (target?.value) { rewardShareDateRange.end = new Date(target.value).toISOString(); loadRewardShareData(); } }"
-              class="input input-bordered input-xs"
+              class="input input-bordered input-xs dark:bg-[rgba(255,255,255,.03);]"
             />
           </div>
         </div>

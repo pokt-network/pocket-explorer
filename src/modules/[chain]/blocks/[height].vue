@@ -79,7 +79,7 @@ onBeforeRouteUpdate(async (to, from, next) => {
 });
 </script>
 <template>
-  <div>
+  <div class="pt-[6.5rem]">
     <div v-if="isFutureBlock" class="text-center">
       <div v-if="remainingBlocks > 0">
         <div class="text-primary font-bold text-lg my-10">#{{ target }}</div>
@@ -124,18 +124,18 @@ onBeforeRouteUpdate(async (to, from, next) => {
     </div>
     <div v-else>
       <div class="flex flex-row justify-between mb-4 mt-4 gap-4">
-        <div class="dark:bg-base-100 bg-[#09279F;] w-[85%;] h-[60px;] px-4 rounded-2xl mb-4 bt-4">
+        <div class="bg-[#ffffff] hover:bg-base-200 w-[85%;] h-[60px;] px-4 rounded-2xl mb-4 bt-4 shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
           <h2 class="card-title flex flex-row justify-between items-center">
-            <p class="text-[#ffffff;] text-[30px]/[66px]">#{{ current.block?.header?.height }}</p>
+            <p class="text-[#000000] dark:text-[#ffffff] text-[30px]/[66px]">#{{ current.block?.header?.height }}</p>
           </h2>
         </div>
         <div class="flex justify-end items-center mb-4 w-[15%;] gap-1" v-if="props.height">
           <RouterLink :to="`/${store.blockchain.chainName}/blocks/${height - 1}`"
-            class="dark:bg-gray-400 bg-[#F2F2F2;] rounded-2xl p-1 w-[47%;] h-[60px;] text-2xl mr-1 flex items-center justify-center">
+            class="dark:bg-gray-400 bg-[#F2F2F2;] rounded-2xl p-1 w-[47%;] h-[60px;] text-2xl mr-1 flex items-center justify-center shadow-md bg-gradient-to-b border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
             <Icon icon="mdi-arrow-left" class="w-[24px;] h-[24px;] dark:text-blue-100/50 text-[#64748B;]" />
           </RouterLink>
           <RouterLink :to="`/${store.blockchain.chainName}/blocks/${height + 1}`"
-            class="dark:bg-base-100 bg-[#64748B] rounded-2xl p-1 w-[45%] h-[60px] text-2xl flex items-center justify-center">
+            class="dark:bg-base-100 bg-[#64748B] rounded-2xl p-1 w-[45%] h-[60px] text-2xl flex items-center justify-center shadow-md bg-gradient-to-b border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
             <Icon icon="mdi-arrow-right" class="w-[24px] h-[24px] dark:text-blue-100/50 text-[#FFFFFF]" />
           </RouterLink>
         </div>
@@ -143,28 +143,28 @@ onBeforeRouteUpdate(async (to, from, next) => {
       
       
 
-      <div class="dark:bg-base-100  px-4 pt-3 pb-4 rounded-2xl mb-4 border dark:border-base-100 border-gray-200">
+      <div class="flex bg-[#ffffff] hover:bg-base-200 px-4 pt-3 pb-4 mb-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <div>
           <DynamicComponent :value="current.block_id" />
         </div>
       </div>
 
 
-      <div class="dark:bg-base-100 bg-base-200 rounded-2xl border border-gray-200 dark:border-gray-700 mb-4 overflow-auto">
+      <div class="flex bg-[#ffffff] hover:bg-base-200 mb-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <div class="px-4 py-2">
           <h2 class="text-base font-semibold text-[#171C1F] dark:text-[#ffffff;]">{{ $t('block.block_header') }}</h2>
         </div>
         <DynamicComponent :value="current.block?.header" />
       </div>
 
-      <div class="bg-base-200 dark:bg-base-100 rounded-2xl border border-gray-200 dark:border-gray-700 mb-4 overflow-auto">
+      <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 mb-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <div class="px-4 py-2">
           <h2 class="card-title flex flex-row justify-between text-[#171C1F] dark:text-[#ffffff;]">{{ $t('account.transactions') }}</h2>
         </div>
         <TxsElement :value="current.block?.data?.txs" />
       </div>
 
-      <div class="flex flex-col  bg-base-200 dark:bg-base-100 rounded-2xl border border-gray-200 dark:border-gray-700 mb-4 overflow-auto">
+      <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 mb-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <div class="px-4 py-2">
           <h2 class="card-title flex flex-row justify-between text-[#171C1F] dark:text-[#ffffff;]">{{ $t('block.last_commit') }}</h2>
         </div>

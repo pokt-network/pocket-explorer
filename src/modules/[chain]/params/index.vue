@@ -226,11 +226,11 @@ function formatTitle(v: string) {
 }
 </script>
 <template>
-<div>
-  <p class="bg-[#09279F] dark:bg-base-100 text-2xl rounded-xl px-4 py-4 my-4 font-bold text-white">Parameters</p>
+<div class="pt-[6.5rem]">
+  <p class="bg-[#ffffff] hover:bg-base-200 text-2xl w-full px-4 py-4 my-4 font-bold text-[#000000] dark:text-[#ffffff] rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">Parameters</p>
   <div class="overflow-hidden">
     <!-- Chain ID -->
-    <div class="bg-base-100 px-4 pt-3 pb-4 rounded-xl">
+    <div class="bg-[#ffffff] text-2xl flex flex-col w-full px-4 py-4 my-4 font-bold text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
       <div class="flex items-center mb-4">
         <!-- <Icon icon="mdi:cube-outline" class="text-2xl text-info mr-2" /> -->
         <div class="text-[30px]/[40px] font-semibold text-main">{{ chain.title }}</div>
@@ -241,7 +241,7 @@ function formatTitle(v: string) {
         <div
           v-for="(item, index) of chain.items"
           :key="index"
-          class="rounded-xl bg-base-200 px-4 py-3 hover:bg-base-300"
+          class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-4 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
         >
           <div class="text-xs mb-2 text-secondary flex items-center justify-center">
             <Icon :icon="`mdi:${item.icon || 'information-outline'}`" class="mr-1 text-info" />
@@ -253,7 +253,7 @@ function formatTitle(v: string) {
     </div>
 
     <!-- Validator Version Distribution -->
-    <div class="bg-base-100 px-4 pt-3 pb-4 rounded-xl mt-6">
+    <div class="bg-[#ffffff] w-full px-4 pt-3 pb-4 mt-6 font-bold text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
       <div class="flex items-center mb-4">
         <!-- Title -->
         <div class="text-[30px]/[40px] font-semibold text-main">
@@ -261,7 +261,7 @@ function formatTitle(v: string) {
         </div>
       </div>
 
-      <div v-if="isLoading" class="flex justify-center py-8">
+      <div v-if="isLoading" class="flex bg-[#ffffff] hover:bg-base-200 w-full py-8 rounded-xl justify-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <div class="loading loading-spinner loading-lg text-primary"></div>
       </div>
 
@@ -271,7 +271,7 @@ function formatTitle(v: string) {
           <!-- Version Box (small width) -->
           <div class="md:col-span-1">
             <div v-for="(versionData, version) in validatorVersions" :key="version" 
-              class="bg-base-200 p-4 rounded-xl hover:bg-base-300"
+              class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
               :class="versionData.count === stakingStore.validators.length ? 'border-success' : versionData.count > stakingStore.validators.length / 2 ? 'border-primary' : 'border-warning'">
               <div class="flex justify-between items-center mb-2">
                 <div class="flex items-center">
@@ -299,9 +299,9 @@ function formatTitle(v: string) {
           </div>
 
           <!-- Status Summary Box (bigger width) -->
-          <div class="md:grid-cols-2 border border-[#60BC29] rounded-xl">
-            <div class="p-3 rounded-xl h-full flex items-center"
-              :class="Object.keys(validatorVersions).length === 1 ? 'bg-success/10 border border-success/20' : Object.keys(validatorVersions).length > 1 ? 'bg-warning/10 border border-warning/20' : 'bg-base-200'">
+          <div class="md:grid-cols-2 bg-[#ffffff] hover:bg-base-200 dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border border-[#60BC29] rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300">
+            <div class="p-3 rounded-xl h-full flex items-center dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)]"
+              :class="Object.keys(validatorVersions).length === 1 ? 'bg-success/10 border border-success/20' : Object.keys(validatorVersions).length > 1 ? 'bg-warning/10 border border-warning/20' : 'hover:bg-base-200'">
               <Icon :icon="Object.keys(validatorVersions).length === 1 ? 'mdi:check-circle' : 'mdi:alert-circle'" 
                 class="text-5xl mr-2" 
                 :class="Object.keys(validatorVersions).length === 1 ? 'text-[#60BC29;]' : 'text-warning'" />
@@ -334,9 +334,9 @@ function formatTitle(v: string) {
 
 
     <!-- Custom template for CardParameter components -->
-    <div class="bg-base-100 px-4 pt-3 pb-4 rounded-xl mt-6 shadow-md border-t-4 border-success"
+    <div class="px-4 pt-3 pb-4 rounded-xl mt-6 shadow-md border-t-4 border-success"
       v-if="store.mint?.items && store.mint?.items?.length > 0">
-      <div class="flex items-center mb-4">
+      <div class="flex items-center mb-4 shadow-md hover:shadow-lg transition-shadow duration-300">
         <Icon icon="mdi:cash-multiple" class="text-2xl text-success mr-2" />
         <div class="text-lg font-semibold text-main">{{ store.mint?.title }}</div>
       </div>
@@ -344,20 +344,20 @@ function formatTitle(v: string) {
         <div
           v-for="(item, index) of store.mint?.items"
           :key="index"
-          class="rounded-xl bg-base-200 px-4 py-3 hover:bg-base-300 transition-all duration-200 border-l-4 border-success/50"
+          class="rounded-xl bg-base-200 px-4 py-3 transition-all duration-200 border-l-4 border-success/50"
         >
-          <div class="text-xs mb-2 text-secondary flex items-center">
+          <div class="text-xs mb-2 text-secondary flex items-center shadow-md hover:shadow-lg transition-shadow duration-300">
             <Icon icon="mdi:currency-usd" class="mr-1 text-success" />
             <span class="capitalize">{{ formatTitle(item?.subtitle) }}</span>
           </div>
-          <div class="text-base text-main font-medium overflow-hidden text-ellipsis">{{ item?.value }}</div>
+          <div class="text-base text-main font-medium overflow-hidden text-ellipsis shadow-md hover:shadow-lg transition-shadow duration-30">{{ item?.value }}</div>
         </div>
       </div>
     </div>
 
     
     <!-- Staking Parameters -->
-    <div class="bg-base-100 px-4 pt-3 pb-4 rounded-xl mt-6"
+    <div class="bg-[#ffffff] px-4 pt-3 pb-4 mt-6 text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
       v-if="store.staking?.items && store.staking?.items?.length > 0">
       <div class="flex items-center mb-4">
         <!-- <Icon icon="mdi:bank" class="text-2xl text-secondary mr-2" /> -->
@@ -367,7 +367,7 @@ function formatTitle(v: string) {
         <div
           v-for="(item, index) of store.staking?.items"
           :key="index"
-          class="rounded-xl bg-base-200 px-4 py-3 hover:bg-base-300"
+          class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-4 py-3 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
         >
           <div class="text-xs mb-2 text-[#64748B;] flex items-center justify-center">
             <!-- <Icon icon="mdi:gavel" class="mr-1 text-secondary" /> -->
@@ -379,7 +379,7 @@ function formatTitle(v: string) {
     </div>
     
     <!-- Governance Parameters -->
-    <div class="bg-base-100 px-4 pt-3 pb-4 rounded-xl mt-6"
+    <div class="bg-[#ffffff] w-full px-4 pt-3 pb-4 mt-6 text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
       v-if="store.gov?.items && store.gov?.items?.length > 0">
       <div class="flex items-center mb-4">
         <!-- <Icon icon="mdi:gavel" class="text-2xl text-accent mr-2" /> -->
@@ -389,7 +389,7 @@ function formatTitle(v: string) {
         <div
           v-for="(item, index) of store.gov?.items"
           :key="index"
-          class="rounded-xl bg-base-200 px-4 py-3 hover:bg-base-300"
+          class="flex flex-col bg-[#ffffff] hover:bg-base-200 px-4 py-3 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
         >
           <div class="text-xs mb-2 text-[#64748B;] flex items-center justify-center">
             <!-- <Icon icon="mdi:vote" class="mr-1 text-accent" /> -->
@@ -403,7 +403,7 @@ function formatTitle(v: string) {
     </div>
     
     <!-- Distribution Parameters -->
-    <div class="bg-base-100 px-4 pt-3 pb-4 rounded-xl mt-6"
+    <div class="bg-[#ffffff] px-4 pt-3 pb-4 mt-6 text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
       v-if="store.distribution?.items && store.distribution?.items?.length > 0">
       <div class="flex items-center mb-4">
         <!-- <Icon icon="mdi:share-variant" class="text-2xl text-warning mr-2" /> -->
@@ -413,7 +413,7 @@ function formatTitle(v: string) {
         <div
           v-for="(item, index) of store.distribution?.items"
           :key="index"
-          class="rounded-xl bg-base-200 px-4 py-3 hover:bg-base-300"
+          class="flex flex-col bg-[#ffffff] hover:bg-base-200 px-4 py-3 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
         >
           <div class="text-xs mb-2 text-[#64748B;] flex items-center justify-center">
             <!-- <Icon icon="mdi:percent" class="mr-1 text-warning" /> -->
@@ -425,7 +425,7 @@ function formatTitle(v: string) {
     </div>
 
     <!-- Bank Parameters -->
-    <div class="bg-base-100 px-4 pt-3 pb-4 rounded-xl mt-6"
+    <div class="bg-[#ffffff] px-4 pt-3 pb-4 mt-6 text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
       v-if="store.bank?.items && store.bank?.items?.length > 0">
       <div class="flex items-center mb-4">
         <div class="text-[30px]/[40px] font-semibold text-main">{{ store.bank?.title }}</div>
@@ -434,7 +434,7 @@ function formatTitle(v: string) {
         <div
           v-for="(item, index) of store.bank?.items"
           :key="index"
-          class="rounded-xl bg-base-200 px-4 py-3 hover:bg-base-300"
+          class="flex flex-col bg-[#ffffff] hover:bg-base-200 px-4 py-3 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
         >
           <div class="text-xs mb-2 text-[#64748B;] flex items-center justify-center">
             <span class="capitalize">{{ formatTitle(item?.subtitle) }}</span>
@@ -445,7 +445,7 @@ function formatTitle(v: string) {
     </div>
 
     <!-- Auth Parameters -->
-    <div class="bg-base-100 px-4 pt-3 pb-4 rounded-xl mt-6"
+    <div class="bg-[#ffffff] px-4 pt-3 pb-4 mt-6 text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
       v-if="store.auth?.items && store.auth?.items?.length > 0">
       <div class="flex items-center mb-4">
         <div class="text-[30px]/[40px] font-semibold text-main">{{ store.auth?.title }}</div>
@@ -454,7 +454,7 @@ function formatTitle(v: string) {
         <div
           v-for="(item, index) of store.auth?.items"
           :key="index"
-          class="rounded-xl bg-base-200 px-4 py-3 hover:bg-base-300"
+          class="flex flex-col bg-[#ffffff] hover:bg-base-200 px-4 py-3 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
         >
           <div class="text-xs mb-2 text-[#64748B;] flex items-center justify-center">
             <span class="capitalize">{{ formatTitle(item?.subtitle) }}</span>
@@ -465,7 +465,7 @@ function formatTitle(v: string) {
     </div>
 
     <!-- Application Parameters -->
-    <div class="bg-base-100 px-4 pt-3 pb-4 rounded-xl mt-6"
+    <div class="bg-[#ffffff] px-4 pt-3 pb-4 mt-6 text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
       v-if="store.applicationParams?.items && store.applicationParams?.items?.length > 0">
       <div class="flex items-center mb-4">
         <div class="text-[30px]/[40px] font-semibold text-main">{{ store.applicationParams?.title }}</div>
@@ -474,7 +474,7 @@ function formatTitle(v: string) {
         <div
           v-for="(item, index) of store.applicationParams?.items"
           :key="index"
-          class="rounded-xl bg-base-200 px-4 py-3 hover:bg-base-300"
+          class="flex flex-col bg-[#ffffff] hover:bg-base-200 px-4 py-3 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
         >
           <div class="text-xs mb-2 text-[#64748B;] flex items-center justify-center">
             <span class="capitalize">{{ formatTitle(item?.subtitle) }}</span>
@@ -485,7 +485,7 @@ function formatTitle(v: string) {
     </div>
 
     <!-- Gateway Parameters -->
-    <div class="bg-base-100 px-4 pt-3 pb-4 rounded-xl mt-6"
+    <div class="bg-[#ffffff] px-4 pt-3 pb-4 mt-6 text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
       v-if="store.gatewayParams?.items && store.gatewayParams?.items?.length > 0">
       <div class="flex items-center mb-4">
         <div class="text-[30px]/[40px] font-semibold text-main">{{ store.gatewayParams?.title }}</div>
@@ -494,7 +494,7 @@ function formatTitle(v: string) {
         <div
           v-for="(item, index) of store.gatewayParams?.items"
           :key="index"
-          class="rounded-xl bg-base-200 px-4 py-3 hover:bg-base-300"
+          class="flex flex-col bg-[#ffffff] hover:bg-base-200 px-4 py-3 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
         >
           <div class="text-xs mb-2 text-[#64748B;] flex items-center justify-center">
             <span class="capitalize">{{ formatTitle(item?.subtitle) }}</span>
@@ -505,7 +505,7 @@ function formatTitle(v: string) {
     </div>
 
     <!-- Migration Parameters -->
-    <div class="bg-base-100 px-4 pt-3 pb-4 rounded-xl mt-6"
+    <div class="bg-[#ffffff] px-4 pt-3 pb-4 mt-6 text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
       v-if="store.migrationParams?.items && store.migrationParams?.items?.length > 0">
       <div class="flex items-center mb-4">
         <div class="text-[30px]/[40px] font-semibold text-main">{{ store.migrationParams?.title }}</div>
@@ -514,7 +514,7 @@ function formatTitle(v: string) {
         <div
           v-for="(item, index) of store.migrationParams?.items"
           :key="index"
-          class="rounded-xl bg-base-200 px-4 py-3 hover:bg-base-300"
+          class="flex flex-col bg-[#ffffff] hover:bg-base-200 px-4 py-3 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
         >
           <div class="text-xs mb-2 text-[#64748B;] flex items-center justify-center">
             <span class="capitalize">{{ formatTitle(item?.subtitle) }}</span>
@@ -525,7 +525,7 @@ function formatTitle(v: string) {
     </div>
 
     <!-- Proof Parameters -->
-    <div class="bg-base-100 px-4 pt-3 pb-4 rounded-xl mt-6"
+    <div class="bg-[#ffffff] px-4 pt-3 pb-4 mt-6 text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
       v-if="store.proofParams?.items && store.proofParams?.items?.length > 0">
       <div class="flex items-center mb-4">
         <div class="text-[30px]/[40px] font-semibold text-main">{{ store.proofParams?.title }}</div>
@@ -534,7 +534,7 @@ function formatTitle(v: string) {
         <div
           v-for="(item, index) of store.proofParams?.items"
           :key="index"
-          class="rounded-xl bg-base-200 px-4 py-3 hover:bg-base-300"
+          class="flex flex-col bg-[#ffffff] hover:bg-base-200 px-4 py-3 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
         >
           <div class="text-xs mb-2 text-[#64748B;] flex items-center justify-center">
             <span class="capitalize">{{ formatTitle(item?.subtitle) }}</span>
@@ -545,7 +545,7 @@ function formatTitle(v: string) {
     </div>
 
     <!-- Service Parameters -->
-    <div class="bg-base-100 px-4 pt-3 pb-4 rounded-xl mt-6"
+    <div class="bg-[#ffffff] px-4 pt-3 pb-4 mt-6 text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
       v-if="store.serviceParams?.items && store.serviceParams?.items?.length > 0">
       <div class="flex items-center mb-4">
         <div class="text-[30px]/[40px] font-semibold text-main">{{ store.serviceParams?.title }}</div>
@@ -554,7 +554,7 @@ function formatTitle(v: string) {
         <div
           v-for="(item, index) of store.serviceParams?.items"
           :key="index"
-          class="rounded-xl bg-base-200 px-4 py-3 hover:bg-base-300"
+          class="flex flex-col bg-[#ffffff] hover:bg-base-200 px-4 py-3 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
         >
           <div class="text-xs mb-2 text-[#64748B;] flex items-center justify-center">
             <span class="capitalize">{{ formatTitle(item?.subtitle) }}</span>
@@ -565,7 +565,7 @@ function formatTitle(v: string) {
     </div>
 
     <!-- Session Parameters -->
-    <div class="bg-base-100 px-4 pt-3 pb-4 rounded-xl mt-6"
+    <div class="bg-[#ffffff] px-4 pt-3 pb-4 mt-6 text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
       v-if="store.sessionParams?.items && store.sessionParams?.items?.length > 0">
       <div class="flex items-center mb-4">
         <div class="text-[30px]/[40px] font-semibold text-main">{{ store.sessionParams?.title }}</div>
@@ -574,7 +574,7 @@ function formatTitle(v: string) {
         <div
           v-for="(item, index) of store.sessionParams?.items"
           :key="index"
-          class="rounded-xl bg-base-200 px-4 py-3 hover:bg-base-300"
+          class="flex flex-col bg-[#ffffff] hover:bg-base-200 px-4 py-3 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
         >
           <div class="text-xs mb-2 text-[#64748B;] flex items-center justify-center">
             <span class="capitalize">{{ formatTitle(item?.subtitle) }}</span>
@@ -585,7 +585,7 @@ function formatTitle(v: string) {
     </div>
 
     <!-- Shared Parameters -->
-    <div class="bg-base-100 px-4 pt-3 pb-4 rounded-xl mt-6"
+    <div class="bg-[#ffffff] px-4 pt-3 pb-4 mt-6 text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
       v-if="store.sharedParams?.items && store.sharedParams?.items?.length > 0">
       <div class="flex items-center mb-4">
         <div class="text-[30px]/[40px] font-semibold text-main">{{ store.sharedParams?.title }}</div>
@@ -594,7 +594,7 @@ function formatTitle(v: string) {
         <div
           v-for="(item, index) of store.sharedParams?.items"
           :key="index"
-          class="rounded-xl bg-base-200 px-4 py-3 hover:bg-base-300"
+          class="flex flex-col bg-[#ffffff] hover:bg-base-200 px-4 py-3 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
         >
           <div class="text-xs mb-2 text-[#64748B;] flex items-center justify-center">
             <span class="capitalize">{{ formatTitle(item?.subtitle) }}</span>
@@ -605,7 +605,7 @@ function formatTitle(v: string) {
     </div>
 
     <!-- Supplier Parameters -->
-    <div class="bg-base-100 px-4 pt-3 pb-4 rounded-xl mt-6"
+    <div class="bg-[#ffffff] px-4 pt-3 pb-4 mt-6 text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
       v-if="store.supplierParams?.items && store.supplierParams?.items?.length > 0">
       <div class="flex items-center mb-4">
         <div class="text-[30px]/[40px] font-semibold text-main">{{ store.supplierParams?.title }}</div>
@@ -614,7 +614,7 @@ function formatTitle(v: string) {
         <div
           v-for="(item, index) of store.supplierParams?.items"
           :key="index"
-          class="rounded-xl bg-base-200 px-4 py-3 hover:bg-base-300"
+          class="flex flex-col bg-[#ffffff] hover:bg-base-200 px-4 py-3 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
         >
           <div class="text-xs mb-2 text-[#64748B;] flex items-center justify-center">
             <span class="capitalize">{{ formatTitle(item?.subtitle) }}</span>
@@ -625,7 +625,7 @@ function formatTitle(v: string) {
     </div>
 
     <!-- Tokenomics Parameters -->
-    <div class="bg-base-100 px-4 pt-3 pb-4 rounded-xl mt-6"
+    <div class="bg-[#ffffff] px-4 pt-3 pb-4 mt-6 text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
       v-if="store.tokenomicsParams?.items && store.tokenomicsParams?.items?.length > 0">
       <div class="flex items-center mb-4">
         <div class="text-[30px]/[40px] font-semibold text-main">{{ store.tokenomicsParams?.title }}</div>
@@ -634,7 +634,7 @@ function formatTitle(v: string) {
         <div
           v-for="(item, index) of store.tokenomicsParams?.items"
           :key="index"
-          class="rounded-xl bg-base-200 px-4 py-3 hover:bg-base-300"
+          class="bg-[#ffffff] hover:bg-base-200 px-4 py-3 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
         >
           <div class="text-xs mb-2 text-[#64748B;] flex items-center justify-center">
             <span class="capitalize">{{ formatTitle(item?.subtitle) }}</span>
@@ -645,7 +645,7 @@ function formatTitle(v: string) {
     </div>
     
     <!-- Slashing Parameters -->
-    <div class="bg-base-100 px-4 pt-3 pb-4 rounded-xl mt-6"
+    <div class="bbg-[#ffffff] px-4 pt-3 pb-4 mt-6 mb-4 text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
       v-if="store.slashing?.items && store.slashing?.items?.length > 0">
       <div class="flex items-center mb-4">
         <!-- <Icon icon="mdi:alert" class="text-2xl text-error mr-2" /> -->
@@ -655,7 +655,7 @@ function formatTitle(v: string) {
         <div
           v-for="(item, index) of store.slashing?.items"
           :key="index"
-          class="rounded-xl bg-base-200 px-4 py-3 hover:bg-base-300"
+          class="flex flex-col bg-[#ffffff] hover:bg-base-200 px-4 py-3 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
         >
           <div class="text-xs mb-2 text-[#64748B;] flex items-center justify-center">
             <!-- <Icon icon="mdi:sword" class="mr-1 text-error" /> -->

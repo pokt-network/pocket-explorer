@@ -381,29 +381,29 @@ async function loadNetworkStats() {
 </script>
 
 <template>
-  <div class="mb-[2vh]">
-    <p class="bg-[#09279F] dark:bg-base-100 text-2xl rounded-xl px-4 py-4 my-4 font-bold text-white">Applications</p>
+  <div class="mb-[2vh] pt-[6.5rem]">
+    <p class="bg-[#ffffff] hover:bg-base-200 text-2xl w-full px-4 py-4 my-4 font-bold text-[#000000] dark:text-[#ffffff] rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">Applications</p>
 
     <div class="grid sm:grid-cols-1 md:grid-cols-4 py-4 gap-4 mb-4">
-      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+      <div class="flex bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <span>
           <div class="text-xs text-[#64748B]">Staked Applications</div>
           <div class="font-bold">{{ networkStats.applications.toLocaleString() }}</div>
         </span>
       </div>
-      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+      <div class="flex bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <span>
           <div class="text-xs text-[#64748B]">Staked Tokens</div>
           <div class="font-bold">{{ format.formatToken({ denom: 'upokt', amount: networkStats.totalStakedAmount.toString() }) }}</div>
         </span>
       </div>
-      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+      <div class="flex bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <span>
           <div class="text-xs text-[#64748B]">Unstaking Applications</div>
           <div class="font-bold">{{ networkStats.unstakingCount.toLocaleString() }}</div>
         </span>
       </div>
-      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+      <div class="flex bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <span>
           <div class="text-xs text-[#64748B]">Unstaking Tokens</div>
           <div class="font-bold">{{ format.formatToken({ denom: 'upokt', amount: networkStats.totalUnstakingTokens.toString() }) }}</div>
@@ -412,14 +412,14 @@ async function loadNetworkStats() {
     </div>
 
     <!-- Filter Bar -->
-    <div class="bg-base-200 dark:bg-base-100 rounded-xl p-4 mb-4">
+    <div class="bg-[#ffffff] p-4 mb-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
       <div class="flex items-center gap-2 flex-wrap">
         <!-- Services Filter -->
         <div class="flex items-center gap-1.5">
           <Icon icon="mdi:filter" class="text-base-content/60 text-sm" />
           <select 
             v-model="serviceFilter" 
-            class="select select-bordered select-xs h-8 min-h-8 px-2 text-xs w-40"
+            class="select select-bordered select-xs h-8 min-h-8 px-2 text-xs w-40 hover:bg-base-200 dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)]"
           >
             <option value="">All Services</option>
             <option v-for="service in availableServices" :key="service" :value="service">
@@ -433,7 +433,7 @@ async function loadNetworkStats() {
           <Icon icon="mdi:check-circle-outline" class="text-base-content/60 text-sm" />
           <select 
             v-model="statusFilter" 
-            class="select select-bordered select-xs h-8 min-h-8 px-2 text-xs w-28"
+            class="select select-bordered select-xs h-8 min-h-8 px-2 text-xs w-28 hover:bg-base-200 dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)]"
           >
             <option value="all">All</option>
             <option value="staked">Staked</option>
@@ -446,7 +446,7 @@ async function loadNetworkStats() {
           <Icon icon="mdi:sort" class="text-base-content/60 text-sm" />
           <select 
             v-model="sortBy" 
-            class="select select-bordered select-xs h-8 min-h-8 px-2 text-xs w-32"
+            class="select select-bordered select-xs h-8 min-h-8 px-2 text-xs w-32 hover:bg-base-200 dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)]"
           >
             <option value="stake">Stake</option>
             <option value="services">Services</option>
@@ -466,9 +466,9 @@ async function loadNetworkStats() {
       </div>
     </div>
 
-    <div class="bg-base-200 dark:bg-base-100 rounded-xl p-2">
+    <div class="bg-base-200 p-2 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
       <table class="table w-full table-compact rounded-xl">
-        <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
+        <thead class="bg-base-200 dark:bg-[rgba(255,255,255,.03)] sticky top-0 border-0">
           <tr class="text-sm font-semibold">
             <th>Rank</th>
             <th>Address</th>
@@ -499,7 +499,7 @@ async function loadNetworkStats() {
             v-else
             v-for="(item, index) in sortedList"
             :key="item.address"
-            class="hover:bg-gray-100 dark:hover:bg-[#384059] dark:bg-base-200 bg-white border-0 rounded-xl"
+            class="hover:bg-gray-100 dark:hover:bg-[rgba(255,255,255,0.06)] dark:bg-base-200 bg-white border-0 rounded-xl"
           >
             <td>{{ index + 1 + (currentPage - 1) * itemsPerPage }}</td>
 

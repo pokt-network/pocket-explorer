@@ -1229,6 +1229,8 @@ function formatBlockTime(secondsStr?: string | number) {
 
 <template>
   <div class="">
+
+      <div class="bg-base-100 dark:bg-[#1a1f26] pt-[6.5rem]">
       <!-- Subtle Indexer Lag Alert -->
       <div v-if="isIndexerBehind && currentChainIndexerStatus" 
         class="mx-4 mt-2 mb-2 px-4 py-2 rounded-lg bg-amber-500/10 dark:bg-amber-500/20 border border-amber-500/30 dark:border-amber-500/40 flex items-center gap-2 text-sm">
@@ -1241,15 +1243,12 @@ function formatBlockTime(secondsStr?: string | number) {
           </span>
         </div>
       </div>
-      
-      <div class="bg-base-100 dark:bg-[#00125b] pt-2">
         <!-- Laptop View -->
         <div class="desktop-home flex flex-1 gap-8">
           <div class="w-[45%] py-2">
           <div class="text-lg font-semibold text-main">Network Status</div>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-2 my-2">
-            <div
-              class="flex flex-col dark:bg-base-100 bg-base-200 px-2 py-4 rounded-xl hover:bg-base-300 items-center justify-center">
+            <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-2 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
               <div class="flex items-center mb-5">
                 <Icon icon="mdi:cube-scan" class="text-sm text-[#64748B] mr-1" />
                 <span class="text-xs text-secondary">Current Block Height</span>
@@ -1261,7 +1260,7 @@ function formatBlockTime(secondsStr?: string | number) {
                 </a>
               </div>
             </div>
-            <div class="flex flex-col dark:bg-base-100 bg-base-200 w-full py-4 px-2 rounded-xl hover:bg-base-300 items-center justify-center">
+            <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-2 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
               <div class="flex mb-5 items-center">
                 <Icon icon="mdi:server-network" class="text-sm text-[#64748B] mr-1" />
                 <span class="text-xs text-secondary">Consensus Nodes</span>
@@ -1269,7 +1268,7 @@ function formatBlockTime(secondsStr?: string | number) {
               <div class="text-xl text-main flex items-center justify-center font-medium"> {{paramStore.nodeVersion?.items?.length || '0' }}
               </div>
             </div>
-            <div class="flex flex-col dark:bg-base-100 bg-base-200 w-full py-4 rounded-xl hover:bg-base-300 items-center justify-center">
+            <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-2 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
               <div class="flex mb-5 items-center">
                 <Icon icon="mdi:timer-outline" class="text-sm text-[#64748B] mr-1" />
                 <span class="text-xs text-secondary">Avg Block Time (24h)</span>
@@ -1279,8 +1278,7 @@ function formatBlockTime(secondsStr?: string | number) {
             </div>
           </div>
           <div class="flex gap-2">
-            <div
-              class="flex flex-col dark:bg-base-100 bg-base-200 rounded-xl py-4 px-2 hover:bg-base-300 items-center justify-center w-2/3">
+            <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-2/3 px-2 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
               <div class="flex mb-5 items-center">
                 <Icon icon="mdi:clock-outline" class="text-sm text-[#64748B] mr-1" />
                 <div class="text-xs text-secondary">Latest Block Time</div>
@@ -1289,8 +1287,7 @@ function formatBlockTime(secondsStr?: string | number) {
                 {{ latestBlockTime }}
               </div>
             </div>
-            <div
-              class="flex flex-col dark:bg-base-100 bg-base-200 rounded-xl py-4 hover:bg-base-300 items-center justify-center w-1/3">
+            <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-1/3 px-2 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
               <div class="flex mb-5 items-center">
                 <Icon icon="mdi:chart-box-outline" class="text-sm text-[#64748B] mr-1" />
                 <div class="text-xs text-secondary">Avg TX Per Block (24h)</div>
@@ -1305,8 +1302,7 @@ function formatBlockTime(secondsStr?: string | number) {
           <div class="flex gap-2">
             <div class="w-[90%]">
               <div class="grid grid-cols-1 md:grid-cols-3 gap-2 my-2">
-                <div
-                  class="flex flex-col dark:bg-base-100 bg-base-200 py-4 px-2 rounded-xl hover:bg-base-300 items-center justify-center w-full">
+                <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-2 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
                   <div class="flex mb-5 items-center">
                     <Icon icon="mdi:swap-horizontal" class="text-sm mr-1 text-[#64748B]" />
                     <span class="text-xs text-secondary">24h Volume</span>
@@ -1314,8 +1310,7 @@ function formatBlockTime(secondsStr?: string | number) {
                   <div class="text-xl text-main flex items-center justify-center font-medium"> ${{format.formatNumber((store.coinInfo?.market_data?.total_volume?.usd || 0), '123,456,789.[00]') }}
                   </div>
                 </div>
-                <div
-                  class="flex flex-col dark:bg-base-100 bg-base-200 py-4 px-2 rounded-xl hover:bg-base-300 justify-center items-center w-full">
+                <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-2 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
                   <div class="flex mb-5 items-center">
                     <Icon icon="mdi:chart-pie" class="text-sm mr-1 text-[#64748B]" />
                     <span class="text-xs text-secondary">Market Cap</span>
@@ -1324,8 +1319,7 @@ function formatBlockTime(secondsStr?: string | number) {
                     ${{ format.formatNumber(store.coinInfo?.market_data?.market_cap?.usd || 0, '123,456,789.[00]') }}
                   </div>
                 </div>
-                <div
-                  class="flex flex-col dark:bg-base-100 bg-base-200 py-4 px-1 rounded-xl hover:bg-base-300 items-center justify-center w-full">
+                <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-2 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
                   <div class="flex mb-5 items-center">
                     <Icon icon="mdi:coins" class="text-sm mr-1 text-[#64748B]" />
                     <span class="text-[10px] text-secondary">Circulating Supply</span>
@@ -1337,8 +1331,7 @@ function formatBlockTime(secondsStr?: string | number) {
                 </div>
               </div>
               <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
-                <div
-                  class="flex flex-col dark:bg-base-100 bg-base-200 py-4 rounded-xl hover:bg-base-300 items-center justify-center">
+                <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-2 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
                   <div class="flex mb-5 items-center">
                     <Icon icon="mdi:trophy" class="text-sm mr-1 text-[#64748B]" />
                     <span class="text-xs text-secondary">24h High / Low</span>
@@ -1349,8 +1342,7 @@ function formatBlockTime(secondsStr?: string | number) {
                     <span class="text-xs text-[#EE6161]">${{ store.coinInfo?.market_data?.low_24h?.usd?.toFixed(6) || '0.00'}}</span>
                   </div>
                 </div>
-                <div
-                  class="flex flex-col dark:bg-base-100 bg-base-200 py-4 px-1 rounded-xl hover:bg-base-300 items-center justify-center">
+                <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-2 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
                   <div class="flex mb-5 items-center">
                     <Icon icon="mdi:trending-up" class=" text-sm mr-1 text-[#64748B]" />
                     <span class="text-xs text-secondary">All Time High</span>
@@ -1363,8 +1355,7 @@ function formatBlockTime(secondsStr?: string | number) {
                     ${{ store.coinInfo?.market_data?.ath?.usd?.toFixed(6) || '0.00' }}
                   </div>
                 </div>
-                <div
-                  class="flex flex-col dark:bg-base-100 bg-base-200 py-4 px-1 rounded-xl hover:bg-base-300 items-center justify-center">
+                <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-2 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
                   <div class="flex mb-5 items-center justify-evenly">
                     <Icon icon="mdi:trending-down" class="text-sm mr-1 text-[#64748B]" />
                     <span class="text-xs text-secondary">All Time Low</span>
@@ -1379,8 +1370,7 @@ function formatBlockTime(secondsStr?: string | number) {
                 </div>
               </div>
             </div>
-            <div
-              class="dark:bg-base-100 bg-base-200 p-4 mt-2 rounded-[20px] hover:bg-base-300 grid grid-cols-1 md:grid-cols-1 w-[25%] items-center justify-between">
+            <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-[25%] p-4 mt-2 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
               <!-- Logo -->
               <img v-if="useBaseStore().theme === 'dark'" src="https://pocket.network/wp-content/uploads/2025/01/logo-white.png" alt="Coin logo" class="w-2/3 justify-self-center" />
               <img v-else src="https://pocket.network/wp-content/uploads/2024/12/logo.png" alt="Coin logo" class="w-2/3 justify-self-center" />
@@ -1425,7 +1415,7 @@ function formatBlockTime(secondsStr?: string | number) {
         </div>  
 
       </div>  
-      <div class="flex mt-4 mb-2 w-full flex-col lg:flex-row gap-4 bg-base-100 dark:bg-[#00125b]">  
+      <div class="flex mt-4 mb-2 w-full flex-col lg:flex-row gap-4 bg-base-100 dark:bg-[#1a1f26]">  
         <!-- Mobile / Tablet view -->
         <div class="mobile-home">
           <!-- Network Status -->
@@ -1433,7 +1423,7 @@ function formatBlockTime(secondsStr?: string | number) {
             <div class="text-lg font-semibold text-main">Network Status</div>
               <div class="grid grid-cols-1 lg:grid-cols-3 gap-2 my-2">
                 <!-- Current Block Height -->
-                <div class="flex flex-col dark:bg-base-100 bg-base-200 py-4 px-2 rounded-xl hover:bg-base-300 items-center justify-center">
+                <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-1 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
                   <div class="flex items-center mb-5">
                     <Icon icon="mdi:cube-scan" class="text-sm max-[1024px]:text-[8px] max-[1024px]:font-bold text-[#64748B] mr-1" />
                     <span class="text-[10px] max-[1024px]:text-[8px] max-[1024px]:font-bold text-secondary">Current Block Height</span>
@@ -1447,7 +1437,7 @@ function formatBlockTime(secondsStr?: string | number) {
                 </div>
 
                 <!-- Consensus Nodes -->
-                <div class="flex flex-col dark:bg-base-100 bg-base-200 w-full py-4 px-2 rounded-xl hover:bg-base-300 items-center justify-center">
+                <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-1 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
                   <div class="flex mb-5 items-center">
                     <Icon icon="mdi:server-network" class="text-sm max-[1024px]:text-[8px] max-[1024px]:font-bold text-[#64748B] mr-1" />
                     <span class="text-[10px] max-[1024px]:text-[8px] max-[1024px]:font-bold text-secondary">Consensus Nodes</span>
@@ -1458,7 +1448,7 @@ function formatBlockTime(secondsStr?: string | number) {
                 </div>
 
                 <!-- Avg Block Time (24) -->
-                <div class="flex flex-col dark:bg-base-100 bg-base-200 w-full py-4 rounded-xl hover:bg-base-300 items-center justify-center">
+                <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-1 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
                   <div class="flex mb-5 items-center">
                     <Icon icon="mdi:timer-outline" class="text-sm max-[1024px]:text-[8px] max-[1024px]:font-bold text-[#64748B] mr-1" />
                     <span class="text-[10px] max-[1024px]:text-[8px] max-[1024px]:font-bold text-secondary">Avg Block Time (24h)</span>
@@ -1472,7 +1462,7 @@ function formatBlockTime(secondsStr?: string | number) {
               <div class="flex gap-2 flex-col md:flex-row">
 
                 <!-- Latest Block Time -->
-                <div class="flex flex-col dark:bg-base-100 bg-base-200 rounded-xl py-4 px-2 hover:bg-base-300 items-center justify-center w-full md:w-2/3">
+                <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-1 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
                   <div class="flex mb-5 items-center">
                     <Icon icon="mdi:clock-outline" class="text-sm max-[1024px]:text-[8px] max-[1024px]:font-bold text-[#64748B] mr-1" />
                     <div class="text-[10px] max-[1024px]:text-[8px] max-[1024px]:font-bold text-secondary">Latest Block Time</div>
@@ -1483,7 +1473,7 @@ function formatBlockTime(secondsStr?: string | number) {
                 </div>
 
                 <!-- Avg TX Per Block (24h) -->
-                <div class="flex flex-col dark:bg-base-100 bg-base-200 rounded-xl py-4 hover:bg-base-300 items-center justify-center w-full md:w-1/3">
+                <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-1 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
                   <div class="flex mb-5 items-center">
                     <Icon icon="mdi:chart-box-outline" class="text-sm max-[1024px]:text-[8px] max-[1024px]:font-bold text-[#64748B] mr-1" />
                     <div class="text-[10px] max-[1024px]:text-[8px] max-[1024px]:font-bold text-secondary">Avg TX Per Block (24h)</div>
@@ -1504,7 +1494,7 @@ function formatBlockTime(secondsStr?: string | number) {
             <div class="flex flex-col lg:flex-row gap-2">
               <div class="grid grid-cols-1 lg:grid-cols-3 gap-2 my-2 w-full">
                 <!-- 24h Volume -->
-                <div class="flex flex-col dark:bg-base-100 bg-base-200 py-4 px-2 rounded-xl hover:bg-base-300 items-center justify-center w-full">
+                <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-1 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
                   <div class="flex mb-5 items-center">
                     <Icon icon="mdi:swap-horizontal" class="text-sm mr-1 text-[#64748B]" />
                     <span class="text-[10px] text-secondary">24h Volume</span>
@@ -1515,7 +1505,7 @@ function formatBlockTime(secondsStr?: string | number) {
                 </div>
 
                 <!-- Market Cap -->
-                <div class="flex flex-col dark:bg-base-100 bg-base-200 py-4 px-2 rounded-xl hover:bg-base-300 items-center justify-center w-full">
+                <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-1 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
                   <div class="flex mb-5 items-center">
                     <Icon icon="mdi:chart-pie" class="text-sm mr-1 text-[#64748B]" />
                     <span class="text-[10px] text-secondary">Market Cap</span>
@@ -1526,7 +1516,7 @@ function formatBlockTime(secondsStr?: string | number) {
                 </div>
 
                 <!-- Circulating Supply -->
-                <div class="flex flex-col dark:bg-base-100 bg-base-200 py-4 px-2 rounded-xl hover:bg-base-300 items-center justify-center w-full">
+                <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-1 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
                   <div class="flex mb-5 items-center gap-1">
                     <Icon icon="mdi:coins" class="text-sm mr-1 text-[#64748B]" />
                     <span class="text-[10px] text-secondary">Circulating Supply</span>
@@ -1538,7 +1528,7 @@ function formatBlockTime(secondsStr?: string | number) {
                 </div>
 
                 <!-- 24h High/Low -->
-                <div class="flex flex-col dark:bg-base-100 bg-base-200 py-4 rounded-xl hover:bg-base-300 items-center justify-center w-full">
+                <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-1 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
                   <div class="flex mb-5 items-center">
                     <Icon icon="mdi:trophy" class="text-sm mr-1 text-[#64748B]" />
                     <span class="text-[10px] text-secondary">24h High / Low</span>
@@ -1550,7 +1540,7 @@ function formatBlockTime(secondsStr?: string | number) {
                 </div>
 
                 <!-- All Time High -->
-                <div class="flex flex-col dark:bg-base-100 bg-base-200 py-4 px-1 rounded-xl hover:bg-base-300 items-center justify-center w-full">
+                <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-1 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
                   <div class="flex mb-5 items-center">
                     <Icon icon="mdi:trending-up" class=" text-sm mr-1 text-[#64748B]" />
                     <span class="text-[10px] text-secondary">All Time High</span>
@@ -1565,7 +1555,7 @@ function formatBlockTime(secondsStr?: string | number) {
                 </div>
 
                 <!-- All Time Low -->
-                <div class="flex flex-col dark:bg-base-100 bg-base-200 py-4 px-1 rounded-xl hover:bg-base-300 items-center justify-center w-full">
+                <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-1 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
                   <div class="flex mb-5 items-center justify-evenly">
                     <Icon icon="mdi:trending-down" class="text-sm mr-1 text-[#64748B]" />
                     <span class="text-[10px] text-secondary">All Time Low</span>
@@ -1580,7 +1570,7 @@ function formatBlockTime(secondsStr?: string | number) {
                 </div>
 
                 <!-- Logo + Price + Buy Button -->
-                <div class="flex flex-col items-center gap-2 mt-3 dark:bg-base-100 bg-base-200 p-3 rounded-xl">
+                <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full gap-2 p-3 mt-3 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
                   <img v-if="useBaseStore().theme === 'dark'"
                       src="https://pocket.network/wp-content/uploads/2025/01/logo-white.png"
                       alt="Coin logo" class="w-24" />
@@ -1611,15 +1601,14 @@ function formatBlockTime(secondsStr?: string | number) {
     <!-- Network Statistics Section -->
 
     <!-- Network Statistics -->
-    <div class="bg-base-100 dark:bg-[#00125b;] px-4 pt-3 pb-4 mt-2">
+    <div class="bg-base-100 dark:bg-[#1a1f26] pt-3 pb-4 mt-2">
       <div class="flex items-center mb-4">
         <div class="text-lg font-semibold text-main">Network Statistics</div>
       </div>
 
       <div class="grid grid-cols-2 md:grid-cols-8 gap-4">
         <!-- Total Wallets -->
-        <div
-          class="flex flex-col dark:bg-base-100 bg-base-200 py-4 px-2 rounded-xl hover:bg-base-300 transition-all duration-200 items-center justify-center w-full">
+         <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-2 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
           <div class="flex mb-5 items-center">
             <Icon icon="mdi:wallet" class="text-sm mr-1 text-secondary" />
             <span class="text-xs text-secondary">Total Wallets</span>
@@ -1629,8 +1618,7 @@ function formatBlockTime(secondsStr?: string | number) {
         </div>
 
         <!-- Applications -->
-        <div
-          class="flex flex-col dark:bg-base-100 bg-base-200 py-4 px-2 rounded-xl hover:bg-base-300 transition-all duration-200 items-center justify-center w-full">
+        <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-2 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
           <div class="flex mb-5 items-center">
             <Icon icon="mdi:apps" class="text-sm mr-1 text-secondary" />
             <span class="text-xs text-secondary">Applications</span>
@@ -1641,8 +1629,7 @@ function formatBlockTime(secondsStr?: string | number) {
         </div>
 
         <!-- Suppliers -->
-        <div
-          class="flex flex-col dark:bg-base-100 bg-base-200 py-4 px-2 rounded-xl hover:bg-base-300 transition-all duration-200 items-center justify-center w-full">
+        <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-2 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
           <div class="flex mb-5 items-center">
             <Icon icon="mdi:package-variant" class="text-sm mr-1 text-secondary" />
             <span class="text-xs text-secondary">Suppliers</span>
@@ -1653,8 +1640,7 @@ function formatBlockTime(secondsStr?: string | number) {
         </div>
 
         <!-- Gateways -->
-        <div
-          class="flex flex-col dark:bg-base-100 bg-base-200 py-4 px-2 rounded-xl hover:bg-base-300 transition-all duration-200 items-center justify-center w-full">
+        <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-2 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
           <div class="flex mb-5 items-center">
             <Icon icon="mdi:gate" class="text-sm mr-1 text-secondary" />
             <span class="text-xs text-secondary">Gateways</span>
@@ -1665,8 +1651,7 @@ function formatBlockTime(secondsStr?: string | number) {
         </div>
 
         <!-- Services -->
-        <div
-          class="flex flex-col dark:bg-base-100 bg-base-200 py-4 px-2 rounded-xl hover:bg-base-300 transition-all duration-200 items-center justify-center w-full">
+        <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-2 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
           <div class="flex mb-5 items-center">
             <Icon icon="mdi:handshake" class="text-sm mr-1 text-secondary" />
             <span class="text-xs text-secondary">Services</span>
@@ -1677,8 +1662,7 @@ function formatBlockTime(secondsStr?: string | number) {
         </div>
 
         <!-- Relays (24h) -->
-        <div
-          class="flex flex-col dark:bg-base-100 bg-base-200 py-4 px-2 rounded-xl hover:bg-base-300 transition-all duration-200 items-center justify-center w-full">
+        <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-2 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
           <div class="flex mb-5 items-center">
             <Icon icon="mdi:network" class="text-sm mr-1 text-secondary" />
             <span class="text-xs text-secondary">Relays (24h)</span>
@@ -1689,8 +1673,7 @@ function formatBlockTime(secondsStr?: string | number) {
         </div>
 
         <!-- Compute Units (24h) -->
-        <div
-          class="flex flex-col dark:bg-base-100 bg-base-200 py-4 px-2 rounded-xl hover:bg-base-300 transition-all duration-200 items-center justify-center w-full">
+        <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-2 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
           <div class="flex mb-5 items-center">
             <Icon icon="mdi:cpu-64-bit" class="text-sm mr-1 text-secondary" />
             <span class="text-xs text-secondary">Compute Units (24h)</span>
@@ -1701,8 +1684,7 @@ function formatBlockTime(secondsStr?: string | number) {
         </div>
 
         <!-- Active Validators -->
-        <div
-          class="flex flex-col dark:bg-base-100 bg-base-200 py-4 px-2 rounded-xl hover:bg-base-300 transition-all duration-200 items-center justify-center w-full">
+        <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-2 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
           <div class="flex mb-5 items-center">
             <Icon icon="mdi:shield-check" class="text-sm mr-1 text-secondary" />
             <span class="text-xs text-secondary">Active Validators</span>
@@ -1736,7 +1718,7 @@ function formatBlockTime(secondsStr?: string | number) {
     <!-- Charts Section -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mt-5">
       <!-- Network Growth Chart -->
-      <div class="dark:bg-base-100 bg-base-200 pt-3 rounded-lg border-[3px] border-solid border-base-200 dark:border-base-100">
+      <div class="bg-base-200 pt-3 rounded-lg hover:bg-base-300 shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <div class="flex items-center justify-between mb-1 px-5 gap-4">
           <div class="flex flex-1 items-center gap-4 justify-between">
             <div class="flex text-lg font-semibold text-main">Network Growth (7 Days)</div>
@@ -1844,7 +1826,7 @@ function formatBlockTime(secondsStr?: string | number) {
       </div>
 
       <!-- Transaction History Chart -->
-      <div class="dark:bg-base-100 bg-base-200 pt-3 rounded-lg border-[3px] border-solid border-base-200 dark:border-base-100">
+      <div class="bg-base-200 pt-3 rounded-lg hover:bg-base-300 shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center">
             <!-- <Icon icon="mdi:chart-timeline-variant" class="text-2xl text-warning mr-2" /> -->
@@ -1904,7 +1886,7 @@ function formatBlockTime(secondsStr?: string | number) {
     <!-- Tables Section -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mt-5">
       <!-- Blocks Table -->
-      <div class="dark:bg-base-100 bg-base-200 pt-3 rounded-lg mb-5 border-[3px] border-solid border-base-200 dark:border-base-100">
+      <div class="bg-[#ffffff] hover:bg-base-200 pt-3 mb-5 rounded-lg shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center">
             <!-- <Icon icon="mdi:cube-outline" class="text-2xl text-info mr-2" /> -->
@@ -1919,14 +1901,14 @@ function formatBlockTime(secondsStr?: string | number) {
 
         <div class="bg-base-200 rounded-md overflow-auto" style="max-height: 30rem;">
           <table class="table table-compact w-full bg-base-200">
-            <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
+            <thead class="dark:bg-[rgba(255,255,255,.03)]  bg-base-200 sticky top-0 border-0">
               <tr class="border-none">
-                <th class="dark:bg-base-100 bg-base-200">{{ $t('block.block_header') }}</th>
-                <th class="dark:bg-base-100 bg-base-200">{{ $t('account.hash') }}</th>
-                <th class="dark:bg-base-100 bg-base-200">{{ $t('block.proposer') }}</th>
-                <th class="dark:bg-base-100 bg-base-200">{{ $t('module.tx') }}</th>
-                <th class="dark:bg-base-100 bg-base-200">{{ $t('account.time') }}</th>
-                <th class="dark:bg-base-100 bg-base-200">{{ $t('account.production_time') }}</th>
+                <th class="dark:bg-[rgba(255,255,255,.03)]  bg-base-200">{{ $t('block.block_header') }}</th>
+                <th class="dark:bg-[rgba(255,255,255,.03)]  bg-base-200">{{ $t('account.hash') }}</th>
+                <th class="dark:bg-[rgba(255,255,255,.03)]  bg-base-200">{{ $t('block.proposer') }}</th>
+                <th class="dark:bg-[rgba(255,255,255,.03)]  bg-base-200">{{ $t('module.tx') }}</th>
+                <th class="dark:bg-[rgba(255,255,255,.03)]  bg-base-200">{{ $t('account.time') }}</th>
+                <th class="dark:bg-[rgba(255,255,255,.03)]  bg-base-200">{{ $t('account.production_time') }}</th>
               </tr>
             </thead>
             <tbody v-if="loadingBlocks" >
@@ -1965,7 +1947,7 @@ function formatBlockTime(secondsStr?: string | number) {
       </div>
 
       <!-- Transactions Table -->
-      <div class="dark:bg-base-100 bg-base-200 pt-3 rounded-lg mb-5 border-[3px] border-solid border-base-200 dark:border-base-100">
+      <div class="bg-[#ffffff] hover:bg-base-200 pt-3 mb-5 rounded-lg shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center">
             <!-- <Icon icon="mdi:file-document-outline" class="text-2xl text-black mr-2" /> -->
@@ -1980,14 +1962,14 @@ function formatBlockTime(secondsStr?: string | number) {
 
         <div class="bg-base-200 rounded-md overflow-auto" style="height: 30rem;" ref="txTableContainer">
           <table class="table table-compact w-full bg-base-200">
-            <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
+            <thead class="dark:bg-[rgba(255,255,255,.03)]  bg-base-200 sticky top-0 border-0">
               <tr class="border-none">
-                <th class="dark:bg-base-100 bg-base-200">{{ $t('tx.tx_hash') }}</th>
-                <th class="dark:bg-base-100 bg-base-200">{{ $t('block.block') }}</th>
-                <th class="dark:bg-base-100 bg-base-200">{{ $t('staking.status') }}</th>
-                <th class="dark:bg-base-100 bg-base-200">{{ $t('account.type') }}</th>
-                <th class="dark:bg-base-100 bg-base-200">{{ $t('block.fees') }}</th>
-                <th class="dark:bg-base-100 bg-base-200">{{ $t('account.time') }}</th>
+                <th class="dark:bg-[rgba(255,255,255,.03)]  bg-base-200">{{ $t('tx.tx_hash') }}</th>
+                <th class="dark:bg-[rgba(255,255,255,.03)]  bg-base-200">{{ $t('block.block') }}</th>
+                <th class="dark:bg-[rgba(255,255,255,.03)]  bg-base-200">{{ $t('staking.status') }}</th>
+                <th class="dark:bg-[rgba(255,255,255,.03)]  bg-base-200">{{ $t('account.type') }}</th>
+                <th class="dark:bg-[rgba(255,255,255,.03)]  bg-base-200">{{ $t('block.fees') }}</th>
+                <th class="dark:bg-[rgba(255,255,255,.03)]  bg-base-200">{{ $t('account.time') }}</th>
               </tr>
             </thead>
             <tbody>

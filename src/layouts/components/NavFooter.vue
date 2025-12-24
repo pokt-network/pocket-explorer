@@ -2,7 +2,7 @@
 </script>
 <template>
   <!-- footer -->
-  <footer class="bg-[#0d2fb8] dark:bg-[#00125b;] text-white px-4 py-14 md:py-10" role="contentinfo">
+  <footer class="bg-[#0f1419] dark:bg-[#0f1419] text-white px-4 py-14 md:py-10" role="contentinfo">
     <div class="max-w-[1200px] mx-auto">
       <!-- Top row: logo | social -->
       <div class="flex flex-row justify-between items-center">

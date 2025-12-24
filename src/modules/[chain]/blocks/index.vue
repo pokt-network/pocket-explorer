@@ -231,11 +231,10 @@ onMounted(() => {
 </script>
 
 <template>
-  <div>
-    <p class="bg-[#09279F] dark:bg-base-100 text-2xl rounded-xl px-4 py-4 my-4 font-bold text-white">Blocks</p>
-
+  <div class="pt-[6.5rem]">
+    <p class="bg-[#ffffff] hover:bg-base-200 text-2xl w-full px-4 py-4 my-4 font-bold text-[#000000] dark:text-[#ffffff] rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">Blocks</p>
     <div class="grid sm:grid-cols-1 md:grid-cols-4 py-4 gap-4 mb-4">
-      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+      <div class="flex bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <span>
           <div class="text-xs text-[#64748B]">Latest Blocks</div>
           <div class="flex justify-center items-center">
@@ -244,19 +243,19 @@ onMounted(() => {
           </div>
         </span>
       </div>
-      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+      <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-2 py-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <span>
           <div class="text-xs text-[#64748B]">Transactions</div>
           <div class="font-bold">{{ currentTxCount }}</div>
         </span>
       </div>
-      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+      <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-2 py-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <span>
           <div class="text-xs text-[#64748B]">Production Time (Avg. 24H)</div>
           <div class="font-bold">{{ avgBlockProductionTime !== null ? formatProductionTime(avgBlockProductionTime) : '-' }}</div>
         </span>
       </div>
-      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+      <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-2 py-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <span>
           <div class="text-xs text-[#64748B]">Total Size (Avg. 24H)</div>
           <div class="font-bold">{{ avgBlockSize !== null ? formatBytes(avgBlockSize) : '-' }}</div>
@@ -266,11 +265,11 @@ onMounted(() => {
 
     <div
       v-show="tab === 'blocks'"
-      class="bg-[#EFF2F5] dark:bg-base-100 px-0.5 pt-0.5 pb-4 rounded-xl shadow-md mb-4"
+      class="bg-base-200 px-0.5 pt-0.5 pb-4 mb-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
     >
       <div class="bg-base-200 rounded-md overflow-auto">
         <table class="table table-compact w-full">
-          <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
+          <thead class="dark:bg-[rgba(255,255,255,.03)] bg-base-200 sticky top-0 border-0">
             <tr class="border-b-[0px] text-sm font-semibold">
               <th>{{ $t('block.block_header') }}</th>
               <th>{{ $t('account.hash') }}</th>
@@ -302,7 +301,7 @@ onMounted(() => {
               v-else
               v-for="block in blocks"
               :key="block.id"
-              class="hover:bg-gray-100 dark:hover:bg-[#384059] dark:bg-base-200 bg-white border-0 rounded-xl"
+              class="hover:bg-gray-100 dark:hover:bg-[rgba(255,255,255,0.06)] dark:bg-base-200 bg-white border-0 rounded-xl"
             >
               <td class="font-medium dark:text-warning text-[#09279F]">{{ block.height }}</td>
               <td

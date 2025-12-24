@@ -179,12 +179,12 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="mb-[2vh]">
-    <p class="bg-[#09279F] dark:bg-base-100 text-2xl rounded-xl px-4 py-4 my-4 font-bold text-white">Gateways</p>
-    <div class="bg-base-200 dark:bg-base-100 rounded-xl px-2 pt-2 pb-2 gatewaysContainer"
+  <div class="mb-[2vh] pt-[6.5rem]">
+    <p class="bg-[#ffffff] hover:bg-base-200 text-2xl w-full px-4 py-4 my-4 font-bold text-[#000000] dark:text-[#ffffff] rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">Gateways</p>
+    <div class="bg-base-200 pb-2 px-2 pt-2 rounded-xl hover:bg-base-300 shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg overflow-x-auto"
       style="max-height: 78vh; overflow: auto">
       <table class="table w-full table-compact">
-        <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
+        <thead class="dark:bg-[rgba(255,255,255,.03)] bg-base-200 sticky top-0 border-0">
           <tr class="text-sm font-semibold">
             <th>Rank</th>
             <th>Address</th>
@@ -209,7 +209,7 @@ onMounted(() => {
             </td>
           </tr>
           <tr v-else v-for="(item, index) in sortedList" :key="item.address"
-            class="hover:bg-gray-100 dark:hover:bg-[#384059] dark:bg-base-200 bg-white border-0 rounded-xl">
+            class="hover:bg-gray-100 dark:hover:bg-[rgba(255,255,255,0.06)] dark:bg-base-200 bg-white border-0 rounded-xl">
             <td>{{ index + 1 + (currentPage - 1) * itemsPerPage }}</td>
 
             <td>

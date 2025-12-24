@@ -606,13 +606,13 @@ onMounted(() => {
 </script>
 
 <template>
-  <div>
+  <div class="pt-[2.5rem]">
     <div v-if="serviceRewardsLoading" class="flex justify-center items-center py-8 mb-[10vh]">
       <div class="loading loading-spinner loading-lg"></div>
       <span class="ml-2">Loading service rewards analytics...</span>
     </div>
     
-    <div v-if="!serviceRewardsLoading && serviceRewards.length === 0" class="dark:bg-base-100 bg-base-200 rounded-xl p-8 text-center mb-5">
+    <div v-if="!serviceRewardsLoading && serviceRewards.length === 0" class="dark:bg-[rgba(255,255,255,.03);] bg-base-200 rounded-xl p-8 text-center mb-5">
       <Icon icon="mdi:chart-line" class="text-4xl text-secondary mb-2" />
       <p class="text-secondary">No service rewards data available</p>
       <p class="text-xs text-secondary mt-2">Data is aggregated by service</p>
@@ -621,35 +621,35 @@ onMounted(() => {
     <!-- Top Row: 8 KPI Boxes (Compact) -->
     <div v-if="summaryStats" class="mb-3">
       <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-2">
+        <div class="flex flex-col bg-[#ffffff] p-2 rounded-xl hover:bg-base-200 shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
           <div class="text-xs text-secondary mb-1">Submissions</div>
           <div class="text-lg font-bold">{{ formatNumber(parseInt(summaryStats.total_submissions)) }}</div>
         </div>
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-2">
+        <div class="flex flex-col bg-[#ffffff] p-2 rounded-xl hover:bg-base-200 shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
           <div class="text-xs text-secondary mb-1">Suppliers</div>
           <div class="text-lg font-bold">{{ formatNumber(parseInt(summaryStats.unique_suppliers)) }}</div>
         </div>
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-2">
+        <div class="flex flex-col bg-[#ffffff] p-2 rounded-xl hover:bg-base-200 shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
           <div class="text-xs text-secondary mb-1">Applications</div>
           <div class="text-lg font-bold">{{ formatNumber(parseInt(summaryStats.unique_applications)) }}</div>
         </div>
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-2">
+        <div class="flex flex-col bg-[#ffffff] p-2 rounded-xl hover:bg-base-200 shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
           <div class="text-xs text-secondary mb-1">Services</div>
           <div class="text-lg font-bold">{{ formatNumber(parseInt(summaryStats.unique_services)) }}</div>
         </div>
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-2">
+        <div class="flex flex-col bg-[#ffffff] p-2 rounded-xl hover:bg-base-200 shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
           <div class="text-xs text-secondary mb-1">Total Relays</div>
           <div class="text-lg font-bold">{{ formatNumber(parseInt(summaryStats.total_relays)) }}</div>
         </div>
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-2">
+        <div class="flex flex-col bg-[#ffffff] p-2 rounded-xl hover:bg-base-200 shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
           <div class="text-xs text-secondary mb-1">Avg Efficiency</div>
           <div class="text-lg font-bold">{{ parseFloat(summaryStats.avg_efficiency_percent).toFixed(2) }}%</div>
         </div>
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-2">
+        <div class="flex flex-col bg-[#ffffff] p-2 rounded-xl hover:bg-base-200 shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
           <div class="text-xs text-secondary mb-1">Compute Units</div>
           <div class="text-lg font-bold">{{ formatNumber(parseInt(summaryStats.total_claimed_compute_units)) }}</div>
         </div>
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-2">
+        <div class="flex flex-col bg-[#ffffff] p-2 rounded-xl hover:bg-base-200 shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
           <div class="text-xs text-secondary mb-1">Total Rewards</div>
           <div class="text-lg font-bold">{{ format.formatToken({ denom: 'upokt', amount: String(summaryStats.total_rewards_upokt) }) }}</div>
         </div>
@@ -657,14 +657,14 @@ onMounted(() => {
     </div>
     
     <!-- Comprehensive Dashboard Below Stats -->
-    <div v-if="!serviceRewardsLoading && serviceRewards.length > 0" class="space-y-4">
+    <div v-if="!serviceRewardsLoading && serviceRewards.length > 0" class="space-y-4 mb-4">
       <!-- Dashboard Controls -->
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-xl font-bold text-main">Service Performance Dashboard</h2>
         <div class="flex items-center gap-4">
           <div class="flex items-center gap-2">
             <span class="text-xs text-secondary">Metric:</span>
-            <select v-model="selectedMetric" class="select select-bordered select-sm text-xs">
+            <select v-model="selectedMetric" class="select select-bordered select-sm text-xs hover:bg-base-200 dark:bg-[rgba(255,255,255,.03);] dark:hover:bg-[rgba(255,255,255,0.06)]">
               <option value="rewards">Rewards</option>
               <option value="relays">Relays</option>
               <option value="efficiency">Efficiency</option>
@@ -673,7 +673,7 @@ onMounted(() => {
           </div>
           <div class="flex items-center gap-2">
             <span class="text-xs text-secondary">Days:</span>
-            <select v-model="serviceRewardsDays" class="select select-bordered select-sm text-xs">
+            <select v-model="serviceRewardsDays" class="select select-bordered select-sm text-xs hover:bg-base-200 dark:bg-[rgba(255,255,255,.03);] dark:hover:bg-[rgba(255,255,255,0.06)]">
               <option :value="7">7</option>
               <option :value="15">15</option>
               <option :value="30">30</option>
@@ -683,7 +683,7 @@ onMounted(() => {
           </div>
           <div class="flex items-center gap-2">
             <span class="text-xs text-secondary">Limit:</span>
-            <select v-model="serviceRewardsLimit" class="select select-bordered select-sm text-xs">
+            <select v-model="serviceRewardsLimit" class="select select-bordered select-sm text-xs hover:bg-base-200 dark:bg-[rgba(255,255,255,.03);] dark:hover:bg-[rgba(255,255,255,0.06)]">
               <option :value="5">5</option>
               <option :value="10">10</option>
               <option :value="25">25</option>
@@ -698,7 +698,7 @@ onMounted(() => {
       <!-- Top Performers Cards -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
         <!-- Top by Rewards -->
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-4">
+        <div class="flex flex-col bg-[#ffffff] p-4 rounded-xl hover:bg-base-200 shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
           <div class="flex items-center justify-between mb-3">
             <h3 class="text-sm font-semibold text-main">Top by Rewards</h3>
             <Icon icon="mdi:trophy" class="text-warning text-xl" />
@@ -717,7 +717,7 @@ onMounted(() => {
         </div>
 
         <!-- Top by Relays -->
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-4">
+        <div class="flex flex-col bg-[#ffffff] p-4 rounded-xl hover:bg-base-200 shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
           <div class="flex items-center justify-between mb-3">
             <h3 class="text-sm font-semibold text-main">Top by Relays</h3>
             <Icon icon="mdi:network" class="text-info text-xl" />
@@ -736,7 +736,7 @@ onMounted(() => {
         </div>
 
         <!-- Top by Efficiency -->
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-4">
+        <div class="flex flex-col bg-[#ffffff] p-4 rounded-xl hover:bg-base-200 shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
           <div class="flex items-center justify-between mb-3">
             <h3 class="text-sm font-semibold text-main">Top by Efficiency</h3>
             <Icon icon="mdi:gauge" class="text-success text-xl" />
@@ -760,7 +760,7 @@ onMounted(() => {
       <!-- Charts Grid -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
         <!-- Rewards Distribution Bar Chart -->
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-4">
+        <div class="flex flex-col bg-[#ffffff] p-4 rounded-xl hover:bg-base-200 shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
           <h3 class="text-sm font-semibold mb-3">Rewards Distribution</h3>
           <ApexCharts 
             type="bar" 
@@ -771,7 +771,7 @@ onMounted(() => {
         </div>
 
         <!-- Rewards Distribution Pie Chart -->
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-4">
+        <div class="flex flex-col bg-[#ffffff] p-4 rounded-xl hover:bg-base-200 shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
           <h3 class="text-sm font-semibold mb-3">Rewards Share</h3>
           <ApexCharts 
             type="pie" 
@@ -782,7 +782,7 @@ onMounted(() => {
         </div>
 
         <!-- Efficiency Comparison -->
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-4">
+        <div class="flex flex-col bg-[#ffffff] p-4 rounded-xl hover:bg-base-200 shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
           <h3 class="text-sm font-semibold mb-3">Efficiency Comparison</h3>
           <ApexCharts 
             type="bar" 
@@ -793,7 +793,7 @@ onMounted(() => {
         </div>
 
         <!-- Compute Units Comparison -->
-        <div class="dark:bg-base-100 bg-base-200 rounded-lg p-4">
+        <div class="flex flex-col bg-[#ffffff] p-4 rounded-xl hover:bg-base-200 shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
           <h3 class="text-sm font-semibold mb-3">Compute Units: Claimed vs Estimated</h3>
           <ApexCharts 
             type="bar" 
@@ -808,13 +808,13 @@ onMounted(() => {
       </div>
 
       <!-- Comprehensive Service Rewards Table -->
-      <div class="dark:bg-base-100 bg-base-200 rounded-lg p-4">
+      <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 p-4 mb-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg font-semibold text-main">Service Rewards Details</h3>
           <div class="flex items-center gap-4">
             <div class="flex items-center gap-2">
               <span class="text-xs text-secondary">Sort:</span>
-              <select v-model="serviceRewardsSortBy" class="select select-bordered select-sm text-xs">
+              <select v-model="serviceRewardsSortBy" class="select select-bordered select-sm text-xs dark:bg-[rgba(255,255,255,.03);] dark:hover:bg-[rgba(255,255,255,0.06)] bg-base-200 hover:bg-base-300">
                 <option value="rewards">Rewards</option>
                 <option value="relays">Relays</option>
                 <option value="efficiency">Efficiency</option>
@@ -829,7 +829,7 @@ onMounted(() => {
         </div>
         <div class="bg-base-200 rounded-md overflow-auto" style="max-height: 600px;">
           <table class="table w-full table-compact">
-            <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
+            <thead class="dark:bg-[rgba(255,255,255,.03);] bg-base-200 sticky top-0 border-0">
               <tr class="border-b-[0px] text-sm font-semibold">
                 <th>Rank</th>
                 <th>Service</th>

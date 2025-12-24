@@ -271,12 +271,12 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div>
-    <p class="bg-[#09279F] dark:bg-base-100 text-2xl rounded-xl px-4 py-4 my-4 font-bold text-white">Transactions</p>
+  <div class="pt-[6.5rem]">
+    <p class="bg-[#ffffff] hover:bg-base-200 text-2xl w-full px-4 py-4 my-4 font-bold text-[#000000] dark:text-[#ffffff] rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">Transactions</p>
     
     <div class="grid sm:grid-cols-1 md:grid-cols-4 py-4 gap-4 mb-4">
       <!-- Transactions (24H) -->
-      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+      <div class="flex bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <span>
           <div class="text-xs text-[#64748B]">Transactions (24H)</div>
           <div class="font-bold">{{ tx24HCount.toLocaleString() }}</div>
@@ -284,7 +284,7 @@ onMounted(async () => {
       </div>
 
       <!-- Failed Transactions (24H) from API -->
-      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+      <div class="flex bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <span>
           <div class="text-xs text-[#64748B]">Failed Transactions (24H)</div>
           <div class="font-bold">{{ failedLast24h.toLocaleString() }}</div>
@@ -292,7 +292,7 @@ onMounted(async () => {
       </div>
 
       <!-- Total Transactions -->
-      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+      <div class="flex bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <span>
           <div class="text-xs text-[#64748B]">Total Transactions</div>
           <div class="font-bold">{{ totalTransactions.toLocaleString() }}</div>
@@ -300,7 +300,7 @@ onMounted(async () => {
       </div>
 
       <!-- Transactions (Last Block) -->
-      <div class="flex dark:bg-base-100 bg-base-200 rounded-xl p-4">
+      <div class="flex bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <span>
           <div class="text-xs text-[#64748B]">Transactions (Last Block)</div>
           <div class="font-bold">{{ currentTxCount.toLocaleString() }}</div>
@@ -310,9 +310,9 @@ onMounted(async () => {
 
 
     <!-- Rest of your template stays same -->
-     <div v-show="tab === 'recent'" class="bg-[#EFF2F5] dark:bg-base-100 px-0.5 pt-0.5 pb-4 rounded-xl shadow-md mb-4">
+     <div v-show="tab === 'recent'" class="bg-base-200 px-0.5 pt-0.5 mb-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
       <!-- Filter Section - Compact & Modern -->
-      <div class="bg-base-200 dark:bg-base-300 rounded-lg border border-base-300 dark:border-base-400 mb-4">
+      <div class="bg-[#ffffff] dark:bg-[rgba(255,255,255,.03)] rounded-lg border border-base-300 dark:border-base-400 mb-2">
         <!-- Main Filter Bar -->
         <div class="flex flex-wrap items-center gap-3 px-4 py-3">
           <!-- Type Tabs - Compact Horizontal -->
@@ -332,7 +332,7 @@ onMounted(async () => {
               class="px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200"
               :class="selectedTypeTab === typeOption.value
                 ? 'bg-[#007bff] text-white shadow-sm'
-                : 'bg-base-100 dark:bg-base-200 text-base-content hover:bg-base-300 dark:hover:bg-base-100 border border-base-300 dark:border-base-400'"
+                : 'bg-base-100 text-base-content hover:bg-base-200 dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)]  border border-base-300 dark:border-base-400'"
             >
               {{ typeOption.label }}
             </button>
@@ -346,7 +346,7 @@ onMounted(async () => {
             <!-- Status -->
             <div class="flex items-center gap-1.5">
               <Icon icon="mdi:check-circle-outline" class="text-base-content/60 text-sm" />
-              <select v-model="statusFilter" class="select select-bordered select-xs h-8 min-h-8 px-2 text-xs w-24">
+              <select v-model="statusFilter" class="select select-bordered select-xs h-8 min-h-8 px-2 text-xs w-24 hover:bg-base-200 dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)]">
                 <option value="">All</option>
                 <option value="success">Success</option>
                 <option value="failed">Failed</option>
@@ -356,7 +356,7 @@ onMounted(async () => {
             <!-- Sort By -->
             <div class="flex items-center gap-1.5">
               <Icon icon="mdi:sort" class="text-base-content/60 text-sm" />
-              <select v-model="sortBy" class="select select-bordered select-xs h-8 min-h-8 px-2 text-xs w-28">
+              <select v-model="sortBy" class="select select-bordered select-xs h-8 min-h-8 px-2 text-xs w-28 hover:bg-base-200 dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] ">
                 <option value="timestamp">Time</option>
                 <option value="amount">Amount</option>
                 <option value="fee">Fee</option>
@@ -378,11 +378,11 @@ onMounted(async () => {
           </div>
 
           <!-- Advanced Filters Toggle -->
-          <div class="ml-auto">
+          <div class="ml-auto dark:hover:bg-[rgba(255,255,255,0.06)]">
             <button
               @click="showAdvancedFilters = !showAdvancedFilters"
               class="btn btn-xs h-8 min-h-8 px-3 gap-1.5"
-              :class="showAdvancedFilters ? 'btn-primary' : 'btn-ghost'"
+              :class="showAdvancedFilters ? 'btn-primary dark:bg-[rgba(255,255,255,0.06)]' : 'btn-ghost'"
             >
               <Icon :icon="showAdvancedFilters ? 'mdi:chevron-up' : 'mdi:chevron-down'" class="text-sm" />
               <span class="text-xs">Advanced</span>
@@ -446,9 +446,9 @@ onMounted(async () => {
         </div>
       </div>
 
-      <div class="bg-base-200 rounded-md overflow-auto">
+      <div class="bg-base-200 px-0.5 pt-0.5 pb-4 mb-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg overflow-auto">
         <table class="table w-full table-compact">
-          <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
+          <thead class="bg-base-200 dark:bg-[rgba(255,255,255,.03)] sticky top-0 border-0">
             <tr class="border-b-[0px] text-sm font-semibold">
               <th>{{ $t('tx.tx_hash') }}</th>
               <th>{{ $t('block.block') }}</th>
@@ -478,10 +478,10 @@ onMounted(async () => {
             <tr
               v-for="(item, index) in transactions"
               :key="item.hash"
-              class="hover:bg-gray-100 dark:hover:bg-[#384059] dark:bg-base-200 bg-white border-0 rounded-xl"
+              class="hover:bg-gray-100 dark:hover:bg-[rgba(255,255,255,0.06)]  dark:bg-base-200 bg-white border-0 rounded-xl"
             >
               <td
-                class="dark:bg-base-200 bg-white truncate dark:text-warning text-[#153cd8]"
+                class="dark:bg-base-200 dark:hover:bg-[rgba(255,255,255,0.06)] bg-white truncate dark:text-warning text-[#153cd8]"
                 style="max-width:25vw"
               >
                 <RouterLink
@@ -490,14 +490,14 @@ onMounted(async () => {
                   >{{ item.hash }}</RouterLink
                 >
               </td>
-              <td class="dark:bg-base-200 bg-white text-sm dark:text-warning text-[#153cd8]">
+              <td class="dark:bg-base-200 dark:hover:bg-[rgba(255,255,255,0.06)] bg-white text-sm dark:text-warning text-[#153cd8]">
                 <RouterLink
                   :to="`/${props.chain}/blocks/${item.block_height}`"
                   class="hover:underline"
                   >{{ item.block_height }}</RouterLink
                 >
               </td>
-              <td class="dark:bg-base-200 bg-white">
+              <td class="dark:bg-base-200 dark:hover:bg-[rgba(255,255,255,0.06)] bg-white">
                 <span
                   class="text-xs truncate py-1 px-3 rounded-full"
                   :class="item.status
@@ -507,19 +507,19 @@ onMounted(async () => {
                   {{ item.status ? 'Success' : 'Failed' }}
                 </span>
               </td>
-              <td class="dark:bg-base-200 bg-white">
+              <td class="dark:bg-base-200 dark:hover:bg-[rgba(255,255,255,0.06)] bg-white">
                 {{ format.formatToken({ denom: 'upokt', amount: item.amount }) }}
               </td>
-              <td class="dark:bg-base-200 bg-white">
+              <td class="dark:bg-base-200 dark:hover:bg-[rgba(255,255,255,0.06)] bg-white">
                 {{ item.type }}
               </td>
-              <td class="dark:bg-base-200 bg-white">
+              <td class="dark:bg-base-200 dark:hover:bg-[rgba(255,255,255,0.06)] bg-white">
                 {{ format.formatToken({ denom: 'upokt', amount: item.fee }) }}
               </td>
-              <td class="dark:bg-base-200 bg-white">
+              <td class="dark:bg-base-200 dark:hover:bg-[rgba(255,255,255,0.06)] bg-white">
                 {{ format.toDay(item.timestamp, 'from') }}
               </td>
-              <td class="dark:bg-base-200 bg-white">
+              <td class="dark:bg-base-200 dark:hover:bg-[rgba(255,255,255,0.06)] bg-white">
                 <RouterLink
                   :to="`/${props.chain}/account/${getSenderAddress(item.sender)}`"
                   class="text-sm text-[#09279F] dark:invert font-mono hover:underline"
