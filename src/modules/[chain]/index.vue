@@ -209,8 +209,8 @@ const getApiChainName = (chainName: string) => {
   return chainMap[chainName] || chainName || 'pocket-testnet-beta';
 };
 
-const currentChainName = blockchain?.current?.chainName || props.chain || 'pocket-beta';
-const apiChainName = getApiChainName(currentChainName);
+const currentChainName = computed(() => blockchain?.current?.chainName || props.chain || 'pocket-beta');
+const apiChainName = computed(() => getApiChainName(currentChainName.value));
 
 const blocks = ref<ApiBlockItem[]>([]);
 const loadingBlocks = ref(false);
@@ -220,10 +220,68 @@ const blocksTotal = ref(0);
 const blocksTotalPages = ref(0);
 const avgBlockProductionTime = ref<string | null>(null);
 
+// Indexer health status
+interface ChainStatus {
+  chain: string;
+  historical_checkpoint: number;
+  monitoring_height: number;
+  latest_height: number;
+  monitor_lag: number;
+  historical_backlog: number;
+  total_backlog: number;
+  status: {
+    monitoring: string;
+    historical: string;
+    overall: string;
+  };
+}
+
+interface IndexerHealth {
+  chains: ChainStatus[];
+}
+
+const indexerHealth = ref<IndexerHealth | null>(null);
+const indexerHealthLoading = ref(false);
+
+async function loadIndexerHealth() {
+  indexerHealthLoading.value = true;
+  try {
+    const response = await fetch('/api/v1/health/workers/');
+    const result = await response.json();
+    if (response.ok && result?.data) {
+      indexerHealth.value = {
+        chains: result.data.chains || []
+      };
+    } else {
+      indexerHealth.value = null;
+    }
+  } catch (e) {
+    console.error('Error loading indexer health:', e);
+    indexerHealth.value = null;
+  } finally {
+    indexerHealthLoading.value = false;
+  }
+}
+
+// Computed property to check if indexer is behind for current chain
+const isIndexerBehind = computed(() => {
+  if (!indexerHealth.value?.chains || !apiChainName.value) return false;
+  const chainStatus = indexerHealth.value.chains.find(
+    (c) => c.chain === apiChainName.value
+  );
+  return chainStatus ? chainStatus.historical_backlog > 60 : false;
+});
+
+// Get current chain indexer status
+const currentChainIndexerStatus = computed(() => {
+  if (!indexerHealth.value?.chains || !apiChainName.value) return null;
+  return indexerHealth.value.chains.find((c) => c.chain === apiChainName.value) || null;
+});
+
 async function loadBlocks() {
   loadingBlocks.value = true;
   try {
-    const url = `/api/v1/blocks?chain=${apiChainName}&page=${blocksPage.value}&limit=${blocksLimit.value}`;
+    const url = `/api/v1/blocks?chain=${apiChainName.value}&page=${blocksPage.value}&limit=${blocksLimit.value}`;
     const response = await fetch(url);
     const result = await response.json();
     if (response.ok) {
@@ -258,6 +316,7 @@ const ticking = ref(false); // For requestAnimationFrame throttling
 const blockScrollTimeout = ref<NodeJS.Timeout | null>(null);
 const txScrollTimeout = ref<NodeJS.Timeout | null>(null);
 const updateNetworkStatsTimeout = ref<NodeJS.Timeout | null>(null);
+const indexerHealthInterval = ref<NodeJS.Timeout | null>(null);
 
 // Add debounced update function for network stats
 function debouncedUpdateNetworkStats() {
@@ -378,6 +437,14 @@ onMounted(async () => {
 
   // Load latest blocks via API for the dashboard table
   loadBlocks();
+
+  // Load indexer health status
+  loadIndexerHealth();
+  
+  // Set up periodic refresh for indexer health (every 30 seconds)
+  indexerHealthInterval.value = setInterval(() => {
+    loadIndexerHealth();
+  }, 30000);
 });
 
 const ticker = computed(() => store.coinInfo.tickers[store.tickerIndex]);
@@ -391,6 +458,8 @@ blockchain.$subscribe((m, s) => {
     paramStore.handleAbciInfo()
     // Reload 24h services summary on chain change
     loadServicesSummary24h();
+    // Reload indexer health on chain change
+    loadIndexerHealth();
   }
 });
 function shortName(name: string, id: string) {
@@ -498,7 +567,7 @@ const totalComputeUnits24h = ref(0);
 async function loadServicesSummary24h() {
   try {
     const params = new URLSearchParams();
-    params.append('chain', apiChainName);
+    params.append('chain', apiChainName.value);
     const response = await fetch(`/api/v1/proof-submissions/summary?${params.toString()}`);
     const result = await response.json();
     if (response.ok && result?.data) {
@@ -523,7 +592,8 @@ const historicalData = ref({
     { name: 'Suppliers', data: [], yAxisIndex: 0 },
     { name: 'Services', data: [], yAxisIndex: 0 },
     { name: 'Relays', data: [], yAxisIndex: 1 },
-    { name: 'Compute Units', data: [], yAxisIndex: 1 }
+    { name: 'Proof Submissions CU', data: [], yAxisIndex: 1 },
+    { name: 'Settled Claims CU', data: [], yAxisIndex: 1 }
   ]
 });
 
@@ -547,19 +617,40 @@ const activeNetworkGrowthSeries = computed(() => {
       yAxisIndex: 0 // Use first y-axis
     }));
   } else {
-    // Return only the selected Performance metric (Relays or Compute Units)
-    const relaysIndex = 4; // Relays is at index 4
-    const computeUnitsIndex = 5; // Compute Units is at index 5
-    const selectedIndex = performanceMetric.value === 'relays' ? relaysIndex : computeUnitsIndex;
-    const selectedSeries = historicalData.value.series[selectedIndex];
-    
-    if (selectedSeries && selectedSeries.data && selectedSeries.data.length > 0) {
-      return [{
-        ...selectedSeries,
-        yAxisIndex: 0 // Use single y-axis for the selected metric
-      }];
+    // Return the selected Performance metric (Relays or both Compute Units series)
+    if (performanceMetric.value === 'relays') {
+      const relaysIndex = 4; // Relays is at index 4
+      const selectedSeries = historicalData.value.series[relaysIndex];
+      
+      if (selectedSeries && selectedSeries.data && selectedSeries.data.length > 0) {
+        return [{
+          ...selectedSeries,
+          yAxisIndex: 0 // Use single y-axis for relays
+        }];
+      }
+      return [];
+    } else {
+      // Return both compute units series (Proof Submissions and Settled Claims)
+      const proofSubmissionsIndex = 5; // Proof Submissions CU is at index 5
+      const settledClaimsIndex = 6; // Settled Claims CU is at index 6
+      const proofSubmissionsSeries = historicalData.value.series[proofSubmissionsIndex];
+      const settledClaimsSeries = historicalData.value.series[settledClaimsIndex];
+      
+      const result = [];
+      if (proofSubmissionsSeries && proofSubmissionsSeries.data && proofSubmissionsSeries.data.length > 0) {
+        result.push({
+          ...proofSubmissionsSeries,
+          yAxisIndex: 0
+        });
+      }
+      if (settledClaimsSeries && settledClaimsSeries.data && settledClaimsSeries.data.length > 0) {
+        result.push({
+          ...settledClaimsSeries,
+          yAxisIndex: 0
+        });
+      }
+      return result;
     }
-    return [];
   }
 });
 
@@ -568,18 +659,21 @@ const chartOptions = computed(() => {
   const isCoreServices = networkGrowthTab.value === 'core-services';
   const chartType = networkGrowthChartType.value;
   
-  // Base colors - Core Services: first 4, Performance: single color based on selection
+  // Base colors - Core Services: first 4, Performance: single color for relays, two colors for compute units
   const colors = isCoreServices 
     ? ['#FFB206', '#09279F', '#5E9AE4', '#60BC29']
-    : performanceMetric.value === 'relays' ? ['#A855F7'] : ['#EF4444'];
+    : performanceMetric.value === 'relays' 
+      ? ['#A855F7'] 
+      : ['#EF4444', '#F97316']; // Red for Proof Submissions, Orange for Settled Claims
   
   // Stroke configuration based on chart type
+  const isComputeUnits = !isCoreServices && performanceMetric.value === 'compute-units';
   const strokeConfig = chartType === 'bar' 
     ? { width: 0 } // No stroke for bar charts
     : {
         curve: chartType === 'area' ? 'smooth' : 'straight',
-        width: isCoreServices ? [2.5, 2.5, 2.5, 2.5] : 2.5,
-        dashArray: isCoreServices ? [0, 0, 0, 0] : 0
+        width: isCoreServices ? [2.5, 2.5, 2.5, 2.5] : (isComputeUnits ? [2.5, 2.5] : 2.5),
+        dashArray: isCoreServices ? [0, 0, 0, 0] : (isComputeUnits ? [0, 5] : 0) // Dashed line for settled claims
       };
   
   // Fill configuration
@@ -587,7 +681,7 @@ const chartOptions = computed(() => {
     ? { opacity: 1, type: 'solid' }
     : {
         type: chartType === 'area' ? 'gradient' : 'solid',
-        opacity: chartType === 'line' ? 0 : (isCoreServices ? [0.15, 0.15, 0.15, 0.15] : 0.15),
+        opacity: chartType === 'line' ? 0 : (isCoreServices ? [0.15, 0.15, 0.15, 0.15] : (isComputeUnits ? [0.15, 0.15] : 0.15)),
         gradient: chartType === 'area' ? {
           shadeIntensity: 1,
           opacityFrom: 0.7,
@@ -652,11 +746,11 @@ const chartOptions = computed(() => {
       }
     },
     markers: chartType === 'bar' ? { size: 0 } : chartType === 'line' ? {
-      size: 4,
+      size: isComputeUnits ? [4, 4] : 4,
       strokeWidth: 0,
       hover: { size: 6 }
     } : {
-      size: 2,
+      size: isComputeUnits ? [2, 2] : 2,
       strokeWidth: 0,
       hover: { size: 5 }
     },
@@ -693,12 +787,11 @@ const chartOptions = computed(() => {
       intersect: false,
       y: {
         formatter: function (value: number, opts: any) {
-          const i = opts?.seriesIndex ?? 0;
           if (isCoreServices) {
-            return `Entities: ${formatWithCommas(value)}`;
+            return `${formatWithCommas(value)}`;
           }
-          const metricName = performanceMetric.value === 'relays' ? 'Relays' : 'Compute Units';
-          return `${metricName}: ${formatCompact(value)}`;
+          // For performance metrics (relays and compute units), use compact format
+          return `${formatCompact(value)}`;
         }
       }
     }
@@ -763,7 +856,7 @@ async function loadNetworkGrowthPerformance(windowDays: number = 7) {
   try {
     const params = new URLSearchParams();
     params.append('window', String(windowDays));
-    params.append('chain', apiChainName);
+    params.append('chain', apiChainName.value);
 
     const response = await fetch(`/api/v1/network-growth/performance?${params.toString()}`);
     const result = await response.json();
@@ -781,7 +874,8 @@ async function loadNetworkGrowthPerformance(windowDays: number = 7) {
     // Build labels and extract relays/compute units data
     const labels: string[] = [];
     const relaysDaily: number[] = [];
-    const computeUnitsDaily: number[] = [];
+    const proofSubmissionsCUDaily: number[] = [];
+    const settledClaimsCUDaily: number[] = [];
     
     for (const dayItem of daysAsc) {
       const dayStr = (dayItem.day || '').slice(0, 10);
@@ -790,7 +884,8 @@ async function loadNetworkGrowthPerformance(windowDays: number = 7) {
       const d = new Date(dayStr + 'T00:00:00Z');
       labels.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
       relaysDaily.push(Number(dayItem.relays || 0));
-      computeUnitsDaily.push(Number(dayItem.compute_units || 0));
+      proofSubmissionsCUDaily.push(Number(dayItem.proof_submissions_computed_units || 0));
+      settledClaimsCUDaily.push(Number(dayItem.settled_claims_computed_units || 0));
     }
 
     // Update chart categories (only if not already set or if this is the first data loaded)
@@ -798,9 +893,10 @@ async function loadNetworkGrowthPerformance(windowDays: number = 7) {
       chartCategories.value = labels;
     }
 
-    // Update performance series (relays and compute units)
+    // Update performance series (relays, proof submissions CU, and settled claims CU)
     historicalData.value.series[4].data = relaysDaily as never[];
-    historicalData.value.series[5].data = computeUnitsDaily as never[];
+    historicalData.value.series[5].data = proofSubmissionsCUDaily as never[];
+    historicalData.value.series[6].data = settledClaimsCUDaily as never[];
   } catch (e) {
     console.error('Error loading network growth performance:', e);
     // Don't throw - allow entities to still load if performance fails
@@ -812,7 +908,7 @@ async function loadNetworkGrowthEntities(windowDays: number = 7) {
   try {
     const params = new URLSearchParams();
     params.append('window', String(windowDays));
-    params.append('chain', apiChainName);
+    params.append('chain', apiChainName.value);
 
     const response = await fetch(`/api/v1/network-growth/entities?${params.toString()}`);
     const result = await response.json();
@@ -1086,6 +1182,10 @@ onBeforeUnmount(() => {
   if (updateNetworkStatsTimeout.value) {
     clearTimeout(updateNetworkStatsTimeout.value);
   }
+
+  if (indexerHealthInterval.value) {
+    clearInterval(indexerHealthInterval.value);
+  }
 });
 
 // Add watchers to update virtual lists when data changes
@@ -1129,7 +1229,20 @@ function formatBlockTime(secondsStr?: string | number) {
 
 <template>
   <div class="">
+
       <div class="bg-base-100 dark:bg-[#1a1f26] pt-[6.5rem]">
+      <!-- Subtle Indexer Lag Alert -->
+      <div v-if="isIndexerBehind && currentChainIndexerStatus" 
+        class="mx-4 mt-2 mb-2 px-4 py-2 rounded-lg bg-amber-500/10 dark:bg-amber-500/20 border border-amber-500/30 dark:border-amber-500/40 flex items-center gap-2 text-sm">
+        <Icon icon="mdi:clock-alert-outline" class="text-amber-500 dark:text-amber-400 flex-shrink-0" />
+        <div class="flex-1 text-amber-700 dark:text-amber-300">
+          <span class="font-medium">Indexer catching up:</span>
+          <span class="ml-1">{{ format.formatNumber(currentChainIndexerStatus.historical_backlog) }} blocks behind</span>
+          <span v-if="currentChainIndexerStatus.latest_height > 0" class="ml-1 text-xs opacity-75">
+            ({{ Math.round((currentChainIndexerStatus.historical_backlog / currentChainIndexerStatus.latest_height) * 100) }}% remaining)
+          </span>
+        </div>
+      </div>
         <!-- Laptop View -->
         <div class="desktop-home flex flex-1 gap-8">
           <div class="w-[45%] py-2">
