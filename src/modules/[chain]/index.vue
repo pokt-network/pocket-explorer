@@ -1228,10 +1228,7 @@ function formatBlockTime(secondsStr?: string | number) {
 </script>
 
 <template>
-  <div class="">
-<<<<<<< HEAD
-      <div class="bg-base-100 dark:bg-[#1a1f26] pt-[6.5rem]">
-=======
+  <div class="pt-[6.5rem]">
       <!-- Subtle Indexer Lag Alert -->
       <div v-if="isIndexerBehind && currentChainIndexerStatus" 
         class="mx-4 mt-2 mb-2 px-4 py-2 rounded-lg bg-amber-500/10 dark:bg-amber-500/20 border border-amber-500/30 dark:border-amber-500/40 flex items-center gap-2 text-sm">
@@ -1245,8 +1242,7 @@ function formatBlockTime(secondsStr?: string | number) {
         </div>
       </div>
       
-      <div class="bg-base-100 dark:bg-[#00125b] pt-2">
->>>>>>> origin/beta
+      <div class="bg-base-100 dark:bg-[#1a1f26] pt-2">
         <!-- Laptop View -->
         <div class="desktop-home flex flex-1 gap-8">
           <div class="w-[45%] py-2">
@@ -1326,8 +1322,8 @@ function formatBlockTime(secondsStr?: string | number) {
                 <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-2 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
                   <div class="flex mb-5 items-center">
                     <Icon icon="mdi:coins" class="text-sm mr-1 text-[#64748B]" />
-                    <span class="text-[10px] text-secondary">Circulating Supply</span>
-                    <span class="text-[10px] text-secondary ml-1">({{ store.coinInfo?.symbol?.toUpperCase() || '' }})</span>
+                    <span class="text-[12px] text-secondary">Circulating Supply</span>
+                    <span class="text-[12px] text-secondary ml-1">({{ store.coinInfo?.symbol?.toUpperCase() || '' }})</span>
                   </div>
                   <div class="text-xl text-main flex items-center justify-center font-medium"> {{format.formatNumber((store.coinInfo?.market_data?.circulating_supply || 0), '123,456,789.[]') }}
                     <!-- <span class="text-sm font-medium"></span> -->
@@ -1374,14 +1370,19 @@ function formatBlockTime(secondsStr?: string | number) {
                 </div>
               </div>
             </div>
-            <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-[25%] p-4 mt-2 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
+            <div class="
+             flex flex-col w-[25%] p-6 mt-2 rounded-2xl justify-between items-center
+             bg-gradient-to-br from-[#1f3fbf] via-[#2447d6] to-[#1a2f8f]
+             dark:from-[#1f3fbf] dark:via-[#2447d6] dark:to-[#1a2f8f]
+             shadow-lg hover:shadow-xl transition-all duration-300
+             ">
               <!-- Logo -->
-              <img v-if="useBaseStore().theme === 'dark'" src="https://pocket.network/wp-content/uploads/2025/01/logo-white.png" alt="Coin logo" class="w-2/3 justify-self-center" />
-              <img v-else src="https://pocket.network/wp-content/uploads/2024/12/logo.png" alt="Coin logo" class="w-2/3 justify-self-center" />
+              <img src="https://pocket.network/wp-content/uploads/2025/01/logo-white.png" alt="Coin logo" class="w-2/3 justify-self-center" />
+              <!-- <img v-else src="https://pocket.network/wp-content/uploads/2024/12/logo.png" alt="Coin logo" class="w-2/3 justify-self-center" /> -->
 
               <!-- Price -->
               <div class="flex flex-col item-center mx-auto">
-                <div class="text-xl text-center">
+                <div class="text-xl text-center text-[#ffffff]">
                   ${{ store.coinInfo?.market_data?.current_price?.usd?.toFixed(6) || '0.00' }}
                 </div>
                 <div class="text-sm text-end"
@@ -1390,25 +1391,8 @@ function formatBlockTime(secondsStr?: string | number) {
                 </div>
               </div>
 
-              <!-- Dropdown -->
-              <!-- <div class="dropdown dropdown-end w-full border border-[#64748B] rounded-[5px]">
-                <label tabindex="0" class="btn btn-sm btn-outline w-full justify-between">
-                  {{ ticker?.market?.name || 'Market' }}
-                  <Icon icon="mdi:chevron-down" class="ml-1" />
-                </label>
-                <div tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52 mt-1"  style="height: 300px; overflow-y: scroll;">
-                <ul tabindex="0" class="">
-                  <li v-for="(tic, index) in tickers" :key="tic.market.identifier">
-                    <a @click="() => { store.selectTicker(index); }" :class="{ 'active': index === store.tickerIndex }">
-                      {{ tic.market.name }}
-                    </a>
-                  </li>
-                </ul>
-                </div>
-              </div> -->
-
               <!-- Buy Button -->
-              <a class="!text-white btn btn-sm w-full !bg-[#09279F] !border-[#09279F]"
+              <a class="!text-[#000000] btn btn-sm w-full !bg-[#ffd60a] !border-[#ffd60a]"
                 :class="{ '!btn-[#60BC29]': store.trustColor === 'green', '!btn-warning': store.trustColor === 'yellow' }"
                 :href="ticker?.trade_url" target="_blank">
                 {{ $t('index.buy') }} {{ store.coinInfo?.symbol?.toUpperCase() || 'COIN'}}
@@ -1574,15 +1558,15 @@ function formatBlockTime(secondsStr?: string | number) {
                 </div>
 
                 <!-- Logo + Price + Buy Button -->
-                <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full gap-2 p-3 mt-3 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
-                  <img v-if="useBaseStore().theme === 'dark'"
-                      src="https://pocket.network/wp-content/uploads/2025/01/logo-white.png"
-                      alt="Coin logo" class="w-24" />
-                  <img v-else
-                      src="https://pocket.network/wp-content/uploads/2024/12/logo.png"
-                      alt="Coin logo" class="w-24" />
+                <div class="flex flex-col w-full gap-2 p-3 mt-3 rounded-xl justify-center items-center  bg-gradient-to-br from-[#1f3fbf] via-[#2447d6] to-[#1a2f8f]
+                    dark:from-[#1f3fbf] dark:via-[#2447d6] dark:to-[#1a2f8f]
+                    shadow-lg hover:shadow-xl transition-all duration-300">
+                  <img
+                    src="https://pocket.network/wp-content/uploads/2025/01/logo-white.png"
+                    alt="Coin logo" class="w-24" 
+                  />
 
-                  <div class="text-sm text-center">
+                  <div class="text-sm text-center text-[#ffffff]">
                     ${{ store.coinInfo?.market_data?.current_price?.usd?.toFixed(6) || '0.00' }}
                   </div>
                   <div class="text-xs"
@@ -1591,7 +1575,7 @@ function formatBlockTime(secondsStr?: string | number) {
                     {{ store.coinInfo?.market_data?.price_change_percentage_24h?.toFixed(2) || '0.00' }}%
                   </div>
 
-                  <a class="!text-white btn btn-sm w-full !bg-[#09279F] !border-[#09279F]"
+                  <a class="!text-white btn btn-sm w-full !bg-[#ffd60a] !border-[#ffd60a]"
                     :href="ticker?.trade_url" target="_blank">
                     {{ $t('index.buy') }} {{ store.coinInfo?.symbol?.toUpperCase() || 'COIN' }}
                   </a>
