@@ -1231,18 +1231,6 @@ function formatBlockTime(secondsStr?: string | number) {
   <div class="">
 
       <div class="bg-base-100 dark:bg-[#1a1f26] pt-[6.5rem]">
-      <!-- Subtle Indexer Lag Alert -->
-      <div v-if="isIndexerBehind && currentChainIndexerStatus" 
-        class="mx-4 mt-2 mb-2 px-4 py-2 rounded-lg bg-amber-500/10 dark:bg-amber-500/20 border border-amber-500/30 dark:border-amber-500/40 flex items-center gap-2 text-sm">
-        <Icon icon="mdi:clock-alert-outline" class="text-amber-500 dark:text-amber-400 flex-shrink-0" />
-        <div class="flex-1 text-amber-700 dark:text-amber-300">
-          <span class="font-medium">Indexer catching up:</span>
-          <span class="ml-1">{{ format.formatNumber(currentChainIndexerStatus.historical_backlog) }} blocks behind</span>
-          <span v-if="currentChainIndexerStatus.latest_height > 0" class="ml-1 text-xs opacity-75">
-            ({{ Math.round((currentChainIndexerStatus.historical_backlog / currentChainIndexerStatus.latest_height) * 100) }}% remaining)
-          </span>
-        </div>
-      </div>
         <!-- Laptop View -->
         <div class="desktop-home flex flex-1 gap-8">
           <div class="w-[45%] py-2">
