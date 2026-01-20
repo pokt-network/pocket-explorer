@@ -81,6 +81,9 @@ const isNetworkStatusLoading = ref(true);
 
 const txChartType = ref<'bar' | 'area' | 'line'>('area');
 const txChartCategories = ref<string[]>([]);
+const txHistoryWindow = ref(30); // days: 7, 15, 30 (1m)
+const fullTxHistoryLabels = ref<string[]>([]);
+const fullTxHistoryCounts = ref<number[]>([]);
 
 const txChartOptions = computed(() => {
   const chartType = txChartType.value;
@@ -592,8 +595,8 @@ const historicalData = ref({
     { name: 'Suppliers', data: [], yAxisIndex: 0 },
     { name: 'Services', data: [], yAxisIndex: 0 },
     { name: 'Relays', data: [], yAxisIndex: 1 },
-    { name: 'Proof Submissions CU', data: [], yAxisIndex: 1 },
-    { name: 'Settled Claims CU', data: [], yAxisIndex: 1 }
+    { name: 'Claimed CU', data: [], yAxisIndex: 1 },
+    { name: 'Estimated CU', data: [], yAxisIndex: 1 }
   ]
 });
 
@@ -602,6 +605,7 @@ const networkGrowthTab = ref<'core-services' | 'performance'>('performance');
 const networkGrowthChartType = ref<'bar' | 'area' | 'line'>('area');
 const chartCategories = ref<string[]>([]);
 const performanceMetric = ref<'relays' | 'compute-units'>('compute-units');
+const networkGrowthWindow = ref(7); // days
 
 // Computed series based on active tab
 const activeNetworkGrowthSeries = computed(() => {
@@ -618,6 +622,7 @@ const activeNetworkGrowthSeries = computed(() => {
     }));
   } else {
     // Return the selected Performance metric (Relays or both Compute Units series)
+    // Return the selected Performance metric (Relays or both Compute Units series)
     if (performanceMetric.value === 'relays') {
       const relaysIndex = 4; // Relays is at index 4
       const selectedSeries = historicalData.value.series[relaysIndex];
@@ -630,7 +635,7 @@ const activeNetworkGrowthSeries = computed(() => {
       }
       return [];
     } else {
-      // Return both compute units series (Proof Submissions and Settled Claims)
+    // Return both compute units series (Claimed and Estimated)
       const proofSubmissionsIndex = 5; // Proof Submissions CU is at index 5
       const settledClaimsIndex = 6; // Settled Claims CU is at index 6
       const proofSubmissionsSeries = historicalData.value.series[proofSubmissionsIndex];
@@ -836,8 +841,8 @@ async function loadNetworkStats() {
     // Load both performance and entities data in parallel in the background
     // This ensures both tabs have data ready immediately for instant switching
     Promise.allSettled([
-      loadNetworkGrowthPerformance(),
-      loadNetworkGrowthEntities()
+      loadNetworkGrowthPerformance(networkGrowthWindow.value),
+      loadNetworkGrowthEntities(networkGrowthWindow.value)
     ]).then((results) => {
       // Check if both failed - only then fallback to generated data
       const allFailed = results.every(result => result.status === 'rejected');
@@ -874,8 +879,8 @@ async function loadNetworkGrowthPerformance(windowDays: number = 7) {
     // Build labels and extract relays/compute units data
     const labels: string[] = [];
     const relaysDaily: number[] = [];
-    const proofSubmissionsCUDaily: number[] = [];
-    const settledClaimsCUDaily: number[] = [];
+    const claimedCUDaily: number[] = [];
+    const estimatedCUDaily: number[] = [];
     
     for (const dayItem of daysAsc) {
       const dayStr = (dayItem.day || '').slice(0, 10);
@@ -884,8 +889,16 @@ async function loadNetworkGrowthPerformance(windowDays: number = 7) {
       const d = new Date(dayStr + 'T00:00:00Z');
       labels.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
       relaysDaily.push(Number(dayItem.relays || 0));
-      proofSubmissionsCUDaily.push(Number(dayItem.proof_submissions_computed_units || 0));
-      settledClaimsCUDaily.push(Number(dayItem.settled_claims_computed_units || 0));
+      claimedCUDaily.push(Number(dayItem.claimed_compute_units || 0));
+      estimatedCUDaily.push(Number(dayItem.estimated_compute_units || 0));
+    }
+
+    // For the selected window, replace the last day's estimated CU with the
+    // average estimated CU over the window to smooth the most recent point
+    if (estimatedCUDaily.length > 0) {
+      const sumEstimated = estimatedCUDaily.reduce((acc, v) => acc + (Number.isFinite(v) ? v : 0), 0);
+      const avgEstimated = sumEstimated / estimatedCUDaily.length;
+      estimatedCUDaily[estimatedCUDaily.length - 1] = avgEstimated;
     }
 
     // Update chart categories (only if not already set or if this is the first data loaded)
@@ -893,15 +906,33 @@ async function loadNetworkGrowthPerformance(windowDays: number = 7) {
       chartCategories.value = labels;
     }
 
-    // Update performance series (relays, proof submissions CU, and settled claims CU)
+    // Update performance series (relays, claimed CU, and estimated CU)
     historicalData.value.series[4].data = relaysDaily as never[];
-    historicalData.value.series[5].data = proofSubmissionsCUDaily as never[];
-    historicalData.value.series[6].data = settledClaimsCUDaily as never[];
+    historicalData.value.series[5].data = claimedCUDaily as never[];
+    historicalData.value.series[6].data = estimatedCUDaily as never[];
   } catch (e) {
     console.error('Error loading network growth performance:', e);
     // Don't throw - allow entities to still load if performance fails
   }
 }
+
+// Reload network growth data when the selected window changes
+watch(networkGrowthWindow, (newVal, oldVal) => {
+  if (newVal === oldVal) return;
+  // Clear existing data to show loading state if needed
+  chartCategories.value = [];
+  historicalData.value.series = historicalData.value.series.map(series => ({
+    ...series,
+    data: []
+  }));
+
+  Promise.allSettled([
+    loadNetworkGrowthPerformance(newVal),
+    loadNetworkGrowthEntities(newVal)
+  ]).catch((err) => {
+    console.error('Error reloading network growth data for new window:', err);
+  });
+});
 
 // Load entity statistics (applications, suppliers, gateways, services) from entities endpoint
 async function loadNetworkGrowthEntities(windowDays: number = 7) {
@@ -1048,6 +1079,30 @@ function generateHistoricalData() {
   historicalData.value.series[3].data = serviceData as never[];
 }
 
+function updateTxChartForWindow(windowDays: number) {
+  const labels = fullTxHistoryLabels.value;
+  const counts = fullTxHistoryCounts.value;
+
+  if (!labels.length || !counts.length) {
+    txChartCategories.value = [];
+    txChartSeries.value = [{
+      name: 'Transactions',
+      data: []
+    }];
+    return;
+  }
+
+  const n = labels.length;
+  const keep = Math.min(windowDays, n);
+  const start = Math.max(0, n - keep);
+
+  txChartCategories.value = labels.slice(start);
+  txChartSeries.value = [{
+    name: 'Transactions',
+    data: counts.slice(start) as never[]
+  }];
+}
+
 async function loadTransactionHistory() {
   try {
     // Fetch historical transaction data using the transactions/count endpoint with chain parameter
@@ -1066,14 +1121,10 @@ async function loadTransactionHistory() {
         // Store the total transaction count
         transactionStats.value.total = historyData.data.total || 0;
 
-        // Update chart categories
-        txChartCategories.value = historyData.data.labels || [];
-
-        // Update the series data with the counts from the API
-        txChartSeries.value = [{
-          name: 'Transactions',
-          data: historyData.data.counts as never[]
-        }];
+        // Cache full history and then apply windowing on the frontend
+        fullTxHistoryLabels.value = historyData.data.labels || [];
+        fullTxHistoryCounts.value = historyData.data.counts || [];
+        updateTxChartForWindow(txHistoryWindow.value);
       } else {
         console.error("Invalid history data format:", historyData);
         fallbackToClientSideProcessing();
@@ -1089,9 +1140,9 @@ async function loadTransactionHistory() {
 }
 
 // Fallback method if the API request fails
-function fallbackToClientSideProcessing() {
+function fallbackToClientSideProcessing(windowDays: number = 30) {
   const txs = base.allTxs || [];
-  const days = 30;
+  const days = windowDays;
   const now = new Date();
   const labels = [];
   const txsByDay = new Map();
@@ -1106,9 +1157,6 @@ function fallbackToClientSideProcessing() {
     const dateKey = date.toISOString().split('T')[0]; // YYYY-MM-DD format
     txsByDay.set(dateKey, 0);
   }
-
-  // Update chart categories
-  txChartCategories.value = labels;
 
   // Count transactions by day
   for (const tx of txs) {
@@ -1146,11 +1194,10 @@ function fallbackToClientSideProcessing() {
     txData.push(txsByDay.get(dateKey) || 0);
   }
 
-  // Update chart series
-  txChartSeries.value = [{
-    name: 'Transactions',
-    data: txData as never[]
-  }];
+  // Cache full history derived from client-side processing and apply windowing
+  fullTxHistoryLabels.value = labels;
+  fullTxHistoryCounts.value = txData;
+  updateTxChartForWindow(txHistoryWindow.value);
 }
 
 // Also add a watcher to reload transaction history when allTxs changes
@@ -1160,6 +1207,12 @@ watch(() => base.allTxs, (newTxs) => {
     loadTransactionHistory();
   }
 }, { deep: true });
+
+// Reload transaction history when the selected window changes
+watch(txHistoryWindow, (newVal, oldVal) => {
+  if (newVal === oldVal) return;
+  updateTxChartForWindow(newVal);
+});
 
 // Add this to clean up event listeners
 onBeforeUnmount(() => {
@@ -1721,7 +1774,7 @@ function formatBlockTime(secondsStr?: string | number) {
       <div class="bg-base-200 pt-3 rounded-lg hover:bg-base-300 shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <div class="flex items-center justify-between mb-1 px-5 gap-4">
           <div class="flex flex-1 items-center gap-4 justify-between">
-            <div class="flex text-lg font-semibold text-main">Network Growth (7 Days)</div>
+            <div class="flex text-lg font-semibold text-main">Network Growth</div>
             <!-- Tabs -->
             <div class="flex tabs tabs-boxed bg-base-200 dark:bg-base-300">
               <button
@@ -1741,6 +1794,17 @@ function formatBlockTime(secondsStr?: string | number) {
                 Services
               </button>
             </div>
+          </div>
+          <!-- Window selector -->
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-secondary">Window</span>
+            <select
+              v-model.number="networkGrowthWindow"
+              class="select select-xs select-bordered bg-base-100 dark:bg-base-200 text-xs"
+            >
+              <option :value="7">7d</option>
+              <option :value="15">15d</option>
+            </select>
           </div>
         </div>
         
@@ -1827,10 +1891,22 @@ function formatBlockTime(secondsStr?: string | number) {
 
       <!-- Transaction History Chart -->
       <div class="bg-base-200 pt-3 rounded-lg hover:bg-base-300 shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
-        <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center justify-between mb-4 px-5">
           <div class="flex items-center">
             <!-- <Icon icon="mdi:chart-timeline-variant" class="text-2xl text-warning mr-2" /> -->
-            <div class="text-lg font-semibold text-main ml-5">Transaction History</div>
+            <div class="text-lg font-semibold text-main">Transaction History</div>
+          </div>
+          <!-- Window selector -->
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-secondary">Window</span>
+            <select
+              v-model.number="txHistoryWindow"
+              class="select select-xs select-bordered bg-base-100 dark:bg-base-200 text-xs"
+            >
+              <option :value="7">7d</option>
+              <option :value="15">15d</option>
+              <option :value="30">1m</option>
+            </select>
           </div>
         </div>
         <div class="dark:bg-base-200 bg-base-100 p-4 rounded-md relative">
