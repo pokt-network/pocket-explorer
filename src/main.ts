@@ -13,13 +13,14 @@ import { useBaseStore } from './stores/useBaseStore';
 // Create vue app
 const app = createApp(App);
 const head = createHead();
+
 // Use plugins
 app.use(i18n);
 app.use(createPinia());
 app.use(router);
 app.use(head);
 app.use(LazyLoad, { component: true });
-// Mount vue app
+
 app.mount('#app');
 
 // fetch latest block every 6s

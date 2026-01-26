@@ -8,6 +8,10 @@ import AutoImport from 'unplugin-auto-import/vite';
 import Pages from 'vite-plugin-pages';
 import VueI18nPlugin from '@intlify/unplugin-vue-i18n/vite';
 import type { Plugin } from 'vite';
+import Unimport from 'unimport/unplugin';
+
+
+
 
 // Security patterns to block
 const SUSPICIOUS_PATTERNS = [
@@ -125,9 +129,10 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://pocket_indexer_api:3006',
+        // target: 'http://pocket_indexer_api:3006',
         // target: 'http://127.0.0.1:3005',
         // target: 'https://explorer.pocket.network',
+        target: 'http://192.168.1.15:3006',
         changeOrigin: true,
       },
     },

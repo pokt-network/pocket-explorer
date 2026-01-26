@@ -1,11 +1,19 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import authService from '@/api/auth-service'
 
 const router = useRouter()
 
 const showModal = ref(false)
 const showEmailModal = ref(false)
+const showVerificationMessage = ref(false)
+const showLoginModal = ref(false)
+const showGetTokenEmailModal = ref(false)
+const showForgotPasswordModal = ref(false)
+const forgotPasswordEmail = ref('')
+const forgotPasswordLoading = ref(false)
+const showLoginPassword = ref(false)  // Toggle password visibility
 
 const formData = ref({
   name: '',
@@ -15,17 +23,27 @@ const formData = ref({
 })
 
 const emailOnly = ref('')
+const isLoading = ref(false)
+const errorMessage = ref('')
 
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
 
-function generateToken() {
-  return 'pk_' + crypto.randomUUID().replaceAll('-', '')
-}
-
 function openModal() {
-  showModal.value = true
+  // Check if user is already logged in
+  const isAuthenticated = authService.isAuthenticated()
+  
+  if (isAuthenticated) {
+    // User already logged in - redirect to account page directly
+    console.log('✓ User is authenticated, redirecting to /account/user')
+    router.push('/account/user')
+  } else {
+    // User not logged in - show login/registration modal
+    console.log('User not authenticated, showing modal')
+    showModal.value = true
+    errorMessage.value = ''
+  }
 }
 
 function closeModal() {
@@ -40,58 +58,78 @@ function resetForm() {
     password: '',
     organization: ''
   }
+  errorMessage.value = ''
+  isLoading.value = false
 }
 
-function handleSignUp() {
-  const { name, email, password } = formData.value
+// Full Registration (with password) - Real API call
+async function handleSignUp() {
+  const { name, email, password, organization } = formData.value
 
   if (!name || !email || !password) {
-    alert('Please fill all required fields')
+    errorMessage.value = 'Please fill all required fields'
     return
   }
 
   if (!isValidEmail(email)) {
-    alert('Invalid email address')
+    errorMessage.value = 'Invalid email address'
     return
   }
 
-  if (password.length < 6) {
-    alert('Password must be at least 6 characters')
+  if (password.length < 8) {
+    errorMessage.value = 'Password must be at least 8 characters'
     return
   }
 
-  const tokenData = {
-    id: Date.now().toString(),
-    token: generateToken(),
-    createdAt: new Date().toISOString(),
-    name,
-    email,
-    organization: formData.value.organization || 'Personal'
+  isLoading.value = true
+  errorMessage.value = ''
+
+  try {
+    const response = await authService.fullRegister(
+      email,
+      password,
+      name,
+      organization || undefined
+    )
+
+    // Check karein ke verification required hai ya nahi
+    if (response.requiresVerification) {
+      // Verification email bhej di gayi hai
+      showVerificationMessage.value = true
+      closeModal()
+
+      // Success message dikhaein
+      setTimeout(() => {
+        alert('Registration successful! Please check your email to verify your account and receive your API token. hamasssssssss')
+      }, 300)
+    } else {
+      // Agar verification required nahi hai (edge case)
+      closeModal()
+      router.push('/account/user')
+    }
+  } catch (error: any) {
+    errorMessage.value = error.message || 'Registration failed. Please try again.'
+  } finally {
+    isLoading.value = false
   }
-
-  const existingTokens = JSON.parse(localStorage.getItem('api_tokens') || '[]')
-  existingTokens.push(tokenData)
-  localStorage.setItem('api_tokens', JSON.stringify(existingTokens))
-
-  localStorage.setItem(
-    'user_data',
-    JSON.stringify({ name, email, organization: formData.value.organization })
-  )
-
-  closeModal()
-
-  // ✅ SPA Redirect (CORRECT)
-  router.push('/account')
 }
 
 function handleGetToken() {
   showModal.value = false
   showEmailModal.value = true
+  errorMessage.value = ''
 }
 
 const showTokenModal = ref(false)
 const currentToken = ref('')
 const copied = ref(false)
+const getTokenEmail = ref('')
+
+// Login form data
+const loginData = ref({
+  email: '',
+  password: '',
+})
 
 function openTokenModal(token: string) {
   currentToken.value = token
@@ -99,10 +137,84 @@ function openTokenModal(token: string) {
   showTokenModal.value = true
 }
 
+function openLoginModal() {
+  // Check if user is already logged in
+  const isAuthenticated = authService.isAuthenticated()
+  
+  if (isAuthenticated) {
+    // User already logged in - redirect to account page directly
+    console.log('✓ User is authenticated, redirecting to /account/user')
+    router.push('/account/user')
+  } else {
+    // User not logged in - show login modal
+    console.log('User not authenticated, showing login modal')
+    showModal.value = false
+    showLoginModal.value = true
+    errorMessage.value = ''
+    loginData.value = { email: '', password: '' }
+  }
+}
+
+function closeLoginModal() {
+  showLoginModal.value = false
+  loginData.value = { email: '', password: '' }
+  errorMessage.value = ''
+  showLoginPassword.value = false  // Hide password when modal closes
+}
+
+// Login function
+async function handleLogin() {
+  const { email, password } = loginData.value
+
+  if (!email || !password) {
+    errorMessage.value = 'Please enter both email and password'
+    return
+  }
+
+  if (!isValidEmail(email)) {
+    errorMessage.value = 'Please enter a valid email address'
+    return
+  }
+
+  isLoading.value = true
+  errorMessage.value = ''
+
+  try {
+    // Step 1: Login to get JWT tokens
+    await authService.login(email, password)
+
+    // Step 2: Check if user already has API tokens
+    const existingTokens = await authService.listTokens()
+
+    // Step 3: Agar koi token nahi hai to automatically create kar do
+    const tokensList = Array.isArray(existingTokens.data) ? existingTokens.data : (existingTokens.data.tokens || [])
+    if (tokensList.length === 0) {
+      try {
+        // Automatically create a default API token
+        await authService.createToken('Default API Token', null)
+      } catch (tokenError) {
+        console.error('Failed to create automatic token:', tokenError)
+        // Token create fail ho gaya but login successful hai, continue kar do
+      }
+    }
+
+    // Step 4: Login successful - close modal and redirect to user's personal tokens
+    closeLoginModal()
+    router.push('/account/user')
+  } catch (error: any) {
+    errorMessage.value = error.message || 'Login failed. Please check your credentials.'
+  } finally {
+    isLoading.value = false
+  }
+}
+
 function closeTokenModal() {
   showTokenModal.value = false
   currentToken.value = ''
   copied.value = false
+
+  // Token modal close karne ke baad user's personal tokens page par redirect karo
+  router.push('/account/user')
 }
 
 function copyCurrentToken() {
@@ -116,40 +228,155 @@ function copyCurrentToken() {
   }, 300)
 }
 
-function submitEmailToken() {
+// Quick Registration (email-only) - Real API call
+async function submitEmailToken() {
   if (!emailOnly.value || !isValidEmail(emailOnly.value)) {
-    alert('Invalid email')
+    errorMessage.value = 'Invalid email address'
     return
   }
 
-  const tokenData = {
-    id: Date.now().toString(),
-    token: generateToken(),
-    createdAt: new Date().toISOString(),
-    name: 'Guest User',
-    email: emailOnly.value,
-    organization: 'Personal'
+  isLoading.value = true
+  errorMessage.value = ''
+
+  try {
+    const response = await authService.quickRegister(emailOnly.value)
+
+    // API token turant mil gaya (quick registration)
+    if (response.data.token && response.data.token.token) {
+      const fullToken = response.data.token.token
+
+      // Token modal mein dikhao
+      showEmailModal.value = false
+      emailOnly.value = ''
+      openTokenModal(fullToken)
+    } else {
+      throw new Error('Token not received from server')
+    }
+  } catch (error: any) {
+    errorMessage.value = error.message || 'Failed to generate token. Please try again.'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// Handle "Get Token via Email" button click
+function handleOpenGetTokenEmailModal() {
+  showModal.value = false
+  showGetTokenEmailModal.value = true
+  getTokenEmail.value = ''
+  errorMessage.value = ''
+}
+
+// Generate token via email
+async function handleGenerateTokenViaEmail() {
+  if (!getTokenEmail.value || !isValidEmail(getTokenEmail.value)) {
+    errorMessage.value = 'Valid email address required hai'
+    return
   }
 
-  const existingTokens = JSON.parse(localStorage.getItem('api_tokens') || '[]')
-  existingTokens.push(tokenData)
-  localStorage.setItem('api_tokens', JSON.stringify(existingTokens))
+  isLoading.value = true
+  errorMessage.value = ''
 
-  // ✅ Open token modal instead of redirect
-  showEmailModal.value = false
-  emailOnly.value = ''
-  openTokenModal(tokenData.token)
+  try {
+    const response = await authService.generateTokenViaEmail(getTokenEmail.value)
+    console.log('Token response:', response)
+
+    // Response structure per documentation: { data: { account, token }, message, ... }
+    const { data } = response || {}
+    
+    if (data && data.token && data.token.token) {
+      const fullToken = data.token.token
+      
+      // Close the email modal and show token
+      showGetTokenEmailModal.value = false
+      openTokenModal(fullToken)
+      
+      // Alert user
+      setTimeout(() => {
+        alert('Token successfully generated! You can start using the API immediately.')
+      }, 300)
+    } else {
+      throw new Error('Token not received from server')
+    }
+  } catch (error: any) {
+    console.error('Generate token error:', error)
+    
+    // Better error messages
+    let errorMsg = 'Failed to generate token. Please try again.'
+    
+    if (error.response?.status === 401) {
+      errorMsg = 'Authentication failed. Please try again.'
+    } else if (error.response?.data?.error) {
+      errorMsg = error.response.data.error
+    } else if (error.message) {
+      errorMsg = error.message
+    }
+    
+    errorMessage.value = errorMsg
+  } finally {
+    isLoading.value = false
+  }
 }
 
 function handleEscape(event: KeyboardEvent) {
   if (event.key === 'Escape') {
     showModal.value = false
     showEmailModal.value = false
+    showTokenModal.value = false
+    showLoginModal.value = false
+    showGetTokenEmailModal.value = false
+    showForgotPasswordModal.value = false
   }
 }
 
-watch([showModal, showEmailModal], ([modal, emailModal]) => {
-  document.body.style.overflow = modal || emailModal ? 'hidden' : ''
+// Forgot Password Functions
+function openForgotPasswordModal() {
+  showLoginModal.value = false
+  showForgotPasswordModal.value = true
+  forgotPasswordEmail.value = ''
+  errorMessage.value = ''
+}
+
+function closeForgotPasswordModal() {
+  showForgotPasswordModal.value = false
+  forgotPasswordEmail.value = ''
+  errorMessage.value = ''
+  forgotPasswordLoading.value = false
+}
+
+async function handleForgotPasswordSubmit() {
+  if (!forgotPasswordEmail.value) {
+    errorMessage.value = 'Please enter your email address'
+    return
+  }
+
+  if (!isValidEmail(forgotPasswordEmail.value)) {
+    errorMessage.value = 'Please enter a valid email address'
+    return
+  }
+
+  forgotPasswordLoading.value = true
+  errorMessage.value = ''
+
+  try {
+    console.log('📧 Sending forgot password request for:', forgotPasswordEmail.value)
+    const response = await authService.forgotPassword(forgotPasswordEmail.value)
+    console.log('✓ Forgot password response:', response.message)
+    
+    // Show success message
+    alert('Password reset link has been sent to your email. Please check your inbox and spam folder.')
+    closeForgotPasswordModal()
+    closeLoginModal()
+  } catch (error: any) {
+    console.error('❌ Forgot password error:', error)
+    errorMessage.value = error.message || 'Failed to send password reset link. Please try again.'
+  } finally {
+    forgotPasswordLoading.value = false
+  }
+}
+
+watch([showModal, showEmailModal, showTokenModal, showLoginModal, showGetTokenEmailModal, showForgotPasswordModal], ([modal, emailModal, tokenModal, loginModal, getTokenEmailModal, forgotPasswordModal]) => {
+  document.body.style.overflow = modal || emailModal || tokenModal || loginModal || getTokenEmailModal || forgotPasswordModal ? 'hidden' : ''
 })
 
 onMounted(() => {
@@ -394,14 +621,24 @@ onUnmounted(() => {
           </div>
 
           <div class="px-8 py-6 bg-gray-50 dark:bg-[#111827] space-y-3">
+            <!-- Error Message -->
+            <div v-if="errorMessage" class="px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+              <p class="text-sm text-red-600 dark:text-red-400">{{ errorMessage }}</p>
+            </div>
+
             <button
               @click="handleSignUp"
-              class="w-full px-6 py-3.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center justify-center gap-2"
+              :disabled="isLoading"
+              class="w-full px-6 py-3.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:transform-none flex items-center justify-center gap-2"
             >
-              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
+              <svg v-if="!isLoading" class="w-5 h-5" viewBox="0 0 24 24" fill="none">
                 <path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M5 12h14m-7-7v14"/>
               </svg>
-              Create Account
+              <svg v-else class="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+              </svg>
+              {{ isLoading ? 'Creating Account...' : 'Create Account' }}
             </button>
 
             <div class="flex items-center gap-3">
@@ -411,14 +648,26 @@ onUnmounted(() => {
             </div>
 
             <button
-              @click="handleGetToken"
-              class="w-full px-6 py-3.5 bg-white hover:bg-gray-50 dark:bg-[#374151] dark:hover:bg-[#4b5563] text-gray-900 dark:text-white font-semibold rounded-xl transition-all duration-200 border-2 border-gray-300 dark:border-gray-600 flex items-center justify-center gap-2"
+              @click="openLoginModal"
+              :disabled="isLoading"
+              class="w-full px-6 py-3.5 bg-white hover:bg-gray-50 dark:bg-[#374151] dark:hover:bg-[#4b5563] disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white font-semibold rounded-xl transition-all duration-200 border-2 border-gray-300 dark:border-gray-600 flex items-center justify-center gap-2"
+            >
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                <path stroke="currentColor" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
+              </svg>
+              Login to Existing Account
+            </button>
+
+            <button
+              @click="handleOpenGetTokenEmailModal"
+              :disabled="isLoading"
+              class="w-full px-6 py-3.5 bg-white hover:bg-gray-50 dark:bg-[#374151] dark:hover:bg-[#4b5563] disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white font-semibold rounded-xl transition-all duration-200 border-2 border-gray-300 dark:border-gray-600 flex items-center justify-center gap-2"
             >
               <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
                 <path stroke="currentColor" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
               </svg>
               Get Token via Email
-            </button>
+            </button>            
           </div>
         </div>
       </div>
@@ -459,12 +708,25 @@ onUnmounted(() => {
             />
           </div>
 
-          <div class="px-8 py-6 bg-gray-50 dark:bg-[#111827]">
+          <div class="px-8 py-6 bg-gray-50 dark:bg-[#111827] space-y-3">
+            <!-- Error Message -->
+            <div v-if="errorMessage" class="px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+              <p class="text-sm text-red-600 dark:text-red-400">{{ errorMessage }}</p>
+            </div>
+
             <button
               @click="submitEmailToken"
-              class="w-full py-3.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:to-blue-800 text-white font-semibold rounded-xl shadow-lg transition-all"
+              :disabled="isLoading"
+              class="w-full py-3.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:to-blue-800 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-semibold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2"
             >
-              Send API Token
+              <svg v-if="!isLoading" class="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                <path stroke="currentColor" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+              </svg>
+              <svg v-else class="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+              </svg>
+              {{ isLoading ? 'Generating Token...' : 'Send API Token' }}
             </button>
           </div>
         </div>
@@ -522,6 +784,281 @@ onUnmounted(() => {
   </Transition>
 </Teleport>
 
+  <!-- Get Token via Email Modal -->
+  <Teleport to="body">
+    <Transition name="modal">
+      <div
+        v-if="showGetTokenEmailModal"
+        class="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"
+        @click.self="showGetTokenEmailModal = false"
+      >
+        <div class="bg-white dark:bg-[#1f2937] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+          <div class="relative px-8 pt-8 pb-6 bg-gradient-to-r from-blue-600 to-blue-700">
+            <button
+              @click="showGetTokenEmailModal = false"
+              class="absolute top-5 right-5 text-white/80 hover:text-white p-2 rounded-full hover:bg-white/10 transition"
+            >
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                <path stroke="currentColor" stroke-width="2.5" stroke-linecap="round" d="M6 6l12 12M6 18L18 6"/>
+              </svg>
+            </button>
+            <h2 class="text-xl font-bold text-white">Generate Token via Email</h2>
+            <p class="text-blue-100 text-sm mt-1">Generate a new token using your email</p>
+          </div>
+
+          <div class="px-8 py-8 bg-white dark:bg-[#1f2937]">
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
+              Email Address
+            </label>
+            <input
+              v-model="getTokenEmail"
+              type="email"
+              placeholder="you@example.com"
+              class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-[#111827] text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+          </div>
+
+          <div class="px-8 py-6 bg-gray-50 dark:bg-[#111827] space-y-3">
+            <!-- Error Message -->
+            <div v-if="errorMessage" class="px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+              <p class="text-sm text-red-600 dark:text-red-400">{{ errorMessage }}</p>
+            </div>
+
+            <button
+              @click="handleGenerateTokenViaEmail"
+              :disabled="isLoading"
+              class="w-full py-3.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:to-blue-800 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-semibold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2"
+            >
+              <svg v-if="!isLoading" class="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                <path stroke="currentColor" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+              </svg>
+              <svg v-else class="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+              </svg>
+              {{ isLoading ? 'Generating...' : 'Generate Token' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
+
+  <!-- Login Modal -->
+  <Teleport to="body">
+    <Transition name="modal">
+      <div
+        v-if="showLoginModal"
+        class="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"
+        @click.self="closeLoginModal"
+      >
+        <div class="bg-white dark:bg-[#1f2937] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+          <!-- Header -->
+          <div class="relative px-8 pt-8 pb-6 bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-700 dark:to-blue-800">
+            <button
+              @click="closeLoginModal"
+              class="absolute top-6 right-6 text-white/80 hover:text-white transition-colors p-2 rounded-full hover:bg-white/10"
+              aria-label="Close modal"
+            >
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                <path stroke="currentColor" stroke-width="2.5" stroke-linecap="round" d="M6 6l12 12M6 18L18 6"/>
+              </svg>
+            </button>
+            <div class="pr-10">
+              <div class="flex items-center gap-3 mb-2">
+                <svg class="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none">
+                  <path stroke="currentColor" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
+                </svg>
+                <h2 class="text-2xl font-bold text-white">Welcome Back</h2>
+              </div>
+              <p class="text-blue-100 text-sm">Login to manage your API tokens</p>
+            </div>
+          </div>
+
+          <!-- Form -->
+          <div class="px-8 py-8 space-y-5">
+            <!-- Error Message -->
+            <div v-if="errorMessage" class="px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+              <p class="text-sm text-red-600 dark:text-red-400">{{ errorMessage }}</p>
+            </div>
+
+            <!-- Email -->
+            <div>
+              <label for="loginEmail" class="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
+                Email Address
+              </label>
+              <input
+                id="loginEmail"
+                v-model="loginData.email"
+                type="email"
+                placeholder="your.email@example.com"
+                autocomplete="email"
+                class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-[#111827] text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-sm"
+                @keyup.enter="handleLogin"
+              />
+            </div>
+
+            <!-- Password -->
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <label for="loginPassword" class="block text-sm font-semibold text-gray-700 dark:text-gray-200">
+                  Password
+                </label>
+                <button
+                  @click="openForgotPasswordModal"
+                  type="button"
+                  class="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition-colors"
+                >
+                  Forgot Password?
+                </button>
+              </div>
+              <div class="relative">
+                <input
+                  id="loginPassword"
+                  v-model="loginData.password"
+                  :type="showLoginPassword ? 'text' : 'password'"
+                  placeholder="Enter your password"
+                  autocomplete="current-password"
+                  class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-[#111827] text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-sm pr-10"
+                  @keyup.enter="handleLogin"
+                />
+                <button
+                  @click="showLoginPassword = !showLoginPassword"
+                  type="button"
+                  class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1"
+                  :title="showLoginPassword ? 'Hide password' : 'Show password'"
+                >
+                  <!-- Eye icon (show) -->
+                  <svg v-if="!showLoginPassword" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                  <!-- Eye slash icon (hide) -->
+                  <svg v-else class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                    <line x1="1" y1="1" x2="23" y2="23"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div class="px-8 py-6 bg-gray-50 dark:bg-[#111827] space-y-3">
+            <button
+              @click="handleLogin"
+              :disabled="isLoading"
+              class="w-full px-6 py-3.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:transform-none flex items-center justify-center gap-2"
+            >
+              <svg v-if="!isLoading" class="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                <path stroke="currentColor" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
+              </svg>
+              <svg v-else class="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+              </svg>
+              {{ isLoading ? 'Logging in...' : 'Login' }}
+            </button>
+
+            <button
+              @click="closeLoginModal"
+              class="w-full py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-xl transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
+
+  <!-- Forgot Password Modal -->
+  <Teleport to="body">
+    <Transition name="modal">
+      <div
+        v-if="showForgotPasswordModal"
+        class="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"
+        @click.self="closeForgotPasswordModal"
+      >
+        <div class="bg-white dark:bg-[#1f2937] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+          <!-- Header -->
+          <div class="relative px-8 pt-8 pb-6 bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-700 dark:to-blue-800">
+            <button
+              @click="closeForgotPasswordModal"
+              class="absolute top-6 right-6 text-white/80 hover:text-white transition-colors p-2 rounded-full hover:bg-white/10"
+              aria-label="Close modal"
+            >
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                <path stroke="currentColor" stroke-width="2.5" stroke-linecap="round" d="M6 6l12 12M6 18L18 6"/>
+              </svg>
+            </button>
+            <div class="pr-10">
+              <div class="flex items-center gap-3 mb-2">
+                <svg class="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none">
+                  <path stroke="currentColor" stroke-width="2" d="M15 7h4a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V9a2 2 0 012-2h4m0 0V5a2 2 0 012-2h2a2 2 0 012 2v2m-6 4h6"/>
+                </svg>
+                <h2 class="text-2xl font-bold text-white">Forget Password</h2>
+              </div>
+              <p class="text-blue-100 text-sm">Enter your email to receive a password reset link</p>
+            </div>
+          </div>
+
+          <!-- Form -->
+          <div class="px-8 py-8 space-y-5">
+            <!-- Error Message -->
+            <div v-if="errorMessage" class="px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+              <p class="text-sm text-red-600 dark:text-red-400">{{ errorMessage }}</p>
+            </div>
+
+            <!-- Email -->
+            <div>
+              <label for="forgotEmail" class="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
+                Email Address
+              </label>
+              <input
+                id="forgotEmail"
+                v-model="forgotPasswordEmail"
+                type="email"
+                placeholder="your.email@example.com"
+                autocomplete="email"
+                class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-[#111827] text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-sm"
+                @keyup.enter="handleForgotPasswordSubmit"
+              />
+            </div>
+
+            <p class="text-xs text-gray-500 dark:text-gray-400">
+              We'll send you a password reset link. You can reset your password using the link from the email.
+            </p>
+          </div>
+
+          <!-- Footer -->
+          <div class="px-8 py-6 bg-gray-50 dark:bg-[#111827] space-y-3">
+            <button
+              @click="handleForgotPasswordSubmit"
+              :disabled="forgotPasswordLoading"
+              class="w-full px-6 py-3.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:transform-none flex items-center justify-center gap-2"
+            >
+              <svg v-if="!forgotPasswordLoading" class="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                <path stroke="currentColor" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+              </svg>
+              <svg v-else class="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+              </svg>
+              {{ forgotPasswordLoading ? 'Sending...' : 'Send Reset Link' }}
+            </button>
+
+            <button
+              @click="closeForgotPasswordModal"
+              class="w-full py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-xl transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 
 </template>
 
