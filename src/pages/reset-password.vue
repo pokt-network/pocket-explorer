@@ -2,6 +2,9 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import authService from '@/api/auth-service'
+import { useToast } from 'vue-toastification'
+
+const toast = useToast()
 
 const route = useRoute()
 const router = useRouter()
@@ -17,16 +20,19 @@ const showPassword = ref(false)
 function validateForm(): boolean {
   if (!newPassword.value) {
     errorMessage.value = 'Please enter a new password'
+    toast.error(errorMessage.value)
     return false
   }
 
   if (newPassword.value.length < 8) {
     errorMessage.value = 'Password must be at least 8 characters long'
+    toast.error(errorMessage.value)
     return false
   }
 
   if (newPassword.value !== confirmPassword.value) {
     errorMessage.value = 'Passwords do not match'
+    toast.error(errorMessage.value)
     return false
   }
 
@@ -45,18 +51,25 @@ async function handleResetPassword() {
   try {
     await authService.resetPassword(token.value, newPassword.value)
     isSuccess.value = true
+    // Success toast
+    toast.success('Your password has been reset successfully!')
   } catch (error: any) {
-    errorMessage.value = error.message || 'Password reset failed. Please try again or request a new reset link.'
+    const msg = error.message || 'Password reset failed. Please try again or request a new reset link.'
+    errorMessage.value = msg
+    // Error toast
+    toast.error(msg)
   } finally {
     isLoading.value = false
   }
 }
 
 function goToLogin() {
+  toast.info('Redirecting to login page...')
   router.push('/login')
 }
 
 function goToHome() {
+  toast.info('Redirecting to Home...')
   router.push('/pocket-mainnet')
 }
 
@@ -64,6 +77,7 @@ onMounted(() => {
   const queryToken = route.query.token as string
   if (!queryToken) {
     errorMessage.value = 'Invalid password reset link. Token is missing.'
+    toast.error(errorMessage.value)
   } else {
     token.value = queryToken
   }

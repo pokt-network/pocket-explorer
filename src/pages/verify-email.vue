@@ -2,6 +2,9 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import authService from '@/api/auth-service'
+import { useToast } from 'vue-toastification'
+
+const toast = useToast()
 
 const route = useRoute()
 const router = useRouter()
@@ -18,6 +21,7 @@ async function verifyEmail() {
   if (!token) {
     isVerifying.value = false
     errorMessage.value = 'Invalid verification link. Token is missing.'
+    toast.error(errorMessage.value)
     return
   }
 
@@ -28,14 +32,18 @@ async function verifyEmail() {
     console.log('Refresh Token:', localStorage.getItem('refresh_token'))
     
     isSuccess.value = true
+    toast.success('Email verified successfully! Your account is now active.')
 
     // Agar token response mein hai (full account verification)
     if (response.data.token && response.data.token.token) {
       apiToken.value = response.data.token.token
+      toast.success('Your API token is ready. You can copy it now.')
     }
   } catch (error: any) {
     isSuccess.value = false
-    errorMessage.value = error.message || 'Email verification failed. Please try again or request a new verification link.'
+    const msg = error.message || 'Email verification failed. Please try again or request a new verification link.'
+    errorMessage.value = msg
+    toast.error(msg)
   } finally {
     isVerifying.value = false
   }
@@ -53,10 +61,12 @@ function copyToken() {
 
 function goToAccount() {
   // Redirect to login page
+  toast.info('Redirecting to login page...')
   router.push('/login')
 }
 
 function goToHome() {
+  toast.info('Redirecting to home...')
   router.push('/poket-mainnet')
 }
 

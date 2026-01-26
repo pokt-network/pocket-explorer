@@ -2,6 +2,9 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import authService from '@/api/auth-service'
+import { useToast } from 'vue-toastification'
+
+const toast = useToast()
 
 const router = useRouter()
 
@@ -15,11 +18,13 @@ const rememberMe = ref(false)
 function validateForm(): boolean {
   if (!email.value || !password.value) {
     errorMessage.value = 'Please enter both email and password'
+    toast.error(errorMessage.value)
     return false
   }
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value)) {
     errorMessage.value = 'Please enter a valid email address'
+    toast.error(errorMessage.value)
     return false
   }
 
@@ -38,10 +43,14 @@ async function handleLogin() {
   try {
     await authService.login(email.value, password.value)
 
+    // Login successful
+    toast.success('Login successful!')
     // Login successful - redirect to user's personal tokens page
     router.push('/account/user')
   } catch (error: any) {
-    errorMessage.value = error.message || 'Login failed. Please check your credentials and try again.'
+    const msg = error.message || 'Login failed. Please check your credentials and try again.'
+    errorMessage.value = msg
+    toast.error(msg)
   } finally {
     isLoading.value = false
   }
@@ -50,15 +59,17 @@ async function handleLogin() {
 function goToForgotPassword() {
   // Implement forgot password flow
   // For now, just show alert
-  alert('Forgot password functionality - email will be sent')
-}
+  toast.info('Forgot password email will be sent.')
+}  
 
 function goToRegister() {
+  toast.info('Redirecting to registration...')
   router.push('/')
   // Open registration modal after redirect (you can emit event or use state management)
 }
 
 function goToHome() {
+  toast.info('Redirecting to home...')
   router.push('/')
 }
 </script>

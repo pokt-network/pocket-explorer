@@ -2,6 +2,9 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import authService from '@/api/auth-service'
+import { useToast } from 'vue-toastification'
+
+const toast = useToast()
 
 const router = useRouter()
 
@@ -98,17 +101,28 @@ async function handleSignUp() {
       showVerificationMessage.value = true
       closeModal()
 
-      // Success message dikhaein
+      // Success toast dikhaein
       setTimeout(() => {
-        alert('Registration successful! Please check your email to verify your account and receive your API token. hamasssssssss')
+        toast.success(
+          'Registration successful! Please check your email to verify your account and receive your API token.'
+        )
       }, 300)
     } else {
       // Agar verification required nahi hai (edge case)
       closeModal()
       router.push('/account/user')
+
+      // Optional: success toast
+      toast.success('Registration successful!')
     }
   } catch (error: any) {
-    errorMessage.value = error.message || 'Registration failed. Please try again.'
+    const message =
+      error.message || 'Registration failed. Please try again.'
+
+    errorMessage.value = message
+
+    // Error toast
+    toast.error(message)
   } finally {
     isLoading.value = false
   }
@@ -200,9 +214,12 @@ async function handleLogin() {
 
     // Step 4: Login successful - close modal and redirect to user's personal tokens
     closeLoginModal()
+    toast.success('Login successful!')
     router.push('/account/user')
   } catch (error: any) {
-    errorMessage.value = error.message || 'Login failed. Please check your credentials.'
+    const msg = error.message || 'Login failed. Please check your credentials.'
+    errorMessage.value = msg
+    toast.error(msg)
   } finally {
     isLoading.value = false
   }
@@ -253,7 +270,9 @@ async function submitEmailToken() {
       throw new Error('Token not received from server')
     }
   } catch (error: any) {
-    errorMessage.value = error.message || 'Failed to generate token. Please try again.'
+    const msg = error.message || 'Failed to generate token. Please try again.'
+    errorMessage.value = msg
+    toast.error(msg)
   } finally {
     isLoading.value = false
   }
@@ -293,7 +312,7 @@ async function handleGenerateTokenViaEmail() {
       
       // Alert user
       setTimeout(() => {
-        alert('Token successfully generated! You can start using the API immediately.')
+        toast.success('Token successfully generated! You can start using the API immediately.')
       }, 300)
     } else {
       throw new Error('Token not received from server')
@@ -313,6 +332,7 @@ async function handleGenerateTokenViaEmail() {
     }
     
     errorMessage.value = errorMsg
+    toast.error(errorMsg)
   } finally {
     isLoading.value = false
   }
@@ -364,12 +384,13 @@ async function handleForgotPasswordSubmit() {
     console.log('✓ Forgot password response:', response.message)
     
     // Show success message
-    alert('Password reset link has been sent to your email. Please check your inbox and spam folder.')
+    toast.success('Password reset link has been sent to your email. Please check your inbox and spam folder.')
     closeForgotPasswordModal()
     closeLoginModal()
   } catch (error: any) {
     console.error('❌ Forgot password error:', error)
     errorMessage.value = error.message || 'Failed to send password reset link. Please try again.'
+    toast.error(errorMessage.value)
   } finally {
     forgotPasswordLoading.value = false
   }

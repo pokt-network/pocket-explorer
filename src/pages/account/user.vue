@@ -2,6 +2,9 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import authService from '@/api/auth-service'
+import { useToast } from 'vue-toastification'
+
+const toast = useToast()
 
 const router = useRouter()
 const userData = ref<any>(null)
@@ -29,14 +32,14 @@ onMounted(async () => {
     // Check if user is authenticated
     const isAuth = authService.isAuthenticated()
     if (!isAuth) {
-      router.push('/')
+      toast.error('You are not authenticated. Redirecting to home...')
+      router.push('/pocket-mainnet')
       return
     }
 
     // Get user data - Backend returns { data: { id, email, name, ... } }
     try {
       const accountResponse = await authService.getAccount()
-      console.log('Account response:', accountResponse)
       
       // Data ab response.data.data mein hai (directly account object)
       userData.value = accountResponse.data.data || accountResponse.data
@@ -45,7 +48,6 @@ onMounted(async () => {
       if (userData.value) {
         localStorage.setItem('user_data', JSON.stringify(userData.value))
       }
-      console.log('User data loaded:', userData.value?.email)
     } catch (apiError) {
       console.error('API error:', apiError)
       // Fallback to localStorage agar API fail hoo
@@ -53,10 +55,12 @@ onMounted(async () => {
       if (storedData) {
         try {
           userData.value = JSON.parse(storedData)
-          console.log('User data loaded from localStorage:', userData.value?.email)
         } catch (parseError) {
           console.error('Parse error:', parseError)
+          toast.error('Failed to parse stored user data.')
         }
+      } else {
+        toast.error('Failed to load account data from server.')
       }
     }
 
@@ -79,10 +83,12 @@ onMounted(async () => {
     } catch (tokenError) {
       console.error('Token loading error:', tokenError)
       userTokens.value = []
+      toast.error('Failed to load your API tokens.')
     }
   } catch (error: any) {
     console.error('Error loading account:', error)
     errorMessage.value = error.message || 'Failed to load account data'
+    toast.error(errorMessage.value)
   } finally {
     isLoading.value = false
   }
@@ -91,22 +97,26 @@ onMounted(async () => {
 function showToken(token: any) {
   displayToken.value = token.token
   showTokenDisplay.value = true
+  toast.info('API token revealed. Copy it safely.')
 }
 
 function copyToken(token: any) {
   if (!token.token) {
     errorMessage.value = 'Token value not available'
+    toast.error(errorMessage.value)
     return
   }
   
   navigator.clipboard.writeText(token.token).then(() => {
     copiedTokenId.value = token.id
+    toast.success('Token copied to clipboard!')
     setTimeout(() => {
       copiedTokenId.value = null
     }, 2000)
   }).catch(err => {
     console.error('Copy error:', err)
     errorMessage.value = 'Failed to copy token'
+    toast.error(errorMessage.value)
   })
 }
 
@@ -128,37 +138,27 @@ function changePage(page: number) {
 
 async function createNewToken() {
   if (!newTokenName.value.trim()) {
-    errorMessage.value = 'Token name required hai'
+    errorMessage.value = 'Token name is required'
+    toast.error(errorMessage.value)
     return
   }
 
   try {
     isCreatingToken.value = true
     errorMessage.value = ''
-    
-    console.log('🔑 Creating token:', newTokenName.value)
+
     const response = await authService.createToken(newTokenName.value)
-    
-    console.log('✓ Token response:', response)
-    console.log('✓ Response data:', response.data)
-    
+
     // Response structure: { data: { id, token, name, ... }, message: "..." }
     // response.data IS the token object itself!
     const newToken = response.data
-    
-    console.log('✓ New token object:', newToken)
-    console.log('✓ Token string:', newToken?.token)
     
     if (newToken && newToken.token) {
       // Store token info for display
       newGeneratedToken.value = newToken.token
       newGeneratedTokenName.value = newToken.name || 'API Token'
       isTokenCopied.value = false
-      
-      console.log('✓ Token stored for display:', newGeneratedToken.value.substring(0, 20) + '...')
-      console.log('✓ Token name:', newGeneratedTokenName.value)
-      console.log('✓ About to show modal...')
-      
+
       // Add to table
       userTokens.value.push(newToken)
       
@@ -167,9 +167,8 @@ async function createNewToken() {
       newTokenName.value = ''
       
       // Show result modal immediately
-      console.log('✓ Setting showNewTokenResultModal to true')
       showNewTokenResultModal.value = true
-      console.log('✓ Modal is now visible:', showNewTokenResultModal.value)
+      toast.success('New API token created successfully!')
     } else {
       console.error('❌ Token structure invalid:', { newToken, hasToken: newToken?.token })
       throw new Error('Token not created properly')
@@ -178,6 +177,7 @@ async function createNewToken() {
   } catch (error: any) {
     console.error('❌ Create token error:', error)
     errorMessage.value = error.message || 'Failed to create token. Please try again.'
+    toast.error(errorMessage.value)
   } finally {
     isCreatingToken.value = false
   }
@@ -187,6 +187,7 @@ function copyNewToken() {
   if (!newGeneratedToken.value) return
   navigator.clipboard.writeText(newGeneratedToken.value)
   isTokenCopied.value = true
+  toast.success('New token copied to clipboard!')
   
   // Reset after 2 seconds
   setTimeout(() => {
@@ -203,6 +204,7 @@ function closeTokenResultModal() {
 
 function logout() {
   authService.clearAuthData()
+  toast.info('Logged out successfully.')
   router.push('/pocket-mainnet')
 }
 </script>
