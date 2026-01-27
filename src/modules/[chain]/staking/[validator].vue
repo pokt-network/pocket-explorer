@@ -465,7 +465,7 @@ function getTransactionFee(tx: any): string {
   <div class="pt-[6.5rem]">
     <!-- Updated Validator Header Card -->
     <div
-      class="flex dark:bg-base-100 bg-[#09279F] rounded-xl space-x-60 p-4 my-4 text-white items-center text-2xl font-bold shadow-md hover:shadow-lg transition-shadow duration-300">
+      class="bg-[#ffffff] hover:bg-base-200 text-2xl w-full px-4 py-4 my-4 font-bold text-[#000000] dark:text-[#ffffff] rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
       <!-- Validator Header with Avatar and Basic Info -->
       <div class="flex items-center space-x-4">
         <img v-if="v.description?.identity && avatars[v.description.identity] !== 'undefined'"
@@ -476,9 +476,9 @@ function getTransactionFee(tx: any): string {
           " />
         <Icon v-else class="text-4xl" :icon="`mdi-help-circle-outline`" />
         <div>
-          <h2 class="text-2xl font-bold text-[#FFFFFF]">{{ v.description?.moniker }}</h2>
+          <h2 class="text-2xl font-bold text-[#000000] dark:text-[#FFFFFF]">{{ v.description?.moniker }}</h2>
           <!-- Validator Details -->
-        <p class="text-[16px] dark:text-gray-200 text-[#FFFFFF]">{{ v.description?.details }}</p>
+        <p class="text-[16px] dark:text-gray-200 text-[#000000]">{{ v.description?.details }}</p>
         </div>
       </div>
     </div>
@@ -486,7 +486,7 @@ function getTransactionFee(tx: any): string {
     <!-- Validator Stats Grid -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 my-4">
       <!-- Total Bonded Card -->
-      <div class="dark:bg-base-100 bg-base-200 rounded-xl p-3 flex flex-col h-full shadow-md hover:shadow-lg transition-shadow duration-300">
+      <div class="flex bg-[#ffffff] hover:bg-base-200 p-3 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <div class="flex items-center flex-1">
           <div class="w-10 h-10 dark:bg-base-200 bg-[#5E9AE4] rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
             <Icon icon="mdi-coin" class="text-xl dark:text-primary text-[#FFFFFF]" />
@@ -502,7 +502,7 @@ function getTransactionFee(tx: any): string {
       </div>
 
       <!-- Self Bonded Card -->
-      <div class="dark:bg-base-100 bg-base-200 rounded-xl p-3 flex flex-col h-full shadow-md hover:shadow-lg transition-shadow duration-300">
+      <div class="flex bg-[#ffffff] hover:bg-base-200 p-3 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <div class="flex items-center flex-1">
           <div class="w-10 h-10 dark:bg-base-200 bg-[#5E9AE4] rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
             <Icon icon="mdi-percent" class="text-xl dark:text-primary text-[#FFFFFF]" />
@@ -516,7 +516,7 @@ function getTransactionFee(tx: any): string {
       </div>
 
       <!-- Annual Profit Card -->
-      <div class="dark:bg-base-100 bg-base-200 rounded-xl p-3 flex flex-col h-full shadow-md hover:shadow-lg transition-shadow duration-300">
+      <div class="flex bg-[#ffffff] hover:bg-base-200 p-3 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <div class="flex items-center flex-1">
           <div class="w-10 h-10 dark:bg-base-200 bg-[#5E9AE4] rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
             <Icon icon="mdi-finance" class="text-xl dark:text-success text-[#ffffff]" />
@@ -529,7 +529,7 @@ function getTransactionFee(tx: any): string {
       </div>
 
       <!-- About Us Card -->
-      <div class="dark:bg-base-100 bg-base-200 rounded-xl p-3 flex flex-col h-full shadow-md hover:shadow-lg transition-shadow duration-300">
+      <div class="flex bg-[#ffffff] hover:bg-base-200 p-3 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <div class="flex items-center flex-1">
           <div class="w-10 h-10 dark:bg-base-200 bg-[#5E9AE4] rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
             <Icon icon="mdi-information-outline" class="text-xl dark:text-primary text-[#FFFFFF]" />
@@ -566,11 +566,11 @@ function getTransactionFee(tx: any): string {
     <!-- Secondary Information Section -->
     <div class="grid grid-cols-1 md:!grid-cols-2 gap-4 my-4">
       <!-- About and Status Information -->
-      <div class="bg-base-100 rounded-xl p-4">
+      <div class="bg-[#ffffff] dark:bg-[rgba(255,255,255,.03)] rounded-xl p-4">
         <!-- Validator Status -->
         <div class="text-2xl font-semibold text-main mb-2 mt-4">{{ $t('staking.validator_status') }}</div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div class="bg-base-200 rounded-xl p-3 flex flex-col items-center justify-center gap-4 pb-8 shadow-md hover:shadow-lg transition-shadow duration-300">
+          <div class="flex flex-col items-center justify-center gap-4 bg-[#ffffff] hover:bg-base-200 p-3 pb-8 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
             <div class="text-sm dark:text-gray-500 text-[#64748B]">{{ $t('staking.status') }}</div>
             <!-- Status pill -->
             <div class="badge text-[#60BC29]" :class="{
@@ -586,28 +586,28 @@ function getTransactionFee(tx: any): string {
             </div> -->
           </div>
 
-          <div class="bg-base-200 rounded-xl p-3 flex flex-col items-center justify-center gap-4 pb-8 shadow-md hover:shadow-lg transition-shadow duration-300">
+          <div class="flex flex-col items-center justify-center gap-4 bg-[#ffffff] hover:bg-base-200 p-3 pb-8 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
             <div class="text-sm text-[#64748B]">{{ $t('staking.jailed') }}</div>
             <div class="text-xl font-bold">
               {{ v.jailed || '-' }}
             </div>
           </div>
 
-          <div class="bg-base-200 rounded-xl p-3 flex flex-col items-center justify-center gap-4 pb-8 shadow-md hover:shadow-lg transition-shadow duration-300">
+          <div class="flex flex-col items-center justify-center gap-4 bg-[#ffffff] hover:bg-base-200 p-3 pb-8 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
             <div class="text-sm text-[#64748B]">{{ $t('staking.min_self') }}</div>
             <div class="text-xl font-bold">
               {{ v.min_self_delegation }} {{ staking.params.bond_denom }}
             </div>
           </div>
 
-          <div class="bg-base-200 rounded-xl p-3 flex flex-col items-center justify-center gap-4 pb-8 shadow-md hover:shadow-lg transition-shadow duration-300">
+          <div class="flex flex-col items-center justify-center gap-4 bg-[#ffffff] hover:bg-base-200 p-3 pb-8 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
             <div class="text-sm text-[#64748B]">{{ $t('staking.unbonding_height') }}</div>
             <div class="text-xl font-bold">
               {{ v.unbonding_height || '-' }}
             </div>
           </div>
 
-          <div class="bg-base-200 rounded-xl p-3 flex flex-col items-center justify-center gap-4 pb-8 shadow-md hover:shadow-lg transition-shadow duration-300">
+          <div class="flex flex-col items-center justify-center gap-4 bg-[#ffffff] hover:bg-base-200 p-3 pb-8 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
             <div class="text-sm text-[#64748B]">{{ $t('staking.unbonding_time') }}</div>
             <div class="text-xl font-bold">
               <template v-if="v.unbonding_time && !v.unbonding_time.startsWith('1970')">
@@ -637,13 +637,13 @@ function getTransactionFee(tx: any): string {
         </div> -->
 
         <!-- Commissions & Rewards -->
-        <div class="bg-base-100 rounded-xl">
+        <div class="rounded-xl">
           <div class="text-2xl font-semibold text-main mb-4 mt-4">
             {{ $t('staking.commissions_&_rewards') }}
           </div>
 
           <div class="grid grid-cols-1 md:!grid-cols-2 gap-4">
-            <div class="bg-base-200 rounded-xl p-3 flex flex-col items-center justify-center gap-4 pb-8 shadow-md hover:shadow-lg transition-shadow duration-300">
+            <div class="flex flex-col items-center justify-center gap-4 bg-[#ffffff] hover:bg-base-200 p-3 pb-8 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
               <div class="text-sm text-[#64748B] mb-2">{{ $t('staking.commissions') }}</div>
               <div class="flex flex-wrap">
                 <div v-for="(i, k) in commission" :key="`commission-${k}`"
@@ -653,7 +653,7 @@ function getTransactionFee(tx: any): string {
               </div>
             </div>
 
-            <div class="bg-base-200 rounded-xl  p-3 flex flex-col items-center justify-center gap-4 pb-8 shadow-md hover:shadow-lg transition-shadow duration-300">
+            <div class="flex flex-col items-center justify-center gap-4 bg-[#ffffff] hover:bg-base-200 p-3 pb-8 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
               <div class="text-sm text-[#64748B] mb-2">{{ $t('staking.outstanding') }} {{ $t('account.rewards') }}</div>
               <div class="flex flex-wrap">
                 <div v-for="(i, k) in rewards" :key="`reward-${k}`"
@@ -667,11 +667,11 @@ function getTransactionFee(tx: any): string {
       </div>
 
       <!-- Addresses Section -->
-      <div class="bg-base-100 rounded-xl p-4 pt-6">
+      <div class="bg-[#ffffff] dark:bg-[rgba(255,255,255,.03)] rounded-xl p-4 pt-6">
         <div class="text-2xl font-semibold text-main mb-4">{{ $t('staking.addresses') }}</div>
 
         <div class="grid grid-cols-1 gap-4">
-          <div class="bg-base-200 rounded-xl p-3 shadow-md hover:shadow-lg transition-shadow duration-300">
+          <div class="bg-[#ffffff] hover:bg-base-200 p-3 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
             <div class="text-sm text-[#64748B]flex items-center">
               {{ $t('staking.account_addr') }}
             </div>
@@ -683,7 +683,7 @@ function getTransactionFee(tx: any): string {
             </RouterLink>
           </div>
 
-          <div class="bg-base-200 rounded-xl p-3 shadow-md hover:shadow-lg transition-shadow duration-300">
+          <div class="bg-[#ffffff] hover:bg-base-200 p-3 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
             <div class="text-sm text-[#64748B] flex items-center">
               {{ $t('staking.operator_addr') }}
             </div>
@@ -694,7 +694,7 @@ function getTransactionFee(tx: any): string {
             </div>
           </div>
 
-          <div class="bg-base-200 rounded-xl p-3 shadow-md hover:shadow-lg transition-shadow duration-300">
+          <div class="bg-[#ffffff] hover:bg-base-200 p-3 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
             <div class="text-sm text-[#64748B] flex items-center">
               {{ $t('staking.hex_addr') }}
             </div>
@@ -705,7 +705,7 @@ function getTransactionFee(tx: any): string {
             </div>
           </div>
 
-          <div class="bg-base-200 rounded-xl p-3 shadow-md hover:shadow-lg transition-shadow duration-300">
+          <div class="bg-[#ffffff] hover:bg-base-200 p-3 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
             <div class="text-sm text-[#64748B] flex items-center">
               {{ $t('staking.signer_addr') }}
             </div>
@@ -716,7 +716,7 @@ function getTransactionFee(tx: any): string {
             </div>
           </div>
 
-          <div class="bg-base-200 rounded-xl p-3 shadow-md hover:shadow-lg transition-shadow duration-300">
+          <div class="bg-[#ffffff] hover:bg-base-200 p-3 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
             <div class="text-sm text-[#64748B] flex items-center">
               {{ $t('staking.consensus_pub_key') }}
             </div>
@@ -799,15 +799,15 @@ function getTransactionFee(tx: any): string {
     </div> -->
 
     <!-- Transactions Table -->
-    <div class="bg-[#EFF2F5] dark:bg-base-100 px-0.5 pt-0.5 pb-4 rounded-xl shadow-md mb-4 shadow-md hover:shadow-lg transition-shadow duration-300">
-      <div class="text-lg font-semibold text-main dark:bg-base-100 bg-base-200 px-4 py-2">
+    <div class="bg-[#ffffff] hover:bg-base-200 px-0.5 pt-0.5 pb-4 mb-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
+      <div class="text-lg font-semibold text-main px-4 py-2">
         <h2 class="text-2xl font-semibold text-[#171C1F] dark:text-[#ffffff]">
           {{ $t('account.transactions') }}
         </h2>
       </div>
       
       <!-- Filter Section - Compact & Modern -->
-      <div class="bg-base-200 dark:bg-base-300 rounded-lg border border-base-300 dark:border-base-400 mb-4 mx-4">
+      <div class="rounded-lg border border-base-300 dark:border-white/10 mb-4 mx-4">
         <!-- Main Filter Bar -->
         <div class="flex flex-wrap items-center gap-3 px-4 py-3">
           <!-- Type Tabs - Compact Horizontal -->
@@ -827,7 +827,7 @@ function getTransactionFee(tx: any): string {
               class="px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200"
               :class="selectedTypeTab === typeOption.value
                 ? 'bg-[#007bff] text-white shadow-sm'
-                : 'bg-base-100 dark:bg-base-200 text-base-content hover:bg-base-300 dark:hover:bg-base-100 border border-base-300 dark:border-base-400'"
+                : 'bg=[#ffffff] dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] text-base-content hover:bg-base-200 border border-base-300 dark:border-white/10'"
             >
               {{ typeOption.label }}
             </button>
@@ -841,7 +841,7 @@ function getTransactionFee(tx: any): string {
             <!-- Status -->
             <div class="flex items-center gap-1.5">
               <Icon icon="mdi:check-circle-outline" class="text-base-content/60 text-sm" />
-              <select v-model="txStatusFilter" class="select select-bordered select-xs h-8 min-h-8 px-2 text-xs w-24">
+              <select v-model="txStatusFilter" class="select select-bordered select-xs h-8 min-h-8 px-2 text-xs w-24 hover:bg-base-200 dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)]">
                 <option value="">All</option>
                 <option value="success">Success</option>
                 <option value="failed">Failed</option>
@@ -851,7 +851,7 @@ function getTransactionFee(tx: any): string {
             <!-- Sort By -->
             <div class="flex items-center gap-1.5">
               <Icon icon="mdi:sort" class="text-base-content/60 text-sm" />
-              <select v-model="txSortBy" class="select select-bordered select-xs h-8 min-h-8 px-2 text-xs w-28">
+              <select v-model="txSortBy" class="select select-bordered select-xs h-8 min-h-8 px-2 text-xs w-28 hover:bg-base-200 dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)]">
                 <option value="timestamp">Time</option>
                 <option value="amount">Amount</option>
                 <option value="fee">Fee</option>
@@ -944,7 +944,7 @@ function getTransactionFee(tx: any): string {
       <div class="validator-table-wrapper validator-table-scroll rounded-xl">
         <table class="table table-compact w-full">
           <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
-            <tr class="dark:bg-base-100 bg-base-200 border-b-[0px] text-sm font-semibold">
+            <tr class="dark:bg-[rgba(255,255,255,.03)] bg-base-200 border-b-[0px] text-sm font-semibold">
               <th class="">{{ $t('account.height') }}</th>
               <th class="">{{ $t('account.hash') }}</th>
               <th class="">{{ $t('account.type') }}</th>
@@ -1064,8 +1064,8 @@ function getTransactionFee(tx: any): string {
     </div>
 
     <!-- Voting Power Events Table -->
-    <div class="bg-[#EFF2F5] dark:bg-base-100 px-0.5 pt-0.5 pb-4 rounded-xl my-4 shadow-md hover:shadow-lg transition-shadow duration-300">
-      <div class="text-lg font-semibold text-main dark:bg-base-100 bg-base-200 px-4 py-2">
+    <div class="bg-[#ffffff] hover:bg-base-200 px-0.5 pt-0.5 pb-4 mb-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
+      <div class="text-lg font-semibold text-main px-4 py-2">
         <h2 class="text-2xl font-semibold text-[#171C1F] dark:text-[#ffffff]">
           {{ $t('staking.delegations') }}
         </h2>
