@@ -46,8 +46,8 @@ const predictionMode = ref<'24h' | '7d'>('24h');
 
 // Helper function to make API request
 async function fetchApi(url: string, params: URLSearchParams, body?: any): Promise<any> {
-  const isRewardsEndpoint = url.includes('/proof-submissions/rewards');
-  const isSummaryEndpoint = url.includes('/proof-submissions/summary');
+  const isRewardsEndpoint = url.includes('/claims/rewards');
+  const isSummaryEndpoint = url.includes('/claims/summary');
   
   // Check if we have supplier_address parameter
   const hasSupplierAddress = params.has('supplier_address');
@@ -115,7 +115,7 @@ async function loadSupplierData() {
     if (props.endDate) params.append('end_date', props.endDate);
     params.append('limit', `${props.filters?.supplier_address?.split(',').length}` || '50');
 
-    const data = await fetchApi('/api/v1/proof-submissions/rewards', params);
+    const data = await fetchApi('/api/v1/claims/rewards', params);
     supplierData.value = data.data || [];
     
     // Calculate trends and predictions

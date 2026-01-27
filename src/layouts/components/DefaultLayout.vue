@@ -307,7 +307,7 @@ const handleSafariChainChange = (event: Event) => {
               </label>
               <ul v-show="moduleDropdownOpen" tabindex="0"
                 class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52 z-50" style="font-size: 0.8rem;">
-                <li v-for="(item, index) in ['services', 'noderunners']" :key="'dashboard-' + index" @click="toggleModuleDropdown">
+                <li v-for="(item, index) in ['services', 'operator-lookup']" :key="'dashboard-' + index" @click="toggleModuleDropdown">
                   <RouterLink :to="`/${currentChain?.chainName}/dashboards/${item}`" @click="sidebarShow = false"
                     class="hover:bg-gray-100 dark:hover:bg-[#373f59]">
                     <div class="capitalize text-gray-700 dark:text-gray-200" style="font-size: 0.8rem;">
@@ -418,7 +418,7 @@ const handleSafariChainChange = (event: Event) => {
         </div>
       </div>
     </header>
-    <div class="bg-white dark:bg-[#1a1f26]" style="min-height:65vh">
+    <div class="bg-white dark:bg-[#1a1f26]" style="min-height:80vh">
       <div class="w-11/12 mx-auto">
         <!-- 👉 Pages -->
         <div class="">

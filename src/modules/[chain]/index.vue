@@ -570,12 +570,13 @@ const totalComputeUnits24h = ref(0);
 async function loadServicesSummary24h() {
   try {
     const params = new URLSearchParams();
+    params.append('window', '1');
     params.append('chain', apiChainName.value);
-    const response = await fetch(`/api/v1/proof-submissions/summary?${params.toString()}`);
+    const response = await fetch(`/api/v1/network-growth/summary?${params.toString()}`);
     const result = await response.json();
     if (response.ok && result?.data) {
-      totalRelays24h.value = Number(result.data.total_relays || 0);
-      totalComputeUnits24h.value = Number(result.data.total_claimed_compute_units || 0);
+      totalRelays24h.value = Number(result.data.relays || 0);
+      totalComputeUnits24h.value = Number(result.data.claimed_compute_units || 0);
     } else {
       totalRelays24h.value = 0;
       totalComputeUnits24h.value = 0;
