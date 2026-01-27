@@ -4,6 +4,8 @@ import { onMounted, computed } from 'vue';
 import TxDialog from './components/TxDialog.vue';
 import MaintenancePage from './components/MaintenancePage.vue';
 import { useRouter } from 'vue-router';
+
+
 const router = useRouter();
 
 // Check if maintenance mode is enabled via environment variable
@@ -24,6 +26,8 @@ onMounted(() => {
   if (!isMaintenanceMode.value && window.location.pathname.length == 1)
     router.push(window.location.href.includes('beta') ? 'pocket-beta' : 'pocket-mainnet')
 });
+
+
 </script>
 
 <template>
@@ -34,6 +38,7 @@ onMounted(() => {
     <template v-else>
       <RouterView />
       <TxDialog />
+
     </template>
   </div>
 </template>

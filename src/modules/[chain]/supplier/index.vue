@@ -367,7 +367,7 @@ const statusText = computed(() => (value.value === 'stake' ? 'Staked' : 'Unstake
                     .join(', ')
                 }}
                 <div
-                  class="tooltip tooltip-top inline"
+                  class="tooltip tooltip-bottom inline"
                   :data-tip="
                     item.services
                       .slice(5)

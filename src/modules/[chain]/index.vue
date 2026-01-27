@@ -1761,7 +1761,7 @@ function formatBlockTime(secondsStr?: string | number) {
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mt-5">
       <!-- Network Growth Chart -->
       <div class="bg-base-200 pt-3 rounded-lg hover:bg-base-300 shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
-        <div class="flex items-center justify-between mb-1 px-5 gap-4">
+        <div class="flex items-center justify-between mb-4 px-5 gap-4">
           <div class="flex flex-1 items-center gap-4 justify-between">
             <div class="flex text-lg font-semibold text-main">Network Growth</div>
             <!-- Tabs -->
