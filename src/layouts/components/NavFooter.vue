@@ -539,15 +539,12 @@ onUnmounted(() => {
       <!-- Bottom Section -->
       <div class="flex flex-col-reverse lg:flex-row justify-between items-center gap-4 pt-6 lg:pt-8">
         <div class="flex flex-col lg:flex-row items-center lg:items-start gap-2 lg:gap-4">
-          <div class="flex items-center gap-2 text-gray-300 dark:text-gray-400 text-sm">
-            <span>Powered by</span>
+          <div class="flex items-center gap-2 text-gray-400 dark:text-gray-500 text-sm">
+            <span>© <span id="currentYear"></span> Pocket Network. All rights reserved.</span><span>Powered by</span>
             <a href="https://stakenodes.org" target="_blank" class="flex items-center gap-1.5 hover:text-white dark:hover:text-white transition-colors duration-200">
               <img src="https://stakenodes.org/favicon.png" alt="Stakenodes" class="h-5 w-5"/>
               <span class="text-base font-medium">Stakenodes</span>
             </a>
-          </div>
-          <div class="flex items-center gap-2 text-gray-400 dark:text-gray-500 text-sm">
-            <span>© <span id="currentYear"></span> Pocket Network. All rights reserved.</span>
           </div>
         </div>
         <div class="flex items-center gap-6 text-gray-400 dark:text-gray-500 text-sm">
