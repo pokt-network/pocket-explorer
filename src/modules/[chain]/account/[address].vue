@@ -1771,12 +1771,12 @@ async function loadAddressPerformance(address: string) {
       <table class="table table-compact w-full">
         <thead class="bg-base-200 dark:bg-[rgba(255,255,255,.03)] sticky top-0 border-0">
           <tr class="border-b-[0px] text-sm font-semibold">
-            <th class="">{{ $t('account.height') }}</th>
-            <th class="">{{ $t('account.hash') }}</th>
-            <th class="">{{ $t('account.type') }}</th>
-            <th class="">{{ $t('account.amount') }}</th>
-            <th class="">{{ $t('tx.fee') }}</th>
-            <th class="">{{ $t('account.time') }}</th>
+            <th class="bg-base-200 dark:bg-[rgba(255,255,255,.03)">{{ $t('account.height') }}</th>
+            <th class="bg-base-200 dark:bg-[rgba(255,255,255,.03)">{{ $t('account.hash') }}</th>
+            <th class="bg-base-200 dark:bg-[rgba(255,255,255,.03)">{{ $t('account.type') }}</th>
+            <th class="bg-base-200 dark:bg-[rgba(255,255,255,.03)">{{ $t('account.amount') }}</th>
+            <th class="bg-base-200 dark:bg-[rgba(255,255,255,.03)">{{ $t('tx.fee') }}</th>
+            <th class="bg-base-200 dark:bg-[rgba(255,255,255,.03)">{{ $t('account.time') }}</th>
           </tr>
         </thead>
         <tbody class="bg-base-100 relative">
