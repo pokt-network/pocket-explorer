@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { ref, onMounted, computed, watch } from 'vue';
+import { RouterLink } from 'vue-router';
 import { Icon } from '@iconify/vue';
 import ApexCharts from 'vue3-apexcharts';
 import { useBlockchain, useFormatter } from '@/stores';
@@ -216,6 +217,12 @@ const selectedApplication = ref('');
 const startDate = ref('');
 const endDate = ref('');
 const uniqueServices = ref(['iotex', 'avax', 'blast', 'fuse']);
+
+// PAGINATION FOR SERVICE REWARDS TABLE - YEH NAYA ADD KIYA HAI
+const serviceRewardsCurrentPage = ref(1);
+const serviceRewardsItemsPerPage = ref(25);
+const serviceRewardsTotalCount = ref(0);
+const serviceRewardsTotalPagesFromApi = ref(0);
 
 const topServicesByComputeUnits = ref<TopServiceByComputeUnits[]>([]);
 const topServicesByPerformance = ref<TopServiceByPerformance[]>([]);
@@ -441,6 +448,30 @@ const rewardShareDistributionChartSeries = computed(() => {
   return rewardShareDistribution.value.map(entry => entry.share_percent);
 });
 
+// COMPUTED PROPERTY - API se already paginated data aa raha hai
+const paginatedServiceRewards = computed(() => {
+  return serviceRewards.value; // API already returns paginated data
+});
+
+const serviceRewardsTotalPages = computed(() => {
+  return serviceRewardsTotalPagesFromApi.value; // Use total pages from API
+});
+
+// Watch for pagination changes and reload data
+watch(serviceRewardsItemsPerPage, () => {
+  if (serviceRewardsCurrentPage.value === 1) {
+    // Already on page 1, just reload
+    loadServiceRewards();
+  } else {
+    // Reset to page 1 (this will trigger the currentPage watcher)
+    serviceRewardsCurrentPage.value = 1;
+  }
+});
+
+watch(serviceRewardsCurrentPage, () => {
+  loadServiceRewards(); // Reload data when page changes
+});
+
 const rewardShareDistributionChartOptions = computed(() => {
   const entries = rewardShareDistribution.value;
   const labels = entries.map(e => e.moniker || e.account.substring(0, 12) + '...');
@@ -664,10 +695,17 @@ async function loadServiceRewards() {
       params.append('end_date', end.toISOString());
     }
     
-    params.append('limit', '100');
-    params.append('page', '1');
-    
+    params.append('limit', String(serviceRewardsItemsPerPage.value));
+    params.append('page', String(serviceRewardsCurrentPage.value));
+
     const data = await fetchApi('/api/v1/claims/rewards', params);
+
+    // Store meta information from API
+    if (data.meta) {
+      serviceRewardsTotalCount.value = data.meta.total || 0;
+      serviceRewardsTotalPagesFromApi.value = data.meta.totalPages || 0;
+    }
+
     // Normalize the data to ensure numeric values
     serviceRewards.value = (data.data || []).map((item: any) => ({
       ...item,
@@ -1402,7 +1440,7 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
       <div class="flex items-center justify-between mb-3 ml-4 mr-4">
         <div class="text-base font-semibold text-main flex items-center gap-2">
           <Icon icon="mdi:chart-pie" class="text-lg" />
-          Rewards by Service ({{ serviceRewards.length }})
+          Rewards by Service ({{ serviceRewardsTotalCount }})
         </div>
       </div>
       <div class="bg-base-200 rounded-md overflow-auto h-[50vh]">
@@ -1428,15 +1466,25 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
             </tr>
           </thead>
           <tbody>
-            <tr v-for="service in serviceRewards" :key="service.service_id" class="hover:bg-base-200 dark:hover:bg-[#384059] dark:bg-base-200 bg-white border-0 rounded-xl">
+            <tr v-for="service in paginatedServiceRewards" :key="service.service_id" class="hover:bg-base-200 dark:hover:bg-[#384059] dark:bg-base-200 bg-white border-0 rounded-xl">
               <td class="dark:bg-base-200 bg-white">
                 <span class="badge badge-primary badge-sm">{{ service.service_id }}</span>
               </td>
               <td class="dark:bg-base-200 bg-white">
-                <span class="">{{ service.supplier_operator_address }}</span>
+                <RouterLink
+                  :to="`/${chainStore.chainName}/account/${service.supplier_operator_address}`"
+                  class="text-sm text-[#09279F] dark:invert font-medium hover:underline"
+                >
+                  {{ service.supplier_operator_address.substring(0, 12) }}...{{ service.supplier_operator_address.substring(service.supplier_operator_address.length - 7) }}
+                </RouterLink>
               </td>
               <td class="dark:bg-base-200 bg-white">
-                <span class="">{{ service.application_address }}</span>
+                <RouterLink
+                  :to="`/${chainStore.chainName}/account/${service.application_address}`"
+                  class="text-sm text-[#09279F] dark:invert font-medium hover:underline"
+                >
+                  {{ service.application_address.substring(0, 12) }}...{{ service.application_address.substring(service.application_address.length - 7) }}
+                </RouterLink>
               </td>
               <td class="dark:bg-base-200 bg-white font-semibold text-success">
                 {{ format.formatToken({ denom: 'upokt', amount: String(service.total_rewards_upokt) }) }}
@@ -1465,6 +1513,61 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
           </tbody>
         </table>
       </div>
+
+      <!-- Pagination -->
+      <div class="flex justify-between items-center gap-4 my-6 px-6">
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-secondary">Show:</span>
+          <select v-model="serviceRewardsItemsPerPage" class="select select-bordered select-xs w-20">
+            <option :value="10">10</option>
+            <option :value="25">25</option>
+            <option :value="50">50</option>
+            <option :value="100">100</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-sm text-gray-600">
+            Showing {{ ((serviceRewardsCurrentPage - 1) * serviceRewardsItemsPerPage) + 1 }} to {{ Math.min(serviceRewardsCurrentPage * serviceRewardsItemsPerPage, serviceRewardsTotalCount) }} of {{ serviceRewardsTotalCount }} rewards
+          </span>
+
+          <div class="flex items-center gap-1">
+            <button
+              class="page-btn bg-[#f8f9fa] border border-[#ccc] rounded px-[10px] py-[5px] cursor-pointer text-[#007bff] transition-colors duration-200 hover:bg-[#e9ecef] disabled:opacity-50 disabled:cursor-not-allowed text-[14px]"
+              @click="serviceRewardsCurrentPage = 1"
+              :disabled="serviceRewardsCurrentPage === 1 || serviceRewardsTotalPages === 0"
+            >
+              First
+            </button>
+            <button
+              class="page-btn bg-[#f8f9fa] border border-[#ccc] rounded px-[10px] py-[5px] cursor-pointer text-[#007bff] transition-colors duration-200 hover:bg-[#e9ecef] disabled:opacity-50 disabled:cursor-not-allowed text-[14px]"
+              @click="serviceRewardsCurrentPage--"
+              :disabled="serviceRewardsCurrentPage === 1 || serviceRewardsTotalPages === 0"
+            >
+              &lt;
+            </button>
+
+            <span class="text-xs px-2">
+              Page {{ serviceRewardsCurrentPage }} of {{ serviceRewardsTotalPages }}
+            </span>
+
+            <button
+              class="page-btn bg-[#f8f9fa] border border-[#ccc] rounded px-[10px] py-[5px] cursor-pointer text-[#007bff] transition-colors duration-200 hover:bg-[#e9ecef] disabled:opacity-50 disabled:cursor-not-allowed text-[14px]"
+              @click="serviceRewardsCurrentPage++"
+              :disabled="serviceRewardsCurrentPage === serviceRewardsTotalPages || serviceRewardsTotalPages === 0"
+            >
+              &gt;
+            </button>
+            <button
+              class="page-btn bg-[#f8f9fa] border border-[#ccc] rounded px-[10px] py-[5px] cursor-pointer text-[#007bff] transition-colors duration-200 hover:bg-[#e9ecef] disabled:opacity-50 disabled:cursor-not-allowed text-[14px]"
+              @click="serviceRewardsCurrentPage = serviceRewardsTotalPages"
+              :disabled="serviceRewardsCurrentPage === serviceRewardsTotalPages || serviceRewardsTotalPages === 0"
+            >
+              Last
+            </button>
+          </div>
+        </div>  
+      </div>  
+
     </div>
 
      <!-- Middle Section: Rewards Distribution Table (Large) - Show in Summary and Reward Share tabs -->
