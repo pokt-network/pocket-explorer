@@ -1,11 +1,34 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from 'vue'
 import { pageContents } from '@/pages/pageContents'
-import { sections } from '@/pages/sections'
+import { sections as rawSections } from '@/pages/sections'
+
+interface DocItem {
+  label: string
+  slug: string
+  href?: string
+  icon?: string
+  children?: DocItem[]
+}
+
+interface DocSection {
+  id: string
+  title: string
+  icon: string
+  subtitle?: string
+  items: DocItem[]
+}
+
+const sections = rawSections as DocSection[]
 
 const open = ref<Record<string, boolean>>({})
 const activeSlug = ref('introduction')
 const activePageContent = ref(pageContents.introduction)
+
+const showFeedbackInput = ref(false)
+const showThankYou = ref(false)
+const feedbackText = ref('')
+const feedbackInput = ref<HTMLInputElement | null>(null)
 
 function toggle(sectionId: string) {
   open.value[sectionId] = !open.value[sectionId]
@@ -26,15 +49,50 @@ function isItemOpen(sectionId: string, itemSlug: string) {
   return !!open.value[`${sectionId}/${itemSlug}`]
 }
 
-function activate(slug: string) {
+function activate(slug: string, href?: string) {
   activeSlug.value = slug
 
   if (pageContents[slug]) {
     activePageContent.value = pageContents[slug]
   }
 
-  window.location.hash = slug
-  window.scrollTo({ top: 0, behavior: 'smooth' })
+  if (href) {
+    window.location.href = href
+  } else {
+    window.location.hash = slug
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+}
+
+function copyTitle() {
+  const title = activePageContent.value.title
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(title).catch((err) => {
+      console.error('Failed to copy title:', err)
+    })
+  }
+}
+
+function handleEmojiClick(_mood: 'happy' | 'neutral' | 'sad') {
+  showFeedbackInput.value = true
+  nextTick(() => {
+    feedbackInput.value?.focus()
+  })
+}
+
+function submitFeedback() {
+  // Placeholder for sending feedback to backend/analytics
+  const text = feedbackText.value.trim()
+  if (text) {
+    console.info('Documentation feedback:', text)
+  }
+  feedbackText.value = ''
+  showFeedbackInput.value = false
+  showThankYou.value = true
+
+  setTimeout(() => {
+    showThankYou.value = false
+  }, 3000)
 }
 
 onMounted(() => {
