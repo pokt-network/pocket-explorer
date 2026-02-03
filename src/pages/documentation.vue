@@ -2,14 +2,14 @@
 import { ref, onMounted } from 'vue'
 
 // Sidebar sections
-const openSections = ref({
+const openSections = ref<Record<string, boolean>>({
   endpoints: true,
   files: true,
   attach: false,
 })
 
 // Main content expandable sections
-const openContent = ref({
+const openContent = ref<Record<string, boolean>>({
   codeExamples: false,
   security: false,
   queryParams: false,
