@@ -457,11 +457,6 @@ onUnmounted(() => {
                   </a>
                 </li>
                 <li>
-                  <a href="https://explorer.pocket.network/" target="_blank" class="text-gray-200 dark:text-gray-300 hover:text-white dark:hover:text-white transition-colors duration-200 text-sm">
-                    Explorer
-                  </a>
-                </li>
-                <li>
                   <a href="https://github.com/pokt-network" target="_blank" class="text-gray-200 dark:text-gray-300 hover:text-white dark:hover:text-white transition-colors duration-200 text-sm">
                     GitHub
                   </a>

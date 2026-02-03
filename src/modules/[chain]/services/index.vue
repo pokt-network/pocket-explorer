@@ -39,6 +39,34 @@ const totalPages = computed(() => {
   return Math.ceil(total / itemsPerPage.value);
 });
 
+// API meta se total counts
+const totalSuppliersCount = ref(0);
+const totalApplicationsCount = ref(0);
+
+// per service totals
+const serviceTotals = ref<{ [serviceId: string]: { suppliers: number; applications: number } }>({});
+
+
+async function loadServiceTotals(serviceId: string) {
+  await waitForRpc();
+
+  try {
+    const res = await fetch(`/api/v1/services/${serviceId}?chain=${props.chain}&page=1&limit=25`)
+      .then(r => r.json());
+
+    serviceTotals.value[serviceId] = {
+      suppliers: res.meta.totalSuppliers || (res.data.suppliers?.length || 0),
+      applications: res.meta.totalApplications || (res.data.applications?.length || 0),
+    };
+  } catch (error) {
+    console.error('Error loading totals for service', serviceId, error);
+    serviceTotals.value[serviceId] = { suppliers: 0, applications: 0 };
+  }
+}
+
+
+
+
 const totalServices = computed(() => parseInt(pageResponse.value.total || '0'));
 
 // Client-side sorting (applied after server returns page data)
@@ -197,12 +225,26 @@ function isMaxDifficulty(targetHash: string) {
   return targetHash.includes('////////////////////////////////////////////');
 }
 
-onMounted(() => {
-  loadServices();
+// onMounted(() => {
+//   loadServices();
+//   loadMiningDifficulties();
+//   loadSuppliers();
+//   loadApplications();
+// });
+
+onMounted(async () => {
+  await loadServices(); // existing services fetch
+
+  // wait for services to load, phir per-service totals fetch karo
+  for (const svc of list.value) {
+    loadServiceTotals(svc.id); // async call for each service
+  }
+
   loadMiningDifficulties();
   loadSuppliers();
   loadApplications();
 });
+
 </script>
 
 <template>
@@ -303,10 +345,14 @@ onMounted(() => {
 
             <td>{{ item.compute_units_per_relay }}</td>
             <td>
-              {{ suppliers.find((s) => s.owner_address === item.owner_address)?.services || '-' }}
+              <div v-if="serviceTotals[item.id]">
+              {{ serviceTotals[item.id].suppliers || '-' }}
+              </div>
             </td>
             <td>
-              {{ applications.find((a) => a.address === item.owner_address)?.service_configs || '-' }}
+              <div v-if="serviceTotals[item.id]">
+                {{ serviceTotals[item.id].applications || '-' }}
+              </div>
             </td>
           </tr>
         </tbody>
