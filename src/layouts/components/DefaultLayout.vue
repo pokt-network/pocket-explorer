@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { Icon } from '@iconify/vue';
 import { computed, ref, onMounted, onUnmounted } from 'vue';
+import { useRoute } from 'vue-router';
 
 // Components
 import newFooter from '@/layouts/components/NavFooter.vue';
@@ -13,6 +14,7 @@ import { useBaseStore, useBlockchain } from '@/stores';
 import type { NavGroup, NavLink, NavSectionTitle, VerticalNavItems } from '../types';
 import dayjs from 'dayjs';
 
+const route = useRoute();
 const dashboard = useDashboard();
 dashboard.initial();
 const blockchain = useBlockchain();
@@ -68,6 +70,16 @@ const behind = computed(() => {
 const currentChain = computed(() => {
   return blockchain.current
 })
+
+// Check if current route is documentation page
+const isDocumentationPage = computed(() => {
+  return route.path.includes('/documentation');
+});
+
+// Compute container class based on route
+const containerClass = computed(() => {
+  return isDocumentationPage.value ? 'mx-auto' : 'mx-auto w-11/12';
+});
 
 // Add this for responsive behavior
 const isMobile = ref(false);
@@ -419,7 +431,7 @@ const handleSafariChainChange = (event: Event) => {
       </div>
     </header>
     <div class="bg-white dark:bg-[#1a1f26]" style="min-height:80vh">
-      <div class="w-11/12 mx-auto">
+      <div :class="containerClass">
         <!-- 👉 Pages -->
         <div class="">
           <div v-if="behind" class="alert alert-error mb-4">
