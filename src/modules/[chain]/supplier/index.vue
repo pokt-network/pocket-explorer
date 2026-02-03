@@ -155,7 +155,7 @@ const networkStats = ref({
   suppliers: 0,
   gateways: 0,
   totalStakedTokens: 0,
-  unstakingCount: 0,
+  unstakingCount24h: 0,      // <-- last 24h
   totalUnstakingTokens: 0,
 })
 
@@ -202,7 +202,7 @@ async function loadNetworkStats() {
       
       if (apiRes.ok && apiData.meta) {
         networkStats.value.totalStakedTokens = apiData.meta.totalStakedTokens || 0
-        networkStats.value.unstakingCount = apiData.meta.unstakingCount || 0
+        networkStats.value.unstakingCount24h = apiData.meta.unstakingCount24h || 0          // last 24h
         networkStats.value.totalUnstakingTokens = apiData.meta.totalUnstakingTokens || 0
       }
     } catch (apiError) {
@@ -265,7 +265,7 @@ const statusText = computed(() => (value.value === 'stake' ? 'Staked' : 'Unstake
       <div class="flex bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <span>
           <div class="text-xs text-[#64748B]">Unstaking Suppliers (24h)</div>
-          <div class="font-bold">{{ networkStats.unstakingCount.toLocaleString() }}</div>
+          <div class="font-bold">{{ networkStats.unstakingCount24h.toLocaleString() }}</div>
         </span>
       </div>
       <div class="flex bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
