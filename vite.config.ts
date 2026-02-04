@@ -8,9 +8,6 @@ import AutoImport from 'unplugin-auto-import/vite';
 import Pages from 'vite-plugin-pages';
 import VueI18nPlugin from '@intlify/unplugin-vue-i18n/vite';
 import type { Plugin } from 'vite';
-import Unimport from 'unimport/unplugin';
-
-
 
 
 // Security patterns to block

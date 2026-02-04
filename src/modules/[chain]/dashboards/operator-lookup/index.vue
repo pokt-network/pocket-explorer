@@ -140,7 +140,7 @@ async function loadTransactions() {
       limit: txItemsPerPage.value,
       sort_by: txSortBy.value,
       sort_order: txSortOrder.value,
-      supplier_status: filters.value.supplier_status, // ✅ FIXED: Added supplier_status
+      status: filters.value.supplier_status, // ✅ FIXED: Added supplier_status
     };
 
     // Add type filter based on selected tab
