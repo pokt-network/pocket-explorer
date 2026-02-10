@@ -24,7 +24,7 @@ onMounted(() => {
   themeChange(false);
   // Only override route if not in maintenance mode
   if (!isMaintenanceMode.value && window.location.pathname.length == 1)
-    router.push(window.location.href.includes('beta') ? 'pocket-beta' : 'pocket-mainnet')
+    router.push(window.location.href.includes('beta') ? 'pocket-lego-testnet' : 'pocket-mainnet')
 });
 
 

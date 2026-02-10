@@ -25,7 +25,7 @@ const props = defineProps<{
 // Map frontend chain names to API chain names
 const getApiChainName = (chainName: string) => {
   const chainMap: Record<string, string> = {
-    'pocket-beta': 'pocket-testnet-beta',
+    'pocket-lego-testnet': 'pocket-lego-testnet',
     'pocket-alpha': 'pocket-testnet-alpha',
     'pocket-mainnet': 'pocket-mainnet'
   };
