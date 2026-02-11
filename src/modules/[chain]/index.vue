@@ -281,22 +281,60 @@ const currentChainIndexerStatus = computed(() => {
   return indexerHealth.value.chains.find((c) => c.chain === apiChainName.value) || null;
 });
 
+// async function loadBlocks() {
+//   loadingBlocks.value = true;
+//   try {
+//     const url = `/api/v1/blocks?chain=${apiChainName.value}&page=${blocksPage.value}&limit=${blocksLimit.value}`;
+//     const response = await fetch(url);
+//     const result = await response.json();
+//     if (response.ok) {
+//       blocks.value = result.data || [];
+//       blocksTotal.value = result.meta?.total || 0;
+//       blocksTotalPages.value = result.meta?.totalPages || 0;
+//       avgBlockProductionTime.value = Number(result.meta?.avgBlockProductionTime || null).toFixed(2) || null;
+//     } else {
+//       blocks.value = [];
+//       blocksTotal.value = 0;
+//       blocksTotalPages.value = 0;
+//       console.error('Error loading blocks:', result);
+//     }
+//   } catch (e) {
+//     console.error('Error loading blocks:', e);
+//     blocks.value = [];
+//     blocksTotal.value = 0;
+//     blocksTotalPages.value = 0;
+//   } finally {
+//     loadingBlocks.value = false;
+//   }
+// }
+
 async function loadBlocks() {
   loadingBlocks.value = true;
   try {
     const url = `/api/v1/blocks?chain=${apiChainName.value}&page=${blocksPage.value}&limit=${blocksLimit.value}`;
     const response = await fetch(url);
-    const result = await response.json();
+
+    const text = await response.text(); // 👈 raw response first
+
+    if (!text) {
+      throw new Error('Empty response from API');
+    }
+
+    const result = JSON.parse(text); // 👈 safe parse
+
     if (response.ok) {
       blocks.value = result.data || [];
       blocksTotal.value = result.meta?.total || 0;
       blocksTotalPages.value = result.meta?.totalPages || 0;
-      avgBlockProductionTime.value = Number(result.meta?.avgBlockProductionTime || null).toFixed(2) || null;
+      avgBlockProductionTime.value =
+        result.meta?.avgBlockProductionTime != null
+          ? Number(result.meta.avgBlockProductionTime).toFixed(2)
+          : null;
     } else {
       blocks.value = [];
       blocksTotal.value = 0;
       blocksTotalPages.value = 0;
-      console.error('Error loading blocks:', result);
+      console.error('API error loading blocks:', result);
     }
   } catch (e) {
     console.error('Error loading blocks:', e);
@@ -307,6 +345,7 @@ async function loadBlocks() {
     loadingBlocks.value = false;
   }
 }
+
 
 // Add these refs for block list virtualization after the existing refs
 const visibleBlocks = ref<{ item: any; index: number }[]>([]);
@@ -567,20 +606,51 @@ const networkStats = ref({
 const totalRelays24h = ref(0);
 const totalComputeUnits24h = ref(0);
 
+// async function loadServicesSummary24h() {
+//   try {
+//     const params = new URLSearchParams();
+//     params.append('window', '1');
+//     params.append('chain', apiChainName.value);
+//     const response = await fetch(`/api/v1/network-growth/summary?${params.toString()}`);
+//     const result = await response.json();
+//     if (response.ok && result?.data) {
+//       totalRelays24h.value = Number(result.data.relays || 0);
+//       totalComputeUnits24h.value = Number(result.data.claimed_compute_units || 0);
+//     } else {
+//       totalRelays24h.value = 0;
+//       totalComputeUnits24h.value = 0;
+//       console.error('Error loading 24h services summary:', result);
+//     }
+//   } catch (e) {
+//     totalRelays24h.value = 0;
+//     totalComputeUnits24h.value = 0;
+//     console.error('Error loading 24h services summary:', e);
+//   }
+// }
+
 async function loadServicesSummary24h() {
   try {
     const params = new URLSearchParams();
     params.append('window', '1');
     params.append('chain', apiChainName.value);
+
     const response = await fetch(`/api/v1/network-growth/summary?${params.toString()}`);
-    const result = await response.json();
+
+    const text = await response.text(); // 👈 pehle raw text lo
+
+    if (!text) {
+      throw new Error('Empty response from API');
+    }
+
+    const result = JSON.parse(text); // 👈 now safe parse
+
     if (response.ok && result?.data) {
       totalRelays24h.value = Number(result.data.relays || 0);
       totalComputeUnits24h.value = Number(result.data.claimed_compute_units || 0);
     } else {
       totalRelays24h.value = 0;
       totalComputeUnits24h.value = 0;
-      console.error('Error loading 24h services summary:', result);
+      console.error('API error:', result);
     }
   } catch (e) {
     totalRelays24h.value = 0;
@@ -588,6 +658,7 @@ async function loadServicesSummary24h() {
     console.error('Error loading 24h services summary:', e);
   }
 }
+
 
 const historicalData = ref({
   series: [

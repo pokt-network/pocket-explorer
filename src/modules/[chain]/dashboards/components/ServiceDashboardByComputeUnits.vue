@@ -237,9 +237,9 @@ const topServicesByPerformance = ref<TopServiceByPerformance[]>([]);
 const totalComputeUnits = ref(0);
 const loadingTopServices = ref(false);
 const loadingPerformanceTable = ref(false);
-const topServicesLimit = ref(10);
-const topServicesDays = ref(7);
-const performanceDays = ref(7);
+const topServicesLimit = ref(20);
+const topServicesDays = ref(30);
+const performanceDays = ref(30);
 
 // Reward Share tab data - New structures
 interface RewardShareEntry {

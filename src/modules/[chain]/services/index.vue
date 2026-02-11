@@ -39,10 +39,6 @@ const totalPages = computed(() => {
   return Math.ceil(total / itemsPerPage.value);
 });
 
-// API meta se total counts
-const totalSuppliersCount = ref(0);
-const totalApplicationsCount = ref(0);
-
 // per service totals
 const serviceTotals = ref<{ [serviceId: string]: { suppliers: number; applications: number } }>({});
 
@@ -63,9 +59,6 @@ async function loadServiceTotals(serviceId: string) {
     serviceTotals.value[serviceId] = { suppliers: 0, applications: 0 };
   }
 }
-
-
-
 
 const totalServices = computed(() => parseInt(pageResponse.value.total || '0'));
 
@@ -120,6 +113,13 @@ async function loadServices() {
     const response = await chainStore.rpc.getServices(pageRequest.value);
     list.value = response.service || [];
     pageResponse.value = response.pagination || {};
+
+    // Har naye service ka totals fetch karo (cache hai toh skip)
+    for (const svc of list.value) {
+      if (!serviceTotals.value[svc.id]) {
+        loadServiceTotals(svc.id);
+      }
+    }
   } catch (error) {
     console.error('Error loading services:', error);
     list.value = [];
@@ -225,21 +225,8 @@ function isMaxDifficulty(targetHash: string) {
   return targetHash.includes('////////////////////////////////////////////');
 }
 
-// onMounted(() => {
-//   loadServices();
-//   loadMiningDifficulties();
-//   loadSuppliers();
-//   loadApplications();
-// });
-
 onMounted(async () => {
-  await loadServices(); // existing services fetch
-
-  // wait for services to load, phir per-service totals fetch karo
-  for (const svc of list.value) {
-    loadServiceTotals(svc.id); // async call for each service
-  }
-
+  await loadServices(); // totals bhi andar se call ho jaayenge
   loadMiningDifficulties();
   loadSuppliers();
   loadApplications();
@@ -346,13 +333,15 @@ onMounted(async () => {
             <td>{{ item.compute_units_per_relay }}</td>
             <td>
               <div v-if="serviceTotals[item.id]">
-              {{ serviceTotals[item.id].suppliers || '-' }}
+                {{ serviceTotals[item.id].suppliers || '-' }}
               </div>
+              <span v-else>-</span>
             </td>
             <td>
               <div v-if="serviceTotals[item.id]">
                 {{ serviceTotals[item.id].applications || '-' }}
               </div>
+              <span v-else>-</span>
             </td>
           </tr>
         </tbody>
