@@ -18,6 +18,7 @@ export interface TransactionFilters {
   limit?: number;
   sort_by?: 'timestamp' | 'amount' | 'fee' | 'block_height' | 'type' | 'status';
   sort_order?: 'asc' | 'desc';
+  supplier_status?: string;
 }
 
 export interface ApiTransaction {

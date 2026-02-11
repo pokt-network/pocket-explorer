@@ -166,10 +166,10 @@ const CACHE_EXPIRATION_MS = 60000
 // Get API chain name helper
 const getApiChainName = (chainName: string) => {
   const chainMap: Record<string, string> = {
-    'pocket-beta': 'pocket-testnet-beta',
+    'pocket-lego-testnet': 'pocket-lego-testnet',
     'pocket-mainnet': 'pocket-mainnet'
   }
-  return chainMap[chainName] || chainName || 'pocket-testnet-beta'
+  return chainMap[chainName] || chainName || 'pocket-lego-testnet'
 }
 
 const apiChainName = computed(() =>

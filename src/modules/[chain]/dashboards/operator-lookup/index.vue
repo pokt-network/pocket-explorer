@@ -18,10 +18,10 @@ const activeTab = ref<'summary' | 'chain' | 'performance' | 'analytics' | 'rewar
 // Map frontend chain names to API chain names
 const getApiChainName = (chainName: string) => {
   const chainMap: Record<string, string> = {
-    'pocket-beta': 'pocket-testnet-beta',
+    'pocket-lego-testnet': 'pocket-lego-testnet',
     'pocket-mainnet': 'pocket-mainnet'
   };
-  return chainMap[chainName] || chainName || 'pocket-testnet-beta';
+  return chainMap[chainName] || chainName || 'pocket-lego-testnet';
 };
 
 // Chain comes from route params (props.chain)

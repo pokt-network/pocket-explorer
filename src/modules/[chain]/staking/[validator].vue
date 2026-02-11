@@ -85,10 +85,10 @@ const loadingDelegations = ref(false)
 // Map frontend chain names to API chain names
 const getApiChainName = (chainName: string) => {
   const chainMap: Record<string, string> = {
-    'pocket-beta': 'pocket-testnet-beta',
+    'pocket-lego-testnet': 'pocket-lego-testnet',
     'pocket-mainnet': 'pocket-mainnet'
   };
-  return chainMap[chainName] || chainName || 'pocket-testnet-beta';
+  return chainMap[chainName] || chainName || 'pocket-lego-testnet';
 };
 
 // Type tab mappings
