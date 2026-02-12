@@ -5,6 +5,7 @@ import {
   useStakingStore,
   useTxDialog,
   useCoingecko,
+  useBaseStore,
 } from '@/stores';
 import DynamicComponent from '@/components/dynamic/DynamicComponent.vue';
 import DonutChart from '@/components/charts/DonutChart.vue';
@@ -29,7 +30,7 @@ import type { Coin } from '@cosmjs/amino';
 import Countdown from '@/components/Countdown.vue';
 import { fromBase64 } from '@cosmjs/encoding';
 import { useClipboard } from '@vueuse/core'
-import { fetchTransactions, type ApiTransaction, type TransactionFilters } from '@/libs/transactions';
+import { fetchTransactions, fetchTransactionsWithFallback, type ApiTransaction, type TransactionFilters } from '@/libs/transactions';
 
 const props = defineProps(['address', 'chain']);
 
@@ -41,6 +42,7 @@ const stakingStore = useStakingStore();
 const dialog = useTxDialog();
 const format = useFormatter();
 const coingecko = useCoingecko();
+const base = useBaseStore();
 const account = ref({} as AuthAccount);
 const applications = ref({} as Application);
 const gateways = ref({} as Gateway);
@@ -505,7 +507,10 @@ async function loadTransactions(address: string) {
       filters.max_amount = txMaxAmount.value;
     }
 
-    const data = await fetchTransactions(filters);
+    const data = await fetchTransactionsWithFallback(filters, {
+      chainStore: blockchain,
+      baseStore: base
+    });
     txs.value = data.data || [];
     totalTxCount.value = data.meta?.total || 0;
     totalTxPages.value = data.meta?.totalPages || 0;

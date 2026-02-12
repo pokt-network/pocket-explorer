@@ -30,6 +30,9 @@ const currentTxCount = computed(() => {
   return base.latest?.block?.data?.txs?.length ?? 0
 })
 
+// Fallback state
+const isNodeFallback = ref(false)
+const fallbackError = ref('')
 
 // Network Stats
 const networkStats = ref({
@@ -121,44 +124,175 @@ watch(currentBlockHeight, () => {
   updateCurrentBlockProductionTime()
 })
 
-
-// Fetch blocks
-async function loadBlocks() {
-  loading.value = true
+// 🔹 Server se blocks fetch karo
+async function getBlocksFromServer() {
   try {
     const url = `/api/v1/blocks?chain=${apiChainName.value}&page=${currentPage.value}&limit=${itemsPerPage.value}`
-    const res = await fetch(url)
-    const data = await res.json()
 
-    if (res.ok) {
-      blocks.value = data.data.map((b: ApiBlockItem) => ({
-        ...b,
-        size: b.raw_block_size || (b.transaction_count ? b.transaction_count * 250 : 0)
-      }))
-      totalBlocks.value = data.meta?.total || 0
-      totalPages.value = data.meta?.totalPages || 0
-      // Store average statistics from API meta
-      avgBlockProductionTime.value = data.meta?.avgBlockProductionTime ?? null
-      avgBlockSize.value = data.meta?.avgBlockSize ?? null
-    } else {
-      console.error('Error loading blocks:', data)
-      blocks.value = []
-      totalBlocks.value = 0
-      totalPages.value = 0
-      avgBlockProductionTime.value = null
-      avgBlockSize.value = null
+    const res = await fetch(url)
+
+    if (!res.ok) {
+      throw new Error('Server down')
     }
-  } catch (e) {
-    console.error('Error loading blocks:', e)
-    blocks.value = []
-    totalBlocks.value = 0
-    totalPages.value = 0
-    avgBlockProductionTime.value = null
-    avgBlockSize.value = null
-  } finally {
-    loading.value = false
+
+    const text = await res.text()
+
+    if (!text) {
+      throw new Error('Empty server response')
+    }
+
+    return JSON.parse(text)
+
+  } catch (err) {
+    console.warn('Server failed, switching to node...')
+    throw err
   }
 }
+
+// 🔹 Node se blocks fetch karo (fallback)
+async function getBlocksFromNode() {
+  try {
+    console.log('[Node Fallback] Starting node fallback...')
+
+    // Wait for RPC to be ready (max 10 seconds)
+    let rpcRetries = 0
+    while (!blockchain.rpc && rpcRetries < 20) {
+      console.log(`[Node Fallback] Waiting for RPC... retry ${rpcRetries + 1}/20`)
+      await new Promise(resolve => setTimeout(resolve, 500))
+      rpcRetries++
+    }
+
+    if (!blockchain.rpc) {
+      console.error('[Node Fallback] RPC not available after waiting')
+      throw new Error('RPC not available')
+    }
+
+    console.log('[Node Fallback] RPC is available')
+
+    // Try to fetch latest block from RPC directly if base store doesn't have it
+    if (!base.latest?.block?.header?.height) {
+      console.log('[Node Fallback] Base store has no block data, fetching from RPC...')
+      try {
+        const latestBlock = await blockchain.rpc.getBaseBlockLatest()
+        if (latestBlock?.block?.header?.height) {
+          base.latest = latestBlock
+          console.log('[Node Fallback] Successfully fetched latest block:', latestBlock.block.header.height)
+        }
+      } catch (err) {
+        console.warn('[Node Fallback] Could not fetch latest block from RPC:', err)
+      }
+    } else {
+      console.log('[Node Fallback] Base store already has block data:', base.latest.block.header.height)
+    }
+
+    // Get latest blocks from base store
+    let retries = 0
+    while (!base.latest?.block?.header?.height) {
+      if (retries > 10) {
+        throw new Error('Node not responding - no block data available')
+      }
+      await new Promise(r => setTimeout(r, 500))
+      retries++
+    }
+
+const latestBlock = base.latest.block
+const currentHeight = Number(latestBlock.header.height)
+
+
+    const endHeight = currentHeight - ((currentPage.value - 1) * itemsPerPage.value)
+    const startHeight = Math.max(endHeight - itemsPerPage.value + 1, 1)
+
+    const blockPromises = []
+
+    for (let height = endHeight; height >= startHeight; height--) {
+      blockPromises.push(
+        blockchain.rpc.getBaseBlockAt(String(height)).catch(() => null)
+      )
+    }
+
+
+    const fetchedBlocks = await Promise.all(blockPromises)
+    
+    const nodeBlocks = fetchedBlocks
+      .filter(block => block !== null)
+      .map((block: any) => ({
+        id: `${block.block?.header?.chain_id}:${block.block?.header?.height}`,
+        height: parseInt(block.block?.header?.height || '0'),
+        hash: block.block_id?.hash || '',
+        timestamp: block.block?.header?.time || new Date().toISOString(),
+        proposer: block.block?.header?.proposer_address || '',
+        chain: block.block?.header?.chain_id || apiChainName.value,
+        transaction_count: block.block?.data?.txs?.length || 0,
+        block_production_time: 0,
+        raw_block_size: 0,
+        size: 0
+      }))
+
+    return {
+      blocks: nodeBlocks,
+      total: currentHeight,
+      totalPages: Math.ceil(currentHeight / itemsPerPage.value),
+      avgBlockProductionTime: null,
+      avgBlockSize: null
+    }
+  } catch (error) {
+    console.error('Node fallback error:', error)
+    return {
+      blocks: [],
+      total: 0,
+      totalPages: 0,
+      avgBlockProductionTime: null,
+      avgBlockSize: null
+    }
+  }
+}
+
+// 🔹 Main load function with fallback logic
+async function loadBlocks() {
+  loading.value = true
+  fallbackError.value = ''
+
+  try {
+    const serverData = await getBlocksFromServer()
+
+    blocks.value = serverData.blocks || serverData
+    totalBlocks.value = serverData.total || 0
+    totalPages.value = serverData.totalPages || 0
+    avgBlockProductionTime.value = serverData.avgBlockProductionTime || null
+    avgBlockSize.value = serverData.avgBlockSize || null
+
+    isNodeFallback.value = false
+
+  } catch (serverError) {
+    console.warn('Server failed, trying node fallback...', serverError)
+
+    try {
+      isNodeFallback.value = true
+
+      const nodeData = await getBlocksFromNode()
+
+      blocks.value = nodeData.blocks
+      totalBlocks.value = nodeData.total
+      totalPages.value = nodeData.totalPages
+      avgBlockProductionTime.value = nodeData.avgBlockProductionTime
+      avgBlockSize.value = nodeData.avgBlockSize
+    } catch (nodeError: any) {
+      console.error('Node fallback also failed:', nodeError)
+      fallbackError.value = nodeError.message || 'Both server and node are unavailable'
+      isNodeFallback.value = true
+      // Keep previous data or show empty
+      if (blocks.value.length === 0) {
+        blocks.value = []
+        totalBlocks.value = 0
+        totalPages.value = 0
+      }
+    }
+  }
+
+  loading.value = false
+}
+
+
 
 // Watchers
 watch(itemsPerPage, () => { currentPage.value = 1; loadBlocks() })
@@ -232,6 +366,22 @@ onMounted(() => {
 
 <template>
   <div class="pt-[6.5rem]">
+    <!-- 🔴 Fallback Warning Banner -->
+    <div
+      v-if="isNodeFallback"
+      :class="fallbackError ? 'bg-red-100 border-red-400 text-red-700' : 'bg-yellow-100 border-yellow-400 text-yellow-700'"
+      class="border px-4 py-3 rounded-xl mb-4 shadow-md"
+      role="alert"
+    >
+      <div class="flex items-center">
+        <Icon :icon="fallbackError ? 'mdi:alert-octagon' : 'mdi:alert-circle'" class="mr-2 text-xl" />
+        <span class="font-medium">
+          <span v-if="!fallbackError">Currently showing data from node because main server is down.</span>
+          <span v-else>Unable to load data: {{ fallbackError }}. Please check your RPC connection or try again later.</span>
+        </span>
+      </div>
+    </div>
+
     <p class="bg-[#ffffff] hover:bg-base-200 text-2xl w-full px-4 py-4 my-4 font-bold text-[#000000] dark:text-[#ffffff] rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">Blocks</p>
     <div class="grid sm:grid-cols-1 md:grid-cols-4 py-4 gap-4 mb-4">
       <div class="flex bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
