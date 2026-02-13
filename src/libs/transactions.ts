@@ -31,7 +31,7 @@ export interface ApiTransaction {
   fee: string;
   memo: string;
   type: string;
-  status: string;
+  status: string | number;
   chain: string;
   timestamp: string;
   block_height: number;

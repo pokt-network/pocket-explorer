@@ -714,7 +714,7 @@ onMounted(async () => {
                       ? 'bg-[#60BC29]/10 text-[#60BC29]'
                       : 'bg-[#E03834]/10 text-[#E03834]'"
                 >
-                  {{ item.status ? 'Success' : 'Failed' }}
+                  {{ (isNodeFallback && item.status == 0) ||item.status ? 'Success' : 'Failed' }}
                 </span>
               </td>
               <td class="dark:bg-base-200 dark:hover:bg-[rgba(255,255,255,0.06)] bg-white">

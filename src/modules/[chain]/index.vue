@@ -2299,8 +2299,8 @@ function formatBlockTime(secondsStr?: string | number) {
                 </td>
                 <td>
                   <span class="text-xs truncate py-1 px-3 rounded-full"
-                    :class="item.item.status === 0 || item.item.tx_response?.code === 0 ? 'bg-[#60BC29]/10 text-[#60BC29]' : 'bg-[#E03834]/10 text-[#E03834]'">
-                    {{ item.item.status === 0 || item.item.tx_response?.code === 0 ? 'Success' : 'Failed' }}
+                    :class="(isTxsNodeFallback && item.item.status == 0) || item.item.status || item.item.tx_response?.code === 0 ? 'bg-[#60BC29]/10 text-[#60BC29]' : 'bg-[#E03834]/10 text-[#E03834]'">
+                    {{ (isTxsNodeFallback && item.item.status == 0) || item.item.status || item.item.tx_response?.code === 0 ? 'Success' : 'Failed' }}
                   </span>
                 </td>
                 <td>{{ item.item.type }}</td>
