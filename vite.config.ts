@@ -22,7 +22,7 @@ const SUSPICIOUS_PATTERNS = [
   'phpMyAdmin',
   'invokefunction',
   '../',
-  // '/@fs/',
+  '/@fs/',
   '..%2f',
   '%2e%2e%2f', // URL encoded ../
 ];
