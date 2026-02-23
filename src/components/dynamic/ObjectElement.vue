@@ -1,29 +1,58 @@
 <script lang="ts" setup>
+import { ref } from 'vue';
 import { select } from './index';
+import { useFormatter } from '@/stores';
 
 const props = defineProps(['value']);
+const format = useFormatter();
+
+function formatKey(key: string | number) {
+  return String(key).replaceAll('_', ' ');
+}
+
+function getFormattedValue(k: string, v: any) {
+  // Convert proposer_address (consensus pubkey hash) to validator moniker
+  if (String(k) === 'proposer_address' && typeof v === 'string') {
+    const validatorName = format.validator(v);
+    return validatorName || v;
+  }
+  return v;
+}
 </script>
+
 <template>
-  <div class="overflow-auto">
-    <table class="table table-compact w-full text-sm">
-      <tbody>
-        <tr v-for="(v, k) of value">
-          <td
-            class="capitalize whitespace-break-spaces min-w-max"
-          >
-            {{ String(k).replaceAll('_', ' ') }}
-          </td>
-          <td class="w-4/5">
-            <div class="overflow-hidden w-auto whitespace-normal" >
-              <Component
-                v-if="v"
-                :is="select(v, 'horizontal')"
-                :value="v"
-              ></Component>
+    <div class="grid grid-cols-1 sm:grid-cols-[180px_1fr] gap-y-3 text-sm  rounded-xl px-4 py-2 pt-0.5 pb-0.5 overflow-x-auto txsContainer">
+      <template v-for="(v, k) in value" :key="k">
+        <div
+            :class="String(k) === 'signatures'
+            ? 'text-[#171C1F] dark:text-[#ffffff] font-bold capitalize whitespace-break-spaces'
+            : 'text-[#64748B] font-medium capitalize whitespace-break-spaces'"
+            >
+            {{ formatKey(k) }}
+          </div>
+
+        <div class="text-[#171C1F] dark:text-white break-words">
+          <template v-if="typeof v === 'object' && !Array.isArray(v)">
+            <div class="flex flex-col gap-2">
+              <template v-for="(subVal, subKey) in v" :key="subKey">
+                <div class="flex items-start gap-2">
+                  <span class="text-[#64748B] min-w-[100px] font-medium">{{ formatKey(subKey) }}</span>
+                  <span class="text-[#171C1F] dark:text-white break-all">{{ getFormattedValue(String(subKey), subVal) }}</span>
+                </div>
+              </template>
             </div>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+          </template>
+
+          <Component
+            v-else-if="v"
+            :is="select(v, 'horizontal')"
+            :value="getFormattedValue(String(k), v)"
+          />
+          <span v-else class="text-gray-400">—</span>
+        </div>
+      </template>
+    </div>
 </template>
+
+<style scoped>
+</style>

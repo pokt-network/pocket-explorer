@@ -26,20 +26,20 @@ export class PageRequest {
     }
     toQueryString() {
         const query = []
-        if(this.key) query.push(`pagination.key=${this.key}`)
-        if(this.limit) query.push(`pagination.limit=${this.limit}`)
-        if(this.offset !== undefined) query.push(`pagination.offset=${this.offset}`)
-        if(this.count_total) query.push(`pagination.count_total=${this.count_total}`)
-        if(this.reverse) query.push(`pagination.reverse=${this.reverse}`)
+        if (this.key) query.push(`pagination.key=${this.key}`)
+        if (this.limit) query.push(`pagination.limit=${this.limit}`)
+        if (this.offset !== undefined) query.push(`pagination.offset=${this.offset}`)
+        if (this.count_total) query.push(`pagination.count_total=${this.count_total}`)
+        if (this.reverse) query.push(`pagination.reverse=${this.reverse}`)
         return query.join('&')
     }
     setPage(page: number) {
-        if(page >= 1) this.offset = (page - 1) * this.limit
-    }    
+        if (page >= 1) this.offset = (page - 1) * this.limit
+    }
     setPageSize(size: number) {
         this.limit = size
     }
-    
+
 }
 
 export interface PaginatedResponse {
@@ -55,10 +55,55 @@ export interface Coin {
     denom: string;
 }
 
+export interface Supplier {
+    owner_address: any;
+    stake: Coin;
+    balance?: Coin;
+    services: any;
+    operator_address: string;
+}
+
+export interface Gateway {
+    address: any;
+    stake: Coin;
+    balance?: Coin;
+    services: any;
+}
+
+export interface Service {
+    id: string;
+    name: string;
+    compute_units_per_relay: String;
+    owner_address: string;
+}
+
+export interface RelayMiningDifficulty {
+    service_id: string;
+    block_height: string;
+    num_relays_ema: string;
+    target_hash: string;
+}
+
+export interface Application {
+    address: any;
+    stake: Coin;
+    balance?: Coin;
+    service_configs: any;
+    delegatee_gateway_addresses: string[];
+    // Optional fields used in applications UI
+    chains?: string[];
+    status?: string;
+    unstake_session_end_height?: string;
+    unbonding_time?: string;
+    unbonding_height?: string;
+    state?: string;
+}
+
+
 export interface CoinWithPrice extends Coin {
     value?: number;
     price?: number;
-    change24h?: number    
+    change24h?: number
 }
 
 export interface UptimeStatus {

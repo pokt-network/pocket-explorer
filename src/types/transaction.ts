@@ -3,7 +3,7 @@ import type { Coin, Key, PaginatedResponse } from "./common"
 export interface Tx {
     "@type"?: string,
     "body": {
-        "messages": {"@type": string, "amount"?: Coin[], packet?: { data: string }}[],
+        "messages": { "@type": string, "amount"?: Coin[], "stake"?: Coin, packet?: { data: string } }[],
         "memo": string,
         "timeout_height": string,
         "extension_options": any[],
@@ -31,6 +31,21 @@ export interface Tx {
     "signatures": string[]
 }
 
+export interface TxLocal {
+    "messages": { "from_address"?: string, "to_address"?: string, "@type": string, "amount"?: Coin[], packet?: { data: string } }[],
+    "fee": string | {
+        "amount": Coin[],
+        "gas_limit": string,
+        "payer": string,
+        "granter": string
+    },
+    "height": string,
+    "block_height": string, // Alias for height used in templates
+    "hash": string,
+    "status": number,
+    "timestamp": string,
+    "type": string // Transaction type derived from messages
+}
 export interface Attributes {
     index?: boolean,
     key: string,
@@ -57,9 +72,9 @@ export interface TxResponse {
     "tx": Tx,
     "timestamp": "2022-08-13T23:24:54Z",
     "events": {
-            "type": string,
-            "attributes": Attributes[]
-        }[]
+        "type": string,
+        "attributes": Attributes[]
+    }[]
 }
 
 export interface PaginatedTxs extends PaginatedResponse {

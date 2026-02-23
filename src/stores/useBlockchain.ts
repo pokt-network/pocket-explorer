@@ -21,7 +21,7 @@ import {
   useStakingStore,
   useWalletStore,
 } from '.';
-import { useBlockModule } from '@/modules/[chain]/block/block';
+import { useBlockModule } from '@/modules/[chain]/blocks/block';
 import { DEFAULT } from '@/libs';
 import { hexToRgb, rgbToHsl } from '@/libs/utils';
 
@@ -118,23 +118,23 @@ export const useBlockchain = defineStore('blockchain', {
       // combine all together
       return [
         ...currNavItem,
-        { heading: 'Ecosystem' } as NavSectionTitle,
-        {
-          title: 'Favorite',
-          children: favNavItems,
-          badgeContent: favNavItems.length,
-          badgeClass: 'bg-primary',
-          i18n: true,
-          icon: { icon: 'mdi-star', size: '22' },
-        } as NavGroup,
-        {
-          title: 'All Blockchains',
-          to: { path: '/' },
-          badgeContent: this.dashboard.length,
-          badgeClass: 'bg-primary',
-          i18n: true,
-          icon: { icon: 'mdi-grid', size: '22' },
-        } as NavLink,
+        // { heading: 'Ecosystem' } as NavSectionTitle,
+        // {
+        //   title: 'Favorite',
+        //   children: favNavItems,
+        //   badgeContent: favNavItems.length,
+        //   badgeClass: 'bg-primary',
+        //   i18n: true,
+        //   icon: { icon: 'mdi-star', size: '22' },
+        // } as NavGroup,
+        // {
+        //   title: 'All Blockchains',
+        //   to: { path: '/' },
+        //   badgeContent: this.dashboard.length,
+        //   badgeClass: 'bg-primary',
+        //   i18n: true,
+        //   icon: { icon: 'mdi-grid', size: '22' },
+        // } as NavLink,
       ];
     },
   },
@@ -154,17 +154,17 @@ export const useBlockchain = defineStore('blockchain', {
     },
 
     randomEndpoint(chainName: string) : Endpoint | undefined {
-      const end = localStorage.getItem(`endpoint-${chainName}`);
-      if (end) {
-        return JSON.parse(end);
-      } else {
+      // const end = localStorage.getItem(`endpoint-${chainName}`);
+      // if (end) {
+      //   return JSON.parse(end);
+      // } else {
         const all = this.current?.endpoints?.rest;
         if (all) {
           const rn = Math.random();
           const endpoint = all[Math.floor(rn * all.length)];
           return endpoint
         }
-      }
+      // }
     },
 
     async randomSetupEndpoint() {

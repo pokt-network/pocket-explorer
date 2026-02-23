@@ -8,11 +8,13 @@ import {
     useTxDialog,
 } from '@/stores';
 import { computed } from '@vue/reactivity';
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import { Icon } from '@iconify/vue';
-import type { Key, SlashingParam, Validator } from '@/types';
-import { formatSeconds}  from '@/libs/utils'
-import { diff } from 'semver';
+import type { Key, SlashingParam, Validator, Delegation } from '@/types';
+import { formatSeconds, operatorAddressToAccount } from '@/libs/utils'
+
+const props = defineProps(['validator', 'chain']);
+const validator: string = props.validator;
 
 const staking = useStakingStore();
 const base = useBaseStore();
@@ -25,21 +27,109 @@ const cache = JSON.parse(localStorage.getItem('avatars') || '{}');
 const avatars = ref(cache || {});
 const latest = ref({} as Record<string, number>);
 const yesterday = ref({} as Record<string, number>);
-const tab = ref('active');
-const unbondList = ref([] as Validator[]);
 const slashing = ref({} as SlashingParam)
+const allValidators = ref([] as Validator[]);
+const isLoading = ref(true);
+const addresses = ref(
+  {} as {
+    account: string;
+    operAddress: string;
+    hex: string;
+    valCons: string;
+  }
+);
+const selfBonded = ref({
+  delegation: {
+    delegator_address: '',
+    validator_address: '',
+    shares: '0'
+  },
+  balance: {
+    amount: '0',
+    denom: 'upokt'
+  }
+} as Delegation);
 
-onMounted(() => {
-    staking.fetchUnbondingValdiators().then((res) => {
-        unbondList.value = res.concat(unbondList.value);
+// Status filter - default "Staked" selected
+const selectedStatus = ref('BOND_STATUS_BONDED');
+const statusOptions = [
+  { value: 'all', label: 'All' },
+  { value: 'BOND_STATUS_BONDED', label: 'Staked' },
+  { value: 'BOND_STATUS_UNBONDING', label: 'Unstaking' },
+  { value: 'BOND_STATUS_UNBONDED', label: 'Unstaked' }
+];
+
+addresses.value.account = operatorAddressToAccount(validator);
+// load self bond
+staking
+  .fetchValidatorDelegation(validator, addresses.value.account)
+  .then((x) => {
+    if (x) {
+      selfBonded.value = x.delegation_response;
+    }
+  }).catch((error) => {
+    console.error('Failed to fetch self-bonded info:', error);
+  });
+
+onMounted(async () => {
+  isLoading.value = true;
+  useStakingStore().init();
+
+  addresses.value.account = operatorAddressToAccount(validator);
+
+  const res = await chainStore.rpc.getSlashingParams();
+  slashing.value = res.params;
+
+  try {
+    const delegation = await staking.fetchValidatorDelegation(validator, addresses.value.account).catch(err => {
+        console.error('Failed to fetch self-bonded info:', err);
+        return {
+            delegation_response: {
+                balance: { amount: '0', denom: staking.params?.bond_denom || 'upokt' }
+            }
+        };
     });
-    staking.fetchInacitveValdiators().then((res) => {
-        unbondList.value = unbondList.value.concat(res);
-    });
-    chainStore.rpc.getSlashingParams().then(res => {
-        slashing.value = res.params
-    })
+    if (delegation?.delegation_response?.balance) {
+      selfBonded.value = {
+        delegation: {
+          delegator_address: addresses.value.account,
+          validator_address: validator,
+          shares: '0'
+        },
+        balance: delegation.delegation_response.balance
+      };
+    } else {
+      selfBonded.value = { 
+        delegation: {
+          delegator_address: addresses.value.account,
+          validator_address: validator,
+          shares: '0'
+        },
+        balance: { amount: '0', denom: staking.params?.bond_denom || 'upokt' } 
+      };
+    }
+  } catch (err) {
+    console.error('Failed to fetch self-bonded info:', err);
+  }
+
+  try {
+    const bonded = await staking.fetchValidators('BOND_STATUS_BONDED');
+    const unbonding = await staking.fetchValidators('BOND_STATUS_UNBONDING');
+    const unbonded = await staking.fetchValidators('BOND_STATUS_UNBONDED');
+
+    allValidators.value = [...bonded, ...unbonding, ...unbonded];
+    allValidators.value.sort((a, b) => Number(b.delegator_shares) - Number(a.delegator_shares));
+    loadAvatars();
+  } catch (error) {
+    console.error("Error fetching validators:", error);
+  } finally {
+    isLoading.value = false;
+  }
+
+  fetchChange();
 });
+
+
 
 async function fetchChange(blockWindow: number = 14400) {
     let page = 0;
@@ -84,11 +174,6 @@ const changes = computed(() => {
 
 const change24 = (entry: { consensus_pubkey: Key; tokens: string }) => {
     const txt = entry.consensus_pubkey.key;
-    // const n: number = latest.value[txt];
-    // const o: number = yesterday.value[txt];
-    // // console.log( txt, n, o)
-    // return n > 0 && o > 0 ? n - o : 0;
-
     const latestValue = latest.value[txt];
     if (!latestValue) {
         return 0;
@@ -115,90 +200,105 @@ const change24Color = (entry: { consensus_pubkey: Key; tokens: string }) => {
     if (v < 0) return 'text-error';
 };
 
-const calculateRank = function (position: number) {
+const calculateRank = function (position: number, totalValidators: number) {
     let sum = 0;
     for (let i = 0; i < position; i++) {
-        sum += Number(staking.validators[i]?.delegator_shares);
+        sum += Number(allValidators.value[i]?.delegator_shares);
     }
-    const percent = sum / staking.totalPower;
+    const totalShares = allValidators.value.reduce((sum, validator) => sum + Number(validator.delegator_shares), 0);
+    const percent = totalShares > 0 ? sum / totalShares : 0;
 
-    switch (true) {
-        case tab.value === 'active' && percent < 0.33:
-            return 'error';
-        case tab.value === 'active' && percent < 0.67:
-            return 'warning';
-        default:
-            return 'primary';
+    // Active validators have special coloring based on their position
+    // Top 33% are error, next 34% are warning, rest are primary
+    if (position < Math.ceil(totalValidators * 0.33)) {
+        return 'error';
+    } else if (position < Math.ceil(totalValidators * 0.67)) {
+        return 'warning';
+    } else {
+        return 'primary';
     }
 };
 
-function isFeatured(endpoints: string[], who?: {website?: string, moniker: string }) {
-    if(!endpoints || !who) return false
+function isFeatured(endpoints: string[], who?: { website?: string, moniker: string }) {
+    if (!endpoints || !who) return false
     return endpoints.findIndex(x => who.website && who.website?.substring(0, who.website?.lastIndexOf('.')).endsWith(x) || who?.moniker?.toLowerCase().search(x.toLowerCase()) > -1) > -1
 }
 
-const list = computed(() => {
-    if (tab.value === 'active') {
-        return staking.validators.map((x, i) => ({v: x, rank: calculateRank(i), logo: logo(x.description.identity)}));
-    } else if (tab.value === 'featured') {
-        const endpoint = chainStore.current?.endpoints?.rest?.map(x => x.provider)
-        if(endpoint) {
-            endpoint.push('ping')
-            return staking.validators
-                .filter(x => isFeatured(endpoint, x.description))
-                .map((x, i) => ({v: x, rank: 'primary', logo: logo(x.description.identity)}));
-        }
-        return []        
-    }
-    return unbondList.value.map((x, i) => ({v: x, rank: 'primary', logo: logo(x.description.identity)}));
+const validatorsList = computed(() => {
+  let filtered = allValidators.value
+  if (selectedStatus.value !== 'all') {
+    filtered = allValidators.value.filter(
+      v => v.status === selectedStatus.value
+    )
+  }
+  const activeCount = filtered.filter(v => v.status === 'BOND_STATUS_BONDED').length;
+  return filtered.map((x, i) => ({
+    v: x,
+    rank: x.status === 'BOND_STATUS_BONDED' ? calculateRank(i, activeCount) : 'primary',
+    logo: logo(x.description.identity),
+    statusBadge: getStatusBadge(x.status),
+  }));
 });
 
-const fetchAvatar = (identity: string) => {
-  // fetch avatar from keybase
-  return new Promise<void>((resolve) => {
-    staking
-      .keybase(identity)
-      .then((d) => {
-        if (Array.isArray(d.them) && d.them.length > 0) {
-          const uri = String(d.them[0]?.pictures?.primary?.url).replace(
-            'https://s3.amazonaws.com/keybase_processed_uploads/',
-            ''
-          );
+const getStatusBadge = (status: string) => {
+    switch (status) {
+        case 'BOND_STATUS_BONDED':
+            return { class: 'badge-success !bg-[#6AC13633] !text-[#60BC29] ', color: 'bg-[#6AC13633;] text-[#60BC29;]', text: 'Staked' };
+        case 'BOND_STATUS_UNBONDING':
+            return { class: 'badge-warning', text: 'Unstaking' };
+        case 'BOND_STATUS_UNBONDED':
+            return { class: 'badge-error !text-[#E03834] !bg-[#E0383433]', text: 'Unstaked' };
+        default:
+            return { class: 'badge-ghost', text: 'Unknown' };
+    }
+};
 
-          avatars.value[identity] = uri;
-          resolve();
-        } else throw new Error(`failed to fetch avatar for ${identity}`);
-      })
-      .catch((error) => {
-        // console.error(error); // uncomment this if you want the user to see which avatars failed to load.
-        resolve();
-      });
-  });
+const fetchAvatar = (identity: string) => {
+    // fetch avatar from keybase
+    return new Promise<void>((resolve) => {
+        staking
+            .keybase(identity)
+            .then((d) => {
+                if (d.list[0].keybase.picture_url) {
+                    const uri = String(d.list[0].keybase.picture_url).replace(
+                        'https://s3.amazonaws.com/keybase_processed_uploads/',
+                        ''
+                    );
+
+                    avatars.value[identity] = uri;
+                    resolve();
+                } else throw new Error(`failed to fetch avatar for ${identity}`);
+            })
+            .catch((error) => {
+                console.error(error); // uncomment this if you want the user to see which avatars failed to load.
+                resolve();
+            });
+    });
 };
 
 const loadAvatar = (identity: string) => {
-  // fetches avatar from keybase and stores it in localStorage
-  fetchAvatar(identity).then(() => {
-    localStorage.setItem('avatars', JSON.stringify(avatars.value));
-  });
+    // fetches avatar from keybase and stores it in localStorage
+    fetchAvatar(identity).then(() => {
+        localStorage.setItem('avatars', JSON.stringify(avatars.value));
+    });
 };
 
 const loadAvatars = () => {
-  // fetches all avatars from keybase and stores it in localStorage
-  const promises = staking.validators.map((validator) => {
-    const identity = validator.description?.identity;
+    // fetches all avatars from keybase and stores it in localStorage
+    const promises = allValidators.value.map((validator) => {
+        const identity = validator.description?.identity;
+        // Here we also check whether we haven't already fetched the avatar
+        if (identity && !avatars.value[identity]) {
+            return fetchAvatar(identity);
+        } else {
+            return Promise.resolve();
+        }
+    });
 
-    // Here we also check whether we haven't already fetched the avatar
-    if (identity && !avatars.value[identity]) {
-      return fetchAvatar(identity);
-    } else {
-      return Promise.resolve();
+    Promise.allSettled(promises).then(() =>{
+        localStorage.setItem('avatars', JSON.stringify(avatars.value))
     }
-  });
-
-  Promise.all(promises).then(() =>
-    localStorage.setItem('avatars', JSON.stringify(avatars.value))
-  );
+);
 };
 
 const logo = (identity?: string) => {
@@ -220,283 +320,307 @@ base.$subscribe((_, s) => {
     }
 });
 
-loadAvatars();
+
+const currentPage = ref(1)
+const itemsPerPage = ref(25)
+
+const totalPages = computed(() =>
+  Math.ceil(validatorsList.value.length / itemsPerPage.value)
+)
+
+const paginatedValidators = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value
+  const end = start + itemsPerPage.value
+  return validatorsList.value.slice(start, end)
+})
+
+// Reset to first page when filters change
+watch([itemsPerPage, selectedStatus], () => {
+  currentPage.value = 1
+})
+
+function nextPage() {
+  if (currentPage.value < totalPages.value) currentPage.value++
+}
+function prevPage() {
+  if (currentPage.value > 1) currentPage.value--
+}
+function goToFirst() {
+  currentPage.value = 1
+}
+function goToLast() {
+  currentPage.value = totalPages.value
+}
+
 </script>
 <template>
-<div>
-    <div class="bg-base-100 rounded-lg grid sm:grid-cols-1 md:grid-cols-4 p-4" >    
-        <div class="flex">
-            <span>
-                <div class="relative w-9 h-9 rounded overflow-hidden flex items-center justify-center mr-2">
-                    <Icon class="text-success" icon="mdi:trending-up" size="32" />
-                    <div class="absolute top-0 left-0 bottom-0 right-0 opacity-20 bg-success"></div>
-                </div>
-            </span>
-            <span>
-                <div class="font-bold">{{ format.percent(mintStore.inflation) }}</div>
-                <div class="text-xs">{{ $t('staking.inflation') }}</div>
-            </span>
-        </div>
-        <div class="flex">
-            <span>
-                <div class="relative w-9 h-9 rounded overflow-hidden flex items-center justify-center mr-2">
-                    <Icon class="text-primary" icon="mdi:lock-open-outline" size="32" />
-                    <div class="absolute top-0 left-0 bottom-0 right-0 opacity-20 bg-primary"></div>
-                </div>
-            </span>
-            <span>
-                <div class="font-bold">{{ formatSeconds(staking.params?.unbonding_time) }}</div>
-                <div class="text-xs">{{ $t('staking.unbonding_time') }}</div>
-            </span>
-        </div> 
-        <div class="flex">
-            <span>
-                <div class="relative w-9 h-9 rounded overflow-hidden flex items-center justify-center mr-2">
-                    <Icon class="text-error" icon="mdi:alert-octagon-outline" size="32" />
-                    <div class="absolute top-0 left-0 bottom-0 right-0 opacity-20 bg-error"></div>
-                </div>
-            </span>
-            <span>
-            <div class="font-bold">{{ format.percent(slashing.slash_fraction_double_sign) }}</div>
-            <div class="text-xs">{{ $t('staking.double_sign_slashing') }}</div>
-            </span>
-        </div> 
-        <div class="flex">
-            <span>
-                <div class="relative w-9 h-9 rounded overflow-hidden flex items-center justify-center mr-2">
-                    <Icon class="text-error" icon="mdi:pause" size="32" />
-                    <div class="absolute top-0 left-0 bottom-0 right-0 opacity-20 bg-error"></div>
-                </div>
-            </span>
-            <span>
-            <div class="font-bold">{{ format.percent(slashing.slash_fraction_downtime) }}</div>
-            <div class="text-xs">{{ $t('staking.downtime_slashing') }}</div>
-            </span>
-        </div>  
-    </div>
+    <div class="pt-[6.5rem]">  
+         <p class="bg-[#ffffff] hover:bg-base-200 text-2xl w-full px-4 py-4 my-4 font-bold text-[#000000] dark:text-[#ffffff]  rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">Validators</p>
+        <div class="grid sm:grid-cols-1 md:grid-cols-4 py-4 gap-4 mb-4">
+            <div class="flex bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
+                <span>
+                    <div class="bg-[#5E9AE4] relative w-9 h-9 rounded overflow-hidden flex items-center justify-center mr-2">
+                        <Icon class="text-[#ffffff]" icon="mdi:trending-up" size="32" />
+                        <div class="absolute top-0 left-0 bottom-0 right-0 opacity-20 bg-success"></div>
+                    </div>
+                </span>
+                <span>
+                    <div class="text-xs text-[#64748B]">{{ $t('staking.inflation') }}</div>
+                    <div class="font-bold">{{ format.percent(mintStore.inflation) }}</div>
+                </span>
+            </div>
+            <div class="flex bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
+                <span>
+                    <div class="bg-[#5E9AE4] relative w-9 h-9 rounded overflow-hidden flex items-center justify-center mr-2">
+                        <Icon class="text-[#ffffff]" icon="mdi:lock-open-outline" size="32" />
+                        <div class="absolute top-0 left-0 bottom-0 right-0 opacity-20 bg-primary"></div>
+                    </div>
+                </span>
+                <span>
+                    <div class="text-xs text-[#64748B]">{{ $t('staking.unbonding_time') }}</div>
+                    <div class="font-bold">{{ formatSeconds(staking.params?.unbonding_time) }}</div>
+                </span>
+            </div>
+            <div class="flex bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
+                <span>
+                    <div class="bg-[#5E9AE4] relative w-9 h-9 rounded overflow-hidden flex items-center justify-center mr-2">
+                        <Icon class="text-[#ffffff]" icon="mdi:alert-octagon-outline" size="32" />
+                        <div class="absolute top-0 left-0 bottom-0 right-0 opacity-20 bg-error"></div>
+                    </div>
+                </span>
+                <span>
+                    <div class="text-xs text-[#64748B]">{{ $t('staking.double_sign_slashing') }}</div>
+                    <div class="font-bold">{{ format.percent(slashing.slash_fraction_double_sign) }}</div>
+                </span>
+            </div>
+            <div class="flex bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
+                <span>
+                    <div class="bg-[#5E9AE4] relative w-9 h-9 rounded overflow-hidden flex items-center justify-center mr-2">
+                        <Icon class="text-[#ffffff]" icon="mdi:pause" size="32" />
+                        <div class="absolute top-0 left-0 bottom-0 right-0 opacity-20 bg-error"></div>
+                    </div>
+                </span>
+                <span>
+                    <div class="text-xs text-[#64748B]">{{ $t('staking.downtime_slashing') }}</div>
+                    <div class="font-bold">{{ format.percent(slashing.slash_fraction_downtime) }}</div>
+                </span>
+            </div>
+        </div>    
 
-    <div>
-        <div class="flex items-center justify-between py-1">
-            <div class="tabs tabs-boxed bg-transparent">
-                <a
-                    class="tab text-gray-400"
-                    :class="{ 'tab-active': tab === 'featured' }"
-                    @click="tab = 'featured'"
-                    >{{ $t('staking.popular') }}</a
-                >
-                <a
-                    class="tab text-gray-400"
-                    :class="{ 'tab-active': tab === 'active' }"
-                    @click="tab = 'active'"
-                    >{{ $t('staking.active') }}</a
-                >
-                <a
-                    class="tab text-gray-400"
-                    :class="{ 'tab-active': tab === 'inactive' }"
-                    @click="tab = 'inactive'"
-                    >{{ $t('staking.inactive') }}</a
-                >
+        <!-- Validators Table Section -->
+        <div class="flex flex-col gap-1 bg-white dark:bg-[rgba(255,255,255,.03)] rounded-xl shadow-md border dark:border-white/10 overflow-hidden mb-4">
+            <!-- Status Filter Tabs -->
+            <div class="">
+                <div class="flex items-center bg-white dark:bg-[rgba(255,255,255,.05)] rounded-lg border border-gray-200 dark:border-white/10 px-4 py-3 inline-flex gap-1">
+                    <button
+                        v-for="option in statusOptions"
+                        :key="option.value"
+                        @click="selectedStatus = option.value"
+                        :class="[
+                            'px-4 py-2 rounded-md text-sm font-medium transition-all duration-200',
+                            selectedStatus === option.value 
+                                ? 'px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 bg-[#007bff] text-white shadow-sm'
+                                : 'px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 bg-base-100 text-base-content hover:bg-base-200 dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)]  border border-base-300 dark:border-base-400'
+                        ]"
+                    >
+                        {{ option.label }}
+                    </button>
+                </div>
             </div>
 
-            <div class="text-lg font-semibold">
-                {{ list.length }}/{{ staking.params.max_validators }}
+            <div v-if="isLoading" class="flex justify-center items-center p-8 rounded-xl">
+                <span class="loading loading-spinner loading-lg"></span>
             </div>
-        </div>
 
-        <div class="bg-base-100 px-4 pt-3 pb-4 rounded shadow">
-            <div class="overflow-x-auto">
-                <table class="table staking-table w-full">
-                    <thead class=" bg-base-200">
-                        <tr>
-                            <th
-                                scope="col"
-                                class="uppercase"
-                                style="width: 3rem; position: relative"
-                            >
-                            {{ $t('staking.rank') }}    
-                            </th>
-                            <th scope="col" class="uppercase">{{ $t('staking.validator') }}</th>
-                            <th scope="col" class="text-right uppercase">{{ $t('staking.voting_power') }}</th>
-                            <th scope="col" class="text-right uppercase">{{ $t('staking.24h_changes') }}</th>
-                            <th scope="col" class="text-right uppercase">{{ $t('staking.commission') }}</th>
-                            <th scope="col" class="text-center uppercase">{{ $t('staking.actions') }}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr
-                            v-for="({v, rank, logo}, i) in list"
-                            :key="v.operator_address"
-                            class="hover:bg-gray-100 dark:hover:bg-[#384059]"
+            <!-- scroll hataya -->
+            <div
+            v-else
+            class="bg-base-200 hover:bg-base-300 dark:bg-[rgba(255,255,255,.03)] rounded-xl dark:border-base-200 px-4 pt-2 pb-2"
+            >
+            <table class="table w-full rounded-xl">
+                <thead class="dark:bg-[rgba(255,255,255,.03)] bg-base-200 sticky top-0 border-0">
+                <tr class="text-sm font-semibold">
+                    <td style="width: 3rem">{{ $t('staking.rank') }}</td>
+                    <td>Logo</td>
+                    <td>{{ $t('staking.validator') }}</td>
+                    <td class="text-center">{{ $t('staking.status') }}</td>
+                    <td class="text-right">{{ $t('staking.voting_power') }}</td>
+                    <td class="text-right">{{ $t('staking.24h_changes') }}</td>
+                    <td class="text-right">{{ $t('staking.self_bonded') }}</td>
+                    <td class="text-right">{{ $t('staking.commission') }}</td>
+                    <td class="text-right">{{ $t('staking.max_commission') }}</td>
+                </tr>
+                </thead>
+
+                <tbody>
+                <tr
+                    v-for="({ v, rank, logo, statusBadge }, i) in paginatedValidators"
+                    :key="v.operator_address"
+                    class="hover:bg-gray-100 dark:hover:bg-[rgba(255,255,255,0.06)] dark:bg-base-200 bg-white border-0 rounded-xl"
+                >
+                    <!-- rank -->
+                    <td>
+                    <div
+                        class="text-xs truncate relative px-2 py-1 rounded-full w-fit"
+                        :class="`text-${rank}`"
+                    >
+                        {{ i + 1 + (currentPage - 1) * itemsPerPage }}
+                    </div>
+                    </td>
+                    <td>
+                        <img v-if="logo" :src="logo" class="w-8 h-8 rounded-full mr-2" style="display: inline-block;" /> 
+                        <Icon v-else class="text-2xl" :icon="`mdi-help-circle-outline`" />
+                    </td>
+                    <!-- Validator -->
+                    <td>
+                    <div class="flex items-center overflow-hidden" style="max-width: 300px">
+                        <div class="flex flex-col">
+                        <span
+                            class="text-sm text-primary dark:invert whitespace-nowrap overflow-hidden"
                         >
-                            <!-- 👉 rank -->
-                            <td>
-                                <div
-                                    class="text-xs truncate relative px-2 py-1 rounded-full w-fit"
-                                    :class="`text-${rank}`"
-                                >
-                                    <span
-                                        class="inset-x-0 inset-y-0 opacity-10 absolute"
-                                        :class="`bg-${rank}`"
-                                    ></span>
-                                    {{ i + 1 }}
-                                </div>
-                            </td>
-                            <!-- 👉 Validator -->
-                            <td>
-                                <div
-                                    class="flex items-center overflow-hidden"
-                                    style="max-width: 300px"
-                                >
-                                    <div
-                                        class="avatar mr-4 relative w-8 h-8 rounded-full"
-                                    >
-                                        <div
-                                            class="w-8 h-8 rounded-full bg-gray-400 absolute opacity-10"
-                                        ></div>
-                                        <div class="w-8 h-8 rounded-full">
-                                            <img
-                                                v-if="logo"
-                                                :src="logo"
-                                                class="object-contain"
-                                                @error="
-                                                    (e) => {
-                                                        const identity = v.description?.identity;
-                                                        if (identity) loadAvatar(identity);
-                                                    }
-                                                "
-                                            />
-                                            <Icon
-                                                v-else
-                                                class="text-3xl"
-                                                :icon="`mdi-help-circle-outline`"
-                                            />
-                                            
-                                        </div>
-                                    </div>
-
-                                    <div class="flex flex-col">
-                                        <span class="text-sm text-primary dark:invert whitespace-nowrap overflow-hidden">
-                                            <RouterLink
-                                                :to="{
-                                                    name: 'chain-staking-validator',
-                                                    params: {
-                                                        validator:
-                                                            v.operator_address,
-                                                    },
-                                                }"
-                                                class="font-weight-medium"
-                                            >
-                                                {{ v.description?.moniker }}
-                                            </RouterLink>
-                                        </span>
-                                        <span class="text-xs">{{
-                                            v.description?.website ||
-                                            v.description?.identity ||
-                                            '-'
-                                        }}</span>
-                                    </div>
-                                </div>
-                            </td>
-
-                            <!-- 👉 Voting Power -->
-                            <td class="text-right">
-                                <div class="flex flex-col">
-                                    <h6 class="text-sm font-weight-medium whitespace-nowrap ">
-                                        {{
-                                            format.formatToken(
-                                                {
-                                                    amount: parseInt(
-                                                        v.tokens
-                                                    ).toString(),
-                                                    denom: staking.params
-                                                        .bond_denom,
-                                                },
-                                                true,
-                                                '0,0'
-                                            )
-                                        }}
-                                    </h6>
-                                    <span class="text-xs">{{
-                                        format.calculatePercent(
-                                            v.delegator_shares,
-                                            staking.totalPower
-                                        )
-                                    }}</span>
-                                </div>
-                            </td>
-                            <!-- 👉 24h Changes -->
-                            <td
-                                class="text-right text-xs"
-                                :class="change24Color(v)"
+                            <RouterLink
+                            :to="{
+                                name: 'chain-staking-validator',
+                                params: { validator: v.operator_address },
+                            }"
+                            class="font-weight-medium"
                             >
-                                {{ change24Text(v) }}
-                            </td>
-                            <!-- 👉 commission -->
-                            <td class="text-right text-xs">
-                                {{
-                                    format.formatCommissionRate(
-                                        v.commission?.commission_rates?.rate
-                                    )
-                                }}
-                            </td>
-                            <!-- 👉 Action -->
-                            <td class="text-center">
-                                <div
-                                    v-if="v.jailed"
-                                    class="badge badge-error gap-2 text-white"
-                                >
-                                {{ $t('staking.jailed') }}
-                                </div>
-                                <label
-                                    v-else
-                                    for="delegate"
-                                    class="btn btn-xs btn-primary rounded-sm capitalize"
-                                    @click="
-                                        dialog.open('delegate', {
-                                            validator_address:
-                                                v.operator_address,
-                                        })
-                                    "
-                                    >{{ $t('account.btn_delegate') }}</label
-                                >
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+                            {{ v.description?.moniker }}
+                            </RouterLink>
+                        </span>
+                        <span class="text-[10px]">{{
+                            v.operator_address || v.description?.identity || '-'
+                        }}</span>
+                        </div>
+                    </div>
+                    </td>
 
-            <div class="divider"></div>
-            <div class="flex flex-row items-center">
-                <div
-                    class="text-xs truncate relative py-2 px-4 rounded-md w-fit text-error mr-2"
-                >
-                    <span
-                        class="inset-x-0 inset-y-0 opacity-10 absolute bg-error"
-                    ></span>
-                    {{ $t('staking.top') }} 33%
+                    <!-- Status -->
+                    <td class="text-center">
+                    <div class="badge" :class="statusBadge.class">{{ statusBadge.text }}</div>
+                    </td>
+
+                    <!-- Voting Power -->
+                    <td class="text-right">
+                    <div class="flex flex-col">
+                        <h6 class="text-sm font-weight-medium whitespace-nowrap">
+                        {{
+                            format.formatToken(
+                            {
+                                amount: parseInt(v.tokens).toString(),
+                                denom: staking.params.bond_denom,
+                            },
+                            true,
+                            '0,0'
+                            )
+                        }}
+                        </h6>
+                        <span class="text-xs">{{
+                        format.calculatePercent(v.delegator_shares, staking.totalPower)
+                        }}</span>
+                    </div>
+                    </td>
+
+                    <!-- 24h Changes -->
+                    <td
+                    class="text-right text-xs text-black"
+                    :class="change24Color(v)"
+                    >
+                    {{ change24Text(v) }}
+                    </td>
+
+                    <!-- Self Bonded -->
+                    <td class="text-xs text-right">
+                    {{
+                        selfBonded?.balance
+                        ? format.formatToken(selfBonded.balance)
+                        : '0'
+                    }}
+                    </td>
+
+                    <!-- Commission -->
+                    <td class="text-right text-xs">
+                    {{ format.formatCommissionRate(v.commission?.commission_rates?.rate) }}
+                    </td>
+
+                    <!-- Max commission -->
+                    <td class="text-right text-xs">
+                    {{ format.formatCommissionRate(v.commission?.commission_rates?.max_rate) }}
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+
+            <!-- Pagination Section -->
+            <div class="flex justify-between items-center gap-4 my-6 px-6">
+                <!-- Page Size Dropdown -->
+                <div class="flex items-center gap-2">
+                    <span class="text-sm text-gray-600">Show:</span>
+                    <select 
+                        v-model="itemsPerPage" 
+                        class="select select-bordered select-sm w-20"
+                    >
+                        <option :value="10">10</option>
+                        <option :value="25">25</option>
+                        <option :value="50">50</option>
+                        <option :value="100">100</option>
+                    </select>
+                    <span class="text-sm text-gray-600">per page</span>
                 </div>
-                <div
-                    class="text-xs truncate relative py-2 px-4 rounded-md w-fit text-warning"
-                >
-                    <span
-                        class="inset-x-0 inset-y-0 opacity-10 absolute bg-warning"
-                    ></span>
-                    {{ $t('staking.top') }} 67%
+
+                <!-- Pagination Info and Controls -->
+                <div class="flex items-center gap-2">
+                    <span class="text-sm text-gray-600">
+                        Showing {{ ((currentPage - 1) * itemsPerPage) + 1 }} to {{ Math.min(currentPage * itemsPerPage, validatorsList.length) }} of {{ validatorsList.length }} validators
+                    </span>
+                    
+                    <div class="flex items-center gap-1">
+                        <button
+                            class="page-btn bg-[#f8f9fa] border border-[#ccc] rounded px-[10px] py-[5px] cursor-pointer text-[#007bff] transition-colors duration-200 hover:bg-[#e9ecef] disabled:opacity-50 disabled:cursor-not-allowed text-[14px]"
+                            @click="goToFirst"
+                            :disabled="currentPage === 1 || totalPages === 0"
+                        >
+                            First
+                        </button>
+                        <button
+                            class="page-btn bg-[#f8f9fa] border border-[#ccc] rounded px-[10px] py-[5px] cursor-pointer text-[#007bff] transition-colors duration-200 hover:bg-[#e9ecef] disabled:opacity-50 disabled:cursor-not-allowed text-[14px]"
+                            @click="prevPage"
+                            :disabled="currentPage === 1 || totalPages === 0"
+                        >
+                            &lt;
+                        </button>
+
+                        <span class="text-xs px-2">
+                            Page {{ currentPage }} of {{ totalPages }}
+                        </span>
+
+                        <button
+                            class="page-btn bg-[#f8f9fa] border border-[#ccc] rounded px-[10px] py-[5px] cursor-pointer text-[#007bff] transition-colors duration-200 hover:bg-[#e9ecef] disabled:opacity-50 disabled:cursor-not-allowed text-[14px]"
+                            @click="nextPage"
+                            :disabled="currentPage === totalPages || totalPages === 0"
+                        >
+                            &gt;
+                        </button>
+                        <button
+                            class="page-btn bg-[#f8f9fa] border border-[#ccc] rounded px-[10px] py-[5px] cursor-pointer text-[#007bff] transition-colors duration-200 hover:bg-[#e9ecef] disabled:opacity-50 disabled:cursor-not-allowed text-[14px]"
+                            @click="goToLast"
+                            :disabled="currentPage === totalPages || totalPages === 0"
+                        >
+                            Last
+                        </button>
+                    </div>
                 </div>
-                <div class="text-xs hidden md:!block pl-2">
-                    {{ $t('staking.description') }}
                 </div>
             </div>
         </div>
     </div>
-</div>
 </template>
 
 <route>
   {
     meta: {
-      i18n: 'staking',
-      order: 3
+      i18n: 'validators',
+      order: 7
     }
   }
 </route>
@@ -505,5 +629,16 @@ loadAvatars();
 .staking-table.table :where(th, td) {
     padding: 8px 5px;
     background: transparent;
+}
+</style>
+
+<style scoped>
+.page-btn:hover {
+  background-color: #e9ecef;
+}
+
+.page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>

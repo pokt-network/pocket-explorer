@@ -7,7 +7,7 @@ import {
   useStakingStore,
   useTxDialog,
 } from '@/stores';
-import { onMounted, computed, ref } from 'vue';
+import { onMounted, computed, ref, watch } from 'vue';
 import { Icon } from '@iconify/vue';
 import CommissionRate from '@/components/ValidatorCommissionRate.vue';
 import {
@@ -19,6 +19,7 @@ import { PageRequest, type Coin, type Delegation, type PaginatedDelegations, typ
 import PaginationBar from '@/components/PaginationBar.vue';
 import { fromBase64, toBase64 } from '@cosmjs/encoding';
 import { stringToUint8Array, uint8ArrayToString } from '@/libs/utils';
+import { fetchTransactions, type ApiTransaction, type TransactionFilters } from '@/libs/transactions';
 
 const props = defineProps(['validator', 'chain']);
 
@@ -37,6 +38,8 @@ const identity = ref('');
 const rewards = ref([] as Coin[] | undefined);
 const commission = ref([] as Coin[] | undefined);
 const delegations = ref({} as PaginatedDelegations)
+const delegationsPage = ref(1)
+const eventsPage = ref(1)
 const addresses = ref(
   {} as {
     account: string;
@@ -57,10 +60,130 @@ staking
     }
   });
 
-const txs = ref({} as PaginatedTxs);
+const txs = ref<ApiTransaction[]>([]);
+const currentTxPage = ref(1);
+const txItemsPerPage = ref(25);
+const totalTxPages = ref(0);
+const totalTxCount = ref(0);
+const loadingTxs = ref(false);
+const selectedTypeTab = ref<'all' | 'send' | 'claim' | 'proof' | 'governance' | 'staking'>('all');
+const txStatusFilter = ref<string>('');
+const txStartDate = ref<string>('');
+const txEndDate = ref<string>('');
+const txMinAmount = ref<number | undefined>(undefined);
+const txMaxAmount = ref<number | undefined>(undefined);
+const txSortBy = ref<'timestamp' | 'amount' | 'fee' | 'block_height' | 'type' | 'status'>('timestamp');
+const txSortOrder = ref<'asc' | 'desc'>('desc');
+const showAdvancedTxFilters = ref(false);
+const delegationTxs = ref<ApiTransaction[]>([])
+const delegationPage = ref(1)
+const delegationLimit = ref(25) // ✅ default 25
+const delegationTotal = ref(0)
+const delegationTotalPages = ref(0)
+const loadingDelegations = ref(false)
 
-blockchain.rpc.getTxsBySender(addresses.value.account).then((x) => {
-  txs.value = x;
+// Map frontend chain names to API chain names
+const getApiChainName = (chainName: string) => {
+  const chainMap: Record<string, string> = {
+    'pocket-lego-testnet': 'pocket-lego-testnet',
+    'pocket-mainnet': 'pocket-mainnet'
+  };
+  return chainMap[chainName] || chainName || 'pocket-lego-testnet';
+};
+
+// Type tab mappings
+const typeTabMap: Record<string, string[]> = {
+  all: [],
+  send: ['MsgSend (bank)', 'MsgMultiSend (bank)'],
+  claim: ['MsgCreateClaim (proof)'],
+  proof: ['MsgSubmitProof (proof)'],
+  governance: [
+    'MsgSubmitProposal (governance)',
+    'MsgVote (governance)',
+    'MsgDeposit (governance)',
+    'MsgVoteWeighted (governance)'
+  ],
+  staking: [
+    'MsgDelegate (node)',
+    'MsgUndelegate (node)',
+    'MsgBeginRedelegate (node)',
+    'MsgStakeApplication (application)',
+    'MsgUnstakeApplication (application)',
+    'MsgStakeSupplier (supplier)',
+    'MsgUnstakeSupplier (supplier)',
+    'MsgStakeGateway (gateway)',
+    'MsgUnstakeGateway (gateway)'
+  ]
+};
+
+let txDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+async function loadValidatorTransactions() {
+  if (!addresses.value.account) return;
+  
+  loadingTxs.value = true;
+  try {
+    const apiChainName = getApiChainName(props.chain || blockchain.current?.chainName || 'pocket-beta');
+    const filters: TransactionFilters = {
+      address: addresses.value.account,
+      chain: apiChainName,
+      page: currentTxPage.value,
+      limit: txItemsPerPage.value,
+      sort_by: txSortBy.value,
+      sort_order: txSortOrder.value,
+    };
+
+    const selectedTypes = typeTabMap[selectedTypeTab.value];
+    if (selectedTypes.length > 0) {
+      filters.type = selectedTypes[0];
+    }
+
+    if (txStatusFilter.value) filters.status = txStatusFilter.value;
+    if (txStartDate.value) {
+      // Convert datetime-local to ISO 8601
+      filters.start_date = new Date(txStartDate.value).toISOString();
+    }
+    if (txEndDate.value) {
+      // Convert datetime-local to ISO 8601
+      filters.end_date = new Date(txEndDate.value).toISOString();
+    }
+    if (txMinAmount.value !== undefined) filters.min_amount = txMinAmount.value;
+    if (txMaxAmount.value !== undefined) filters.max_amount = txMaxAmount.value;
+
+    const data = await fetchTransactions(filters);
+    txs.value = data.data || [];
+    totalTxCount.value = data.meta?.total || 0;
+    totalTxPages.value = data.meta?.totalPages || 0;
+  } catch (error) {
+    console.error('Error loading transactions:', error);
+    txs.value = [];
+    totalTxCount.value = 0;
+    totalTxPages.value = 0;
+  } finally {
+    loadingTxs.value = false;
+  }
+}
+
+function debouncedLoadTransactions() {
+  if (txDebounceTimer) clearTimeout(txDebounceTimer);
+  txDebounceTimer = setTimeout(() => {
+    currentTxPage.value = 1;
+    loadValidatorTransactions();
+  }, 300);
+}
+
+watch([selectedTypeTab, txStatusFilter, txStartDate, txEndDate, txMinAmount, txMaxAmount, txSortBy, txSortOrder], () => {
+  debouncedLoadTransactions();
+});
+
+watch([currentTxPage, txItemsPerPage], () => {
+  loadValidatorTransactions();
+});
+
+watch(() => addresses.value.account, () => {
+  if (addresses.value.account) {
+    loadValidatorTransactions();
+  }
 });
 
 const apr = computed(() => {
@@ -120,6 +243,36 @@ const loadAvatar = (identity: string) => {
   });
 };
 
+async function loadDelegationTransactions() {
+  if (!props.validator) return
+
+  loadingDelegations.value = true
+  try {
+    const data = await fetchTransactions({
+      address: props.validator,
+      chain: getApiChainName(props.chain),
+      page: delegationPage.value,
+      limit: delegationLimit.value,
+      sort_by: 'timestamp',
+      sort_order: 'desc',
+      type: 'MsgDelegate (node)', // ✅ ONLY delegations
+    })
+
+    delegationTxs.value = data.data || []
+    delegationTotal.value = data.meta?.total || 0
+    delegationTotalPages.value = data.meta?.totalPages || 0
+  } catch (err) {
+    console.error('Delegations error', err)
+    delegationTxs.value = []
+  } finally {
+    loadingDelegations.value = false
+  }
+}
+
+watch([delegationPage, delegationLimit], loadDelegationTransactions)
+
+onMounted(loadDelegationTransactions)
+
 onMounted(() => {
   if (validator) {
     staking.fetchValidator(validator).then((res) => {
@@ -134,6 +287,9 @@ onMounted(() => {
         v.value.consensus_pubkey,
         blockchain.current?.bech32ConsensusPrefix || "",
       );
+      
+      // Load transactions after addresses are set
+      loadValidatorTransactions();
     });
     blockchain.rpc
       .getDistributionValidatorOutstandingRewards(validator)
@@ -160,7 +316,7 @@ onMounted(() => {
 
     // Disable delegations due to its bad performance
     // Comment out the following code if you want to enable it
-    // pageload(1)
+    pageload(1)
 
   }
 });
@@ -190,11 +346,12 @@ const tipMsg = computed(() => {
 
 function pageload(p: number) {
   page.setPage(p);
-  page.limit = 10;
+  page.limit = 6;
+  delegationsPage.value = p;
 
   blockchain.rpc.getStakingValidatorsDelegations(validator, page).then(res => {
-      delegations.value = res
-  }) 
+    delegations.value = res
+  })
 }
 
 const events = ref({} as PaginatedTxs)
@@ -210,24 +367,44 @@ function loadPowerEvents(p: number, type: EventType) {
   selectedEventType.value = type
   page.setPage(p);
   page.setPageSize(5);
-  blockchain.rpc.getTxs("?order_by=2&events={type}.validator='{validator}'", { type: selectedEventType.value, validator }, page).then(res => {
+  blockchain.rpc.getTxs("?order_by=2&query={type}.validator='{validator}'", { type: selectedEventType.value, validator }, page).then(res => {
     events.value = res
   })
+  eventsPage.value = p
 }
 
 function pagePowerEvents(page: number) {
-    loadPowerEvents(page, selectedEventType.value)
+  loadPowerEvents(page, selectedEventType.value)
 }
 
 pagePowerEvents(1)
 
-function mapEvents(events: {type: string, attributes: {key: string, value: string}[]}[]) {
+const totalDelegationsPages = computed(() => {
+  const total = Number(delegations.value.pagination?.total || 0)
+  return total > 0 ? Math.ceil(total / 6) : 0
+})
+const totalEventsPages = computed(() => {
+  const total = Number(events.value.pagination?.total || 0)
+  return total > 0 ? Math.ceil(total / 6) : 0
+})
+
+function goToFirstDelegations() { if (delegationsPage.value !== 1) pageload(1) }
+function goToLastDelegations() { if (delegationsPage.value !== totalDelegationsPages.value) pageload(totalDelegationsPages.value) }
+function prevDelegations() { if (delegationsPage.value > 1) pageload(delegationsPage.value - 1) }
+function nextDelegations() { if (delegationsPage.value < totalDelegationsPages.value) pageload(delegationsPage.value + 1) }
+
+function goToFirstEvents() { if (eventsPage.value !== 1) pagePowerEvents(1) }
+function goToLastEvents() { if (eventsPage.value !== totalEventsPages.value) pagePowerEvents(totalEventsPages.value) }
+function prevEvents() { if (eventsPage.value > 1) pagePowerEvents(eventsPage.value - 1) }
+function nextEvents() { if (eventsPage.value < totalEventsPages.value) pagePowerEvents(eventsPage.value + 1) }
+
+function mapEvents(events: { type: string, attributes: { key: string, value: string }[] }[]) {
   const attributes = events
     .filter(x => x.type === selectedEventType.value)
     .filter(x => x.attributes.findIndex(attr => attr.value === validator || attr.value === toBase64(stringToUint8Array(validator))) > -1)
     .map(x => {
       // check if attributes need to decode
-      const output = {} as {[key: string]: string }
+      const output = {} as { [key: string]: string }
 
       if (x.attributes.findIndex(a => a.key === `amount`) > -1) {
         x.attributes.forEach(attr => {
@@ -249,465 +426,727 @@ function mapEvents(events: {type: string, attributes: {key: string, value: strin
 }
 
 function mapDelegators(messages: any[]) {
-  if(!messages) return []
+  if (!messages) return []
   return Array.from(new Set(messages.map(x => x.delegator_address || x.grantee)))
 }
 
+function getSignerAddress(message: any, item?: any): string {
+  // First try different address fields in the message
+  if (message && message.delegator_address) {
+    return message.delegator_address;
+  } else if (message && message.from_address) {
+    return message.from_address;
+  } else if (message && message.sender) {
+    return message.sender;
+  }
+
+  // If not found in message, check tx events
+  if (item && item.events) {
+    // Look for sender in message events
+    const messageEvents = item.events.filter((event: any) => event.type === 'message');
+    for (const event of messageEvents) {
+      const senderAttr = event.attributes.find((attr: any) => attr.key === 'sender');
+      if (senderAttr && senderAttr.value) {
+        return senderAttr.value;
+      }
+    }
+
+    // Look in tx events (fee_payer is typically the signer)
+    const txEvents = item.events.filter((event: any) => event.type === 'tx');
+    for (const event of txEvents) {
+      const feePayerAttr = event.attributes.find((attr: any) => attr.key === 'fee_payer');
+      if (feePayerAttr && feePayerAttr.value) {
+        return feePayerAttr.value;
+      }
+    }
+  }
+
+  return '-';
+}
+
+function getTransactionAmount(message: any): string {
+  // Check for different amount formats
+  if (message && message.value) {
+    return format.formatToken(message.value);
+  } else if (message && message.amount) {
+    return format.formatToken(message.amount);
+  } else if (message && message.token) {
+    return format.formatToken(message.token);
+  } else if (message && message.amount?.length) {
+    return format.formatTokens(message.amount);
+  }
+
+  // If amount isn't in message, check events
+  return '-';
+}
+
+function getTransactionFee(tx: any): string {
+  if (tx?.auth_info?.fee?.amount && tx.auth_info.fee.amount.length > 0) {
+    return format.formatTokens(tx.auth_info.fee.amount);
+  }
+
+  // Check if fee is in gas_wanted (with a default gas price)
+  if (tx?.auth_info?.fee?.gas_limit) {
+    const gasLimit = parseInt(tx.auth_info.fee.gas_limit);
+    if (!isNaN(gasLimit) && gasLimit > 0) {
+      // This is a fallback - using a simple calculation if actual fee amount is not available
+      return `~${format.formatNumber(gasLimit / 1000000)} ${staking.params.bond_denom || ""}`;
+    }
+  }
+
+  return '-';
+}
 </script>
 <template>
-  <div>
-    <div class="bg-base-100 px-4 pt-3 pb-4 rounded shadow border-indigo-500">
-      <div class="flex flex-col lg:!flex-row pt-2 pb-1">
-        <div class="flex-1">
-          <div class="flex">
-            <div class="avatar mr-4 relative w-24 rounded-lg overflow-hidden">
-              <div class="w-24 rounded-lg absolute opacity-10"></div>
-              <div class="w-24 rounded-lg">
-                <img
-                  v-if="identity && avatars[identity] !== 'undefined'"
-                  v-lazy="logo(identity)"
-                  class="object-contain"
-                  @error="
-                    (e) => {
-                      loadAvatar(identity);
-                    }
-                  "
-                />
-                <Icon
-                  v-else
-                  class="text-8xl"
-                  :icon="`mdi-help-circle-outline`"
-                />
-              </div>
-            </div>
-            <div class="mx-2">
-              <h4>{{ v.description?.moniker }}</h4>
-              <div class="text-sm mb-4">
-                {{ v.description?.identity || '-' }}
-              </div>
-              <label
-                for="delegate"
-                class="btn btn-primary btn-sm w-full"
-                @click="
-                  dialog.open('delegate', {
-                    validator_address: v.operator_address,
-                  })
-                "
-                >{{ $t('account.btn_delegate') }}</label
-              >
-            </div>
+  <div class="pt-[6.5rem]">
+    <!-- Updated Validator Header Card -->
+    <div
+      class="bg-[#ffffff] hover:bg-base-200 text-2xl w-full px-4 py-4 my-4 font-bold text-[#000000] dark:text-[#ffffff] rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
+      <!-- Validator Header with Avatar and Basic Info -->
+      <div class="flex items-center space-x-4">
+        <img v-if="v.description?.identity && avatars[v.description.identity] !== 'undefined'"
+          v-lazy="logo(v.description?.identity)" class="object-contain w-16 h-16 rounded-lg" @error="
+            (e) => {
+              loadAvatar(v.description?.identity);
+            }
+          " />
+        <Icon v-else class="text-4xl" :icon="`mdi-help-circle-outline`" />
+        <div>
+          <h2 class="text-2xl font-bold text-[#000000] dark:text-[#FFFFFF]">{{ v.description?.moniker }}</h2>
+          <!-- Validator Details -->
+        <p class="text-[16px] dark:text-gray-200 text-[#000000]">{{ v.description?.details }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Validator Stats Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 my-4">
+      <!-- Total Bonded Card -->
+      <div class="flex bg-[#ffffff] hover:bg-base-200 p-3 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
+        <div class="flex items-center flex-1">
+          <div class="w-10 h-10 dark:bg-base-200 bg-[#5E9AE4] rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
+            <Icon icon="mdi-coin" class="text-xl dark:text-primary text-[#FFFFFF]" />
           </div>
-          <div class="m-4 text-sm">
-            <p class="text-sm mb-3 font-medium">{{ $t('staking.about_us') }}</p>
-            <div class="card-list">
-              <div class="flex items-center mb-2">
-                <Icon icon="mdi-web" class="text-xl mr-1" />
-                <span class="font-bold mr-2">{{ $t('staking.website') }}: </span>
-                <a
-                  :href="v?.description?.website || '#'"
-                  :class="
-                    v?.description?.website
-                      ? 'cursor-pointer'
-                      : 'cursor-default'
-                  "
-                >
+          <div class="flex-1">
+            <div class="text-xs font-semibold dark:text-main text-[#64748B] mb-1">{{ $t('staking.total_bonded') }}</div>
+            <div class="text-xl font-bold dark:text-main text-[#171C1F]">{{ format.formatToken({
+              amount: v.tokens, denom:
+                selfBonded.balance?.denom,
+            }) }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Self Bonded Card -->
+      <div class="flex bg-[#ffffff] hover:bg-base-200 p-3 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
+        <div class="flex items-center flex-1">
+          <div class="w-10 h-10 dark:bg-base-200 bg-[#5E9AE4] rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
+            <Icon icon="mdi-percent" class="text-xl dark:text-primary text-[#FFFFFF]" />
+          </div>
+          <div class="flex-1">
+            <div class="text-xs font-semibold dark:text-main text-[#64748B] mb-1">{{ $t('staking.self_bonded') }}</div>
+            <div class="text-xl font-bold dark:text-main text-[#171C1F]">{{ format.formatToken(selfBonded.balance) }}<span
+                class="text-xs font-normal text-gray-500 ml-1">({{ selfRate }})</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Annual Profit Card -->
+      <div class="flex bg-[#ffffff] hover:bg-base-200 p-3 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
+        <div class="flex items-center flex-1">
+          <div class="w-10 h-10 dark:bg-base-200 bg-[#5E9AE4] rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
+            <Icon icon="mdi-finance" class="text-xl dark:text-success text-[#ffffff]" />
+          </div>
+          <div class="flex-1">
+            <div class="text-xs font-semibold dark:text-main text-[#64748B] mb-1">{{ $t('staking.annual_profit') }}</div>
+            <div class="text-xl font-bold dark:text-success text-[#171C1F]">{{ apr }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- About Us Card -->
+      <div class="flex bg-[#ffffff] hover:bg-base-200 p-3 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
+        <div class="flex items-center flex-1">
+          <div class="w-10 h-10 dark:bg-base-200 bg-[#5E9AE4] rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
+            <Icon icon="mdi-information-outline" class="text-xl dark:text-primary text-[#FFFFFF]" />
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-xs font-semibold dark:text-main text-[#64748B] mb-2">{{ $t('staking.about_us') || 'About Us' }}</div>
+            <div class="space-y-1.5">
+              <div class="flex items-center gap-1.5">
+                <Icon icon="mdi-web" class="text-xs text-[#64748B] flex-shrink-0" />
+                <a :href="v?.description?.website || '#'" 
+                   :class="v?.description?.website
+                     ? 'cursor-pointer text-xs text-primary hover:underline truncate'
+                     : 'cursor-default text-xs text-gray-400'"
+                   :target="v?.description?.website ? '_blank' : undefined"
+                   :rel="v?.description?.website ? 'noopener noreferrer' : undefined">
                   {{ v.description?.website || '-' }}
                 </a>
               </div>
-              <div class="flex items-center">
-                <Icon icon="mdi-email-outline" class="text-xl mr-1" />
-                <span class="font-bold mr-2">{{ $t('staking.contact') }}: </span>
-                <a
-                  v-if="v.description?.security_contact"
-                  :href="'mailto:' + v.description.security_contact || '#' "
-                  class="cursor-pointer"
-                >
-                  {{ v.description?.security_contact || '-' }}
+              <div class="flex items-center gap-1.5">
+                <Icon icon="mdi-email-outline" class="text-xs text-[#64748B] flex-shrink-0" />
+                <a v-if="v.description?.security_contact" 
+                   :href="'mailto:' + v.description.security_contact" 
+                   class="cursor-pointer text-xs text-primary hover:underline truncate">
+                  {{ v.description?.security_contact }}
                 </a>
-              </div>
-            </div>
-            <p class="text-sm mt-4 mb-3 font-medium">{{ $t('staking.validator_status') }}</p>
-            <div class="card-list">
-              <div class="flex items-center mb-2">
-                <Icon icon="mdi-shield-account-outline" class="text-xl mr-1" />
-                <span class="font-bold mr-2">{{ $t('staking.status') }}: </span
-                ><span>
-                  {{ String(v.status).replace('BOND_STATUS_', '') }}
-                </span>
-              </div>
-              <div class="flex items-center">
-                <Icon icon="mdi-shield-alert-outline" class="text-xl mr-1" />
-                <span class="font-bold mr-2">{{ $t('staking.jailed') }}: </span>
-                <span> {{ v.jailed || '-' }} </span>
-              </div>
-            </div>
-            <p class="text-sm mt-4 mb-3 font-medium">{{ $t('staking.liquid_staking') }}</p>
-            <div class="card-list">
-              <div class="flex items-center mb-2">
-                <Icon icon="mdi-lock" class="text-xl mr-1" />
-                <span class="font-bold mr-2">{{ $t('staking.validator_bond_share') }}: </span>
-                <span> {{ format.formatToken( {amount: v.validator_bond_shares, denom: staking.params.bond_denom }, false) }} </span>
-              </div>
-              <div class="flex items-center">
-                <Icon icon="mdi-waves-arrow-right" class="text-xl mr-1" />
-                <span class="font-bold mr-2">{{ $t('staking.liquid_staking_shares') }}: </span>
-                <span>
-                  {{ format.formatToken( {amount: v.liquid_shares, denom: staking.params.bond_denom }, false) }}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="flex-1">
-          <div class="flex flex-col mt-10">
-            <div class="flex mb-2">
-              <div
-                class="flex items-center justify-center rounded w-10 h-10"
-                style="border: 1px solid #666"
-              >
-                <Icon icon="mdi-coin" class="text-3xl" />
-              </div>
-              <div class="ml-3 flex flex-col justify-center">
-                <h4>
-                  {{
-                    format.formatToken2({
-                      amount: v.tokens,
-                      denom: staking.params.bond_denom,
-                    })
-                  }}
-                </h4>
-                <span class="text-sm">{{ $t('staking.total_bonded') }}</span>
-              </div>
-            </div>
-            <div class="flex mb-2">
-              <div
-                class="flex items-center justify-center rounded w-10 h-10"
-                style="border: 1px solid #666"
-              >
-                <Icon icon="mdi-percent" class="text-3xl" />
-              </div>
-              <div class="ml-3 flex flex-col justify-center">
-                <h4>
-                  {{ format.formatToken(selfBonded.balance) }} ({{ selfRate }})
-                </h4>
-                <span class="text-sm">{{ $t('staking.self_bonded') }}</span>
-              </div>
-            </div>
-
-            <div class="flex mb-2">
-              <div
-                class="flex items-center justify-center rounded w-10 h-10"
-                style="border: 1px solid #666"
-              >
-                <Icon icon="mdi-account-tie" class="text-3xl" />
-              </div>
-
-              <div class="ml-3 flex flex-col">
-                <h4>
-                  {{ v.min_self_delegation }} {{ staking.params.bond_denom }}
-                </h4>
-                <span class="text-sm">{{ $t('staking.min_self') }}</span>
-              </div>
-            </div>
-            <div class="flex mb-2">
-              <div
-                class="flex items-center justify-center rounded w-10 h-10"
-                style="border: 1px solid #666"
-              >
-                <Icon icon="mdi-finance" class="text-3xl" />
-              </div>
-              <div class="ml-3 flex flex-col justify-center">
-                <h4>{{ apr }}</h4>
-                <span class="text-sm">{{ $t('staking.annual_profit') }}</span>
-              </div>
-            </div>
-
-            <div class="flex mb-2">
-              <div
-                class="flex items-center justify-center rounded w-10 h-10"
-                style="border: 1px solid #666"
-              >
-                <Icon icon="mdi:arrow-down-bold-circle-outline" class="text-3xl" />
-              </div>
-              <div class="ml-3 flex flex-col justify-center">
-                <h4>{{ v.unbonding_height }}</h4>
-                <span class="text-sm">{{ $t('staking.unbonding_height') }}</span>
-              </div>
-            </div>
-
-            <div class="flex mb-2">
-              <div
-                class="flex items-center justify-center rounded w-10 h-10"
-                style="border: 1px solid #666"
-              >
-                <Icon icon="mdi-clock" class="text-3xl" />
-              </div>
-              <div class="ml-3 flex flex-col justify-center">
-                <h4 v-if="v.unbonding_time && !v.unbonding_time.startsWith('1970')">{{ format.toDay(v.unbonding_time, 'from') }}</h4>
-                <h4 v-else>-</h4>
-                <span class="text-sm">{{ $t('staking.unbonding_time') }}</span>
+                <span v-else class="text-xs text-gray-400">-</span>
               </div>
             </div>
           </div>
         </div>
       </div>
-      <div class="text-sm px-4 pt-3 border-t">{{ v.description?.details }}</div>
     </div>
 
-    <div class="mt-3 grid grid-cols-1 md:!grid-cols-3 gap-4">
+    <!-- Secondary Information Section -->
+    <div class="grid grid-cols-1 md:!grid-cols-2 gap-4 my-4">
+      <!-- About and Status Information -->
+      <div class="bg-[#ffffff] dark:bg-[rgba(255,255,255,.03)] rounded-xl p-4">
+        <!-- Validator Status -->
+        <div class="text-2xl font-semibold text-main mb-2 mt-4">{{ $t('staking.validator_status') }}</div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="flex flex-col items-center justify-center gap-4 bg-[#ffffff] hover:bg-base-200 p-3 pb-8 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
+            <div class="text-sm dark:text-gray-500 text-[#64748B]">{{ $t('staking.status') }}</div>
+            <!-- Status pill -->
+            <div class="badge text-[#60BC29]" :class="{
+              'dark:bg-success bg-[#6AC13633]': v.status === 'BOND_STATUS_BONDED',
+              'dark:bg-warning bg-[#6AC13633]': v.status === 'BOND_STATUS_UNBONDED',
+              'bg-error': v.status === 'BOND_STATUS_UNBONDING'
+            }">
+              {{ String(v.status).replace('BOND_STATUS_', '').replace('BONDED', 'Staked').replace('UNBONDING',
+                'Unstaking').replace('UNBONDED', 'Unstaked') }}
+            </div>
+            <!-- <div class="text-xl font-bold">
+              {{ String(v.status).replace('BOND_STATUS_', '').replace('BONDED', 'STAKED').replace('UNBONDING', 'UNSTAKING').replace('UNBONDED', 'UNSTAKED') }}
+            </div> -->
+          </div>
+
+          <div class="flex flex-col items-center justify-center gap-4 bg-[#ffffff] hover:bg-base-200 p-3 pb-8 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
+            <div class="text-sm text-[#64748B]">{{ $t('staking.jailed') }}</div>
+            <div class="text-xl font-bold">
+              {{ v.jailed || '-' }}
+            </div>
+          </div>
+
+          <div class="flex flex-col items-center justify-center gap-4 bg-[#ffffff] hover:bg-base-200 p-3 pb-8 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
+            <div class="text-sm text-[#64748B]">{{ $t('staking.min_self') }}</div>
+            <div class="text-xl font-bold">
+              {{ v.min_self_delegation }} {{ staking.params.bond_denom }}
+            </div>
+          </div>
+
+          <div class="flex flex-col items-center justify-center gap-4 bg-[#ffffff] hover:bg-base-200 p-3 pb-8 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
+            <div class="text-sm text-[#64748B]">{{ $t('staking.unbonding_height') }}</div>
+            <div class="text-xl font-bold">
+              {{ v.unbonding_height || '-' }}
+            </div>
+          </div>
+
+          <div class="flex flex-col items-center justify-center gap-4 bg-[#ffffff] hover:bg-base-200 p-3 pb-8 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
+            <div class="text-sm text-[#64748B]">{{ $t('staking.unbonding_time') }}</div>
+            <div class="text-xl font-bold">
+              <template v-if="v.unbonding_time && !v.unbonding_time.startsWith('1970')">
+                {{ format.toDay(v.unbonding_time, 'from') }}
+              </template>
+              <template v-else>-</template>
+            </div>
+          </div>
+        </div>
+
+        <!-- Liquid Staking Section -->
+        <!-- <div class="text-2xl font-semibold text-main mb-4 mt-8">{{ $t('staking.liquid_staking') }}</div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="bg-base-200 rounded-2xl p-3 flex flex-col items-center justify-center gap-6 pb-10">
+            <div class="text-xs text-gray-500 text-[#64748B;]">{{ $t('staking.validator_bond_share') }}</div>
+            <div class="text-2xl font-bold">
+              {{ format.formatToken({ amount: v.validator_bond_shares, denom: staking.params.bond_denom }, false) }}
+            </div>
+          </div>
+
+          <div class="bg-base-200 rounded-2xl p-3 flex flex-col items-center justify-center gap-6 pb-10">
+            <div class="text-xs text-gray-500 text-[#64748B;]">{{ $t('staking.liquid_staking_shares') }}</div>
+            <div class="text-2xl font-bold">
+              {{ format.formatToken({ amount: v.liquid_shares, denom: staking.params.bond_denom }, false) }}
+            </div>
+          </div>
+        </div> -->
+
+        <!-- Commissions & Rewards -->
+        <div class="rounded-xl">
+          <div class="text-2xl font-semibold text-main mb-4 mt-4">
+            {{ $t('staking.commissions_&_rewards') }}
+          </div>
+
+          <div class="grid grid-cols-1 md:!grid-cols-2 gap-4">
+            <div class="flex flex-col items-center justify-center gap-4 bg-[#ffffff] hover:bg-base-200 p-3 pb-8 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
+              <div class="text-sm text-[#64748B] mb-2">{{ $t('staking.commissions') }}</div>
+              <div class="flex flex-wrap">
+                <div v-for="(i, k) in commission" :key="`commission-${k}`"
+                  class="mr-2 mb-2 text-2xl dark:text-[#ffffff] text-[#153cd8]">
+                  {{ format.formatToken2(i) }}
+                </div>
+              </div>
+            </div>
+
+            <div class="flex flex-col items-center justify-center gap-4 bg-[#ffffff] hover:bg-base-200 p-3 pb-8 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
+              <div class="text-sm text-[#64748B] mb-2">{{ $t('staking.outstanding') }} {{ $t('account.rewards') }}</div>
+              <div class="flex flex-wrap">
+                <div v-for="(i, k) in rewards" :key="`reward-${k}`"
+                  class="mr-2 mb-2 text-2xl dark:text-[#ffffff] text-[#153cd8]">
+                  {{ format.formatToken2(i) }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Addresses Section -->
+      <div class="bg-[#ffffff] dark:bg-[rgba(255,255,255,.03)] rounded-xl p-4 pt-6">
+        <div class="text-2xl font-semibold text-main mb-4">{{ $t('staking.addresses') }}</div>
+
+        <div class="grid grid-cols-1 gap-4">
+          <div class="bg-[#ffffff] hover:bg-base-200 p-3 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
+            <div class="text-sm text-[#64748B]flex items-center">
+              {{ $t('staking.account_addr') }}
+            </div>
+            <RouterLink class="text-primary font-medium truncate flex flex-row items-center "
+              :to="`/${chain}/account/${addresses.account}`">
+              {{ addresses.account }}
+              <Icon icon="mdi:content-copy" class="ml-2 cursor-pointer text-[#64748B]" v-show="addresses.account"
+                @click="copyWebsite(addresses.account || '')" />
+            </RouterLink>
+          </div>
+
+          <div class="bg-[#ffffff] hover:bg-base-200 p-3 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
+            <div class="text-sm text-[#64748B] flex items-center">
+              {{ $t('staking.operator_addr') }}
+            </div>
+            <div class="font-medium truncate flex flex-row items-center">
+              {{ v.operator_address }}
+              <Icon icon="mdi:content-copy" class="ml-2 cursor-pointer text-[#64748B]" v-show="v.operator_address"
+                @click="copyWebsite(v.operator_address || '')" />
+            </div>
+          </div>
+
+          <div class="bg-[#ffffff] hover:bg-base-200 p-3 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
+            <div class="text-sm text-[#64748B] flex items-center">
+              {{ $t('staking.hex_addr') }}
+            </div>
+            <div class="font-medium truncate flex flex-row items-center">
+              {{ addresses.hex }}
+              <Icon icon="mdi:content-copy" class="ml-2 cursor-pointer text-[#64748B]" v-show="addresses.hex"
+                @click="copyWebsite(addresses.hex || '')" />
+            </div>
+          </div>
+
+          <div class="bg-[#ffffff] hover:bg-base-200 p-3 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
+            <div class="text-sm text-[#64748B] flex items-center">
+              {{ $t('staking.signer_addr') }}
+            </div>
+            <div class="font-medium truncate flex flex-row items-center">
+              {{ addresses.valCons }}
+              <Icon icon="mdi:content-copy" class="ml-2 cursor-pointer text-[#64748B]" v-show="addresses.valCons"
+                @click="copyWebsite(addresses.valCons || '')" />
+            </div>
+          </div>
+
+          <div class="bg-[#ffffff] hover:bg-base-200 p-3 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
+            <div class="text-sm text-[#64748B] flex items-center">
+              {{ $t('staking.consensus_pub_key') }}
+            </div>
+            <div class="font-medium truncate text-[10px] flex flex-row items-center">
+              {{ v.consensus_pubkey }}
+              <Icon icon="mdi:content-copy" class="ml-2 cursor-pointer text-[#64748B]" v-show="v.consensus_pubkey"
+                @click="copyWebsite(JSON.stringify(v.consensus_pubkey) || '')" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Commission and Rewards -->
+    <div class="grid grid-cols-1 md:!grid-cols-1 gap-4 my-4">
+      <!-- Commission Rate -->
       <div>
         <CommissionRate :commission="v.commission"></CommissionRate>
       </div>
-      <div class="bg-base-100 rounded shadow relative overflow-auto">
-        <div class="text-lg font-semibold text-main px-4 pt-4">
-          {{ $t('staking.commissions_&_rewards') }}
-        </div>
-        <div
-          class="px-4 mt-1 flex flex-col justify-between pb-4 max-h-72"
-          style="height: calc(100% - 50px)"
-        >
-          <div class="overflow-auto flex-1">
-            <div class="text-sm mb-2">{{ $t('staking.commissions') }}</div>
-            <div
-              v-for="(i, k) in commission"
-              :key="`reward-${k}`"
-              color="info"
-              label
-              variant="outlined"
-              class="mr-1 mb-1 badge text-xs"
-            >
-              {{ format.formatToken2(i) }}
-            </div>
-            <div class="text-sm mb-2 mt-2">{{ $t('staking.outstanding') }} {{ $t('account.rewards') }}</div>
-            <div
-              v-for="(i, k) in rewards"
-              :key="`reward-${k}`"
-              class="mr-1 mb-1 badge text-xs"
-            >
-              {{ format.formatToken2(i) }}
-            </div>
-          </div>
-          <div class="">
-            <label
-              for="withdraw_commission"
-              class="btn btn-primary w-full"
-              @click="
-                dialog.open('withdraw_commission', {
-                  validator_address: v.operator_address,
-                })
-              "
-              >{{ $t('account.btn_withdraw') }}</label
-            >
-          </div>
-        </div>
-      </div>
-      <div class="bg-base-100 rounded shadow overflow-x-auto">
-        <div class="px-4 pt-4 mb-2 text-main font-lg font-semibold">
-          {{ $t('staking.addresses') }}
-        </div>
-        <div class="px-4 pb-4">
-          <div class="mb-3">
-            <div class="text-sm flex">{{ $t('staking.account_addr') }} 
-              <Icon
-                  icon="mdi:content-copy"
-                  class="ml-2 cursor-pointer"
-                  v-show="addresses.account"
-                  @click="copyWebsite(addresses.account || '')"
-                />
-              </div>
-            <RouterLink
-              class="text-xs text-primary"
-              :to="`/${chain}/account/${addresses.account}`"
-            >
-              {{ addresses.account }}
-            </RouterLink>
-          </div>
-          <div class="mb-3">
-            <div class="text-sm flex">{{ $t('staking.operator_addr') }}
-              <Icon
-                  icon="mdi:content-copy"
-                  class="ml-2 cursor-pointer"
-                  v-show="v.operator_address"
-                  @click="copyWebsite(v.operator_address || '')"
-                /></div>
-            <div class="text-xs">
-              {{ v.operator_address }}
-            </div>
-          </div>
-          <div class="mb-3">
-            <div class="text-sm flex">{{ $t('staking.hex_addr') }}
-              <Icon
-                  icon="mdi:content-copy"
-                  class="ml-2 cursor-pointer"
-                  v-show="addresses.hex"
-                  @click="copyWebsite(addresses.hex || '')"
-                />
-              </div>
-            <div class="text-xs">{{ addresses.hex }}</div>
-          </div>
-          <div class="mb-3">
-            <div class="text-sm flex">{{ $t('staking.signer_addr') }}
-              <Icon
-                  icon="mdi:content-copy"
-                  class="ml-2 cursor-pointer"
-                  v-show="addresses.valCons"
-                  @click="copyWebsite(addresses.valCons || '')"
-                />
-              </div>
-            <div class="text-xs">{{ addresses.valCons }}</div>
-          </div>
-          <div>
-            <div class="text-sm flex">{{ $t('staking.consensus_pub_key') }}
-              <Icon
-                  icon="mdi:content-copy"
-                  class="ml-2 cursor-pointer"
-                  v-show="v.consensus_pubkey"
-                  @click="copyWebsite(JSON.stringify(v.consensus_pubkey) || '')"
-                />
-              </div>
-            <div class="text-xs">{{ v.consensus_pubkey }}</div>
-          </div>
-        </div>
-      </div>
     </div>
 
-    <div v-if="delegations.delegation_responses" class="mt-5 bg-base-100 shadow rounded p-4 ">
-      <div class="text-lg mb-4 font-semibold">{{ $t('account.delegations') }}
-        <span class="float-right"> {{ delegations.delegation_responses?.length || 0 }} / {{ delegations.pagination?.total || 0 }} </span>
+    <!-- Transactions Table -->
+    <div class="bg-[#ffffff] hover:bg-base-200 px-0.5 pt-0.5 pb-4 mb-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
+      <div class="text-lg font-semibold text-main px-4 py-2">
+        <h2 class="text-2xl font-semibold text-[#171C1F] dark:text-[#ffffff]">
+          {{ $t('account.transactions') }}
+        </h2>
       </div>
-      <div class="rounded overflow-auto">
-        <table class="table validatore-table w-full">
-          <thead>
-            <th class="text-left pl-4" style="position: relative; z-index: 2">
-              {{ $t('account.delegator') }}
-            </th>
-            <th class="text-left pl-4">{{ $t('account.delegation') }}</th>
-          </thead>
-          <tbody>
-            <tr v-for="{balance, delegation} in delegations.delegation_responses">
-              <td class="text-sm text-primary">
-                {{ delegation.delegator_address }}
-              </td>
-              <td class="truncate text-primary">
-                {{ format.formatToken(balance)}}
-              </td>
-              
+      
+      <!-- Filter Section - Compact & Modern -->
+      <div class="rounded-lg border border-base-300 dark:border-white/10 mb-4 mx-4">
+        <!-- Main Filter Bar -->
+        <div class="flex flex-wrap items-center gap-3 px-4 py-3">
+          <!-- Type Tabs - Compact Horizontal -->
+          <div class="flex items-center gap-1 flex-wrap">
+            <span class="text-xs font-medium text-base-content/70 mr-1">Type:</span>
+            <button
+              v-for="typeOption in [
+                { value: 'all', label: 'All' },
+                { value: 'send', label: 'Send' },
+                { value: 'claim', label: 'Claim' },
+                { value: 'proof', label: 'Proof' },
+                { value: 'governance', label: 'Gov' },
+                { value: 'staking', label: 'Stake' }
+              ]"
+              :key="typeOption.value"
+              @click="selectedTypeTab = typeOption.value as any"
+              class="px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200"
+              :class="selectedTypeTab === typeOption.value
+                ? 'bg-[#007bff] text-white shadow-sm'
+                : 'bg=[#ffffff] dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] text-base-content hover:bg-base-200 border border-base-300 dark:border-white/10'"
+            >
+              {{ typeOption.label }}
+            </button>
+          </div>
+
+          <!-- Divider -->
+          <div class="h-6 w-px bg-base-300 dark:bg-base-500"></div>
+
+          <!-- Quick Filters -->
+          <div class="flex items-center gap-2 flex-wrap">
+            <!-- Status -->
+            <div class="flex items-center gap-1.5">
+              <Icon icon="mdi:check-circle-outline" class="text-base-content/60 text-sm" />
+              <select v-model="txStatusFilter" class="select select-bordered select-xs h-8 min-h-8 px-2 text-xs w-24 hover:bg-base-200 dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)]">
+                <option value="">All</option>
+                <option value="success">Success</option>
+                <option value="failed">Failed</option>
+              </select>
+            </div>
+
+            <!-- Sort By -->
+            <div class="flex items-center gap-1.5">
+              <Icon icon="mdi:sort" class="text-base-content/60 text-sm" />
+              <select v-model="txSortBy" class="select select-bordered select-xs h-8 min-h-8 px-2 text-xs w-28 hover:bg-base-200 dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)]">
+                <option value="timestamp">Time</option>
+                <option value="amount">Amount</option>
+                <option value="fee">Fee</option>
+                <option value="block_height">Block</option>
+                <option value="type">Type</option>
+                <option value="status">Status</option>
+              </select>
+            </div>
+
+            <!-- Sort Order Toggle -->
+            <button
+              @click="txSortOrder = txSortOrder === 'desc' ? 'asc' : 'desc'"
+              class="btn btn-xs h-8 min-h-8 px-2 gap-1"
+              :class="txSortOrder === 'desc' ? 'btn-primary' : 'btn-ghost'"
+              :title="txSortOrder === 'desc' ? 'Descending' : 'Ascending'"
+            >
+              <Icon :icon="txSortOrder === 'desc' ? 'mdi:sort-descending' : 'mdi:sort-ascending'" class="text-sm" />
+            </button>
+          </div>
+
+          <!-- Advanced Filters Toggle -->
+          <div class="ml-auto">
+            <button
+              @click="showAdvancedTxFilters = !showAdvancedTxFilters"
+              class="btn btn-xs h-8 min-h-8 px-3 gap-1.5"
+              :class="showAdvancedTxFilters ? 'btn-primary' : 'btn-ghost'"
+            >
+              <Icon :icon="showAdvancedTxFilters ? 'mdi:chevron-up' : 'mdi:chevron-down'" class="text-sm" />
+              <span class="text-xs">Advanced</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Advanced Filters - Collapsible -->
+        <div v-show="showAdvancedTxFilters" class="border-t border-base-300 dark:border-base-400 px-4 py-3">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Date Range -->
+            <div>
+              <label class="label py-1">
+                <span class="label-text text-xs font-medium flex items-center gap-1.5">
+                  <Icon icon="mdi:calendar-range" class="text-sm" />
+                  Date Range
+                </span>
+              </label>
+              <div class="flex gap-2">
+                <input
+                  v-model="txStartDate"
+                  type="datetime-local"
+                  class="input input-bordered input-xs h-8 text-xs flex-1"
+                  placeholder="Start"
+                />
+                <span class="self-center text-xs text-base-content/50">→</span>
+                <input
+                  v-model="txEndDate"
+                  type="datetime-local"
+                  class="input input-bordered input-xs h-8 text-xs flex-1"
+                  placeholder="End"
+                />
+              </div>
+            </div>
+
+            <!-- Amount Range -->
+            <div>
+              <label class="label py-1">
+                <span class="label-text text-xs font-medium flex items-center gap-1.5">
+                  <Icon icon="mdi:currency-usd" class="text-sm" />
+                  Amount Range
+                </span>
+              </label>
+              <div class="flex gap-2">
+                <input
+                  v-model.number="txMinAmount"
+                  type="number"
+                  class="input input-bordered input-xs h-8 text-xs flex-1"
+                  placeholder="Min"
+                />
+                <span class="self-center text-xs text-base-content/50">-</span>
+                <input
+                  v-model.number="txMaxAmount"
+                  type="number"
+                  class="input input-bordered input-xs h-8 text-xs flex-1"
+                  placeholder="Max"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="validator-table-wrapper validator-table-scroll rounded-xl">
+        <table class="table table-compact w-full">
+          <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
+            <tr class="dark:bg-[rgba(255,255,255,.03)] bg-base-200 border-b-[0px] text-sm font-semibold">
+              <th class="">{{ $t('account.height') }}</th>
+              <th class="">{{ $t('account.hash') }}</th>
+              <th class="">{{ $t('account.type') }}</th>
+              <th class="">{{ $t('account.amount') }}</th>
+              <th class="">{{ $t('block.fees') }}</th>
+              <th class="">{{ $t('account.time') }}</th>
             </tr>
-          </tbody>
-        </table>
-        <PaginationBar :total="delegations.pagination?.total" :limit="page.limit" :callback="pageload"/>
-      </div>
-    </div>
-
-    <div class="mt-5 bg-base-100 shadow rounded p-4">
-      <div class="text-lg mb-4 font-semibold">{{ $t('account.transactions') }}</div>
-      <div class="rounded overflow-auto">
-        <table class="table validatore-table w-full">
-          <thead>
-            <th class="text-left pl-4" style="position: relative; z-index: 2">
-              {{ $t('account.height') }}
-            </th>
-            <th class="text-left pl-4">{{ $t('account.hash') }}</th>
-            <th class="text-left pl-4" width="40%">{{ $t('account.messages') }}</th>
-            <th class="text-left pl-4">{{ $t('account.time') }}</th>
           </thead>
-          <tbody>
-            <tr v-for="(item, i) in txs.tx_responses">
-              <td class="text-sm text-primary">
-                <RouterLink :to="`/${props.chain}/block/${item.height}`">{{
-                  item.height
-                }}</RouterLink>
+          <tbody class="bg-base-100 relative">
+            <tr v-if="loadingTxs" class="text-center">
+              <td colspan="6" class="py-8">
+                <div class="flex justify-center items-center">
+                  <div class="loading loading-spinner loading-md"></div>
+                  <span class="ml-2">Loading transactions...</span>
+                </div>
               </td>
-              <td class="truncate text-primary" style="max-width: 200px">
-                <RouterLink :to="`/${props.chain}/tx/${item.txhash}`">
-                  {{ item.txhash }}
+            </tr>
+            <tr v-else-if="txs.length === 0">
+              <td colspan="6" class="py-8">
+                <div class="text-center">No transactions found</div>
+              </td>
+            </tr>
+            <tr v-for="(item, i) in txs" :key="item.hash"
+              class="hover:bg-gray-100 dark:hover:bg-[#384059] dark:bg-base-200 bg-white border-0 rounded-xl">
+              <td class="text-sm py-3">
+                <RouterLink :to="`/${props.chain}/blocks/${item.block_height}`"
+                  class="dark:text-primary text-[#09279F] dark:invert">
+                  {{ item.block_height }}
                 </RouterLink>
               </td>
-              <td>
+              <td class="truncate py-3" style="max-width: 200px">
+                <RouterLink :to="`/${props.chain}/tx/${item.hash}`"
+                  class="dark:text-primary text-[#09279F] dark:invert">
+                  {{ item.hash }}
+                </RouterLink>
+              </td>           
+              <td class="py-3">
                 <div class="flex items-center">
-                  <span class="mr-2">{{
-                    format.messages(item.tx.body.messages)
-                  }}</span>
-                  <Icon
-                    v-if="item.code === 0"
-                    icon="mdi-check"
-                    class="text-yes"
-                  />
-                  <Icon v-else icon="mdi-multiply" class="text-no" />
+                  <span class="mr-2">{{ item.type }}</span>
+                  <Icon v-if="item.status === 'true'" icon="mdi-check" class="text-[#60BC29] text-lg" />
+                  <Icon v-else icon="mdi-multiply" class="text-error text-lg" />
                 </div>
               </td>
-              <td width="150">{{ format.toDay(item.timestamp, 'from') }}</td>
+              <td class="py-3">
+                {{ format.formatToken({ denom: 'upokt', amount: item.amount }) }}
+              </td>
+              <td class="py-3">
+                {{ format.formatToken({ denom: 'upokt', amount: item.fee }) }}
+              </td>
+              <td class="py-3">
+                {{ format.toLocaleDate(item.timestamp) }}
+                <span class="text-xs">({{ format.toDay(item.timestamp, 'from') }})</span>
+              </td>
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- Pagination -->
+      <div class="flex justify-between items-center gap-4 my-6 px-6">
+        <div class="flex items-center gap-2">
+          <span class="text-sm text-gray-600">Show:</span>
+          <select 
+            v-model="txItemsPerPage" 
+            class="select select-bordered select-sm w-20"
+          >
+            <option :value="10">10</option>
+            <option :value="25">25</option>
+            <option :value="50">50</option>
+            <option :value="100">100</option>
+          </select>
+          <span class="text-sm text-gray-600">per page</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span class="text-sm text-gray-600">
+            Showing {{ ((currentTxPage - 1) * txItemsPerPage) + 1 }} to {{ Math.min(currentTxPage * txItemsPerPage, totalTxCount) }} of {{ totalTxCount }} transactions
+          </span>
+          
+          <div class="flex items-center gap-1">
+            <button
+              class="page-btn bg-[#f8f9fa] border border-[#ccc] rounded px-[10px] py-[5px] cursor-pointer text-[#007bff] transition-colors duration-200 hover:bg-[#e9ecef] disabled:opacity-50 disabled:cursor-not-allowed text-[14px]" 
+              @click="currentTxPage = 1"
+              :disabled="currentTxPage === 1 || totalTxPages === 0"
+            >
+              First
+            </button>
+            <button
+              class="page-btn bg-[#f8f9fa] border border-[#ccc] rounded px-[10px] py-[5px] cursor-pointer text-[#007bff] transition-colors duration-200 hover:bg-[#e9ecef] disabled:opacity-50 disabled:cursor-not-allowed text-[14px]" 
+              @click="currentTxPage--"
+              :disabled="currentTxPage === 1 || totalTxPages === 0"
+            >
+              &lt;
+            </button>
+
+            <span class="text-xs px-2">
+              Page {{ currentTxPage }} of {{ totalTxPages }}
+            </span>
+
+            <button
+              class="page-btn bg-[#f8f9fa] border border-[#ccc] rounded px-[10px] py-[5px] cursor-pointer text-[#007bff] transition-colors duration-200 hover:bg-[#e9ecef] disabled:opacity-50 disabled:cursor-not-allowed text-[14px]" 
+              @click="currentTxPage++"
+              :disabled="currentTxPage === totalTxPages || totalTxPages === 0"
+            >
+              &gt;
+            </button>
+            <button
+              class="page-btn bg-[#f8f9fa] border border-[#ccc] rounded px-[10px] py-[5px] cursor-pointer text-[#007bff] transition-colors duration-200 hover:bg-[#e9ecef] disabled:opacity-50 disabled:cursor-not-allowed text-[14px]" 
+              @click="currentTxPage = totalTxPages"
+              :disabled="currentTxPage === totalTxPages || totalTxPages === 0"
+            >
+              Last
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="mt-5 bg-base-100 shadow rounded p-4">
-      <div class="text-lg mb-4 font-semibold">
-        <div class="tabs tabs-boxed bg-transparent">
-                
-                <span class="mr-10">Voting Power Events: </span>
-                <a
-                    class="tab text-gray-400"
-                    :class="{ 'tab-active': selectedEventType === EventType.Delegate }"
-                    @click="loadPowerEvents(1, EventType.Delegate)"
-                    >{{ $t('account.btn_delegate') }}</a
-                >
-                <a
-                    class="tab text-gray-400"
-                    :class="{ 'tab-active': selectedEventType === EventType.Unbond }"
-                    @click="loadPowerEvents(1, EventType.Unbond)"
-                    >{{ $t('account.btn_unbond') }}</a
-                >
-            </div>
+    <!-- Voting Power Events Table -->
+    <div class="bg-[#ffffff] hover:bg-base-200 px-0.5 pt-0.5 pb-4 mb-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
+      <div class="text-lg font-semibold text-main px-4 py-2">
+        <h2 class="text-2xl font-semibold text-[#171C1F] dark:text-[#ffffff]">{{ $t('staking.delegations') }}</h2>
       </div>
-      <div class="rounded overflow-auto">
-        <table class="table validatore-table w-full">
-          <thead>
-            <th class="text-left pl-4">{{ $t('account.delegator') }}</th>
-            <th class="text-left pl-4">{{ $t('account.amount') }}</th>
-            <th class="text-left pl-4">{{ $t('account.height') }} / {{ $t('account.time') }}</th>
+      <div class="validator-table-wrapper validator-table-scroll rounded-xl">
+        <table class="table table-compact w-full">
+          <thead class="dark:bg-base-100 bg-base-200 sticky top-0 border-0">
+            <tr>
+              <th class="dark:bg-base-100 bg-base-200">{{ $t('account.delegator') }}</th>
+              <th class="dark:bg-base-100 bg-base-200">{{ $t('account.amount') }}</th>
+              <th class="dark:bg-base-100 bg-base-200">{{ $t('account.height') }}</th>
+              <th class="dark:bg-base-100 bg-base-200">{{ $t('account.time') }}</th>
+            </tr>
           </thead>
           <tbody>
-            <tr v-for="(item, i) in events.tx_responses">
-              <td class="pr-2 truncate text-primary" style="max-width: 250px">
-                <RouterLink v-for="d in mapDelegators(item.tx?.body?.messages)" :to="`/${props.chain}/account/${d}`">
-                  {{ d }}
-                </RouterLink> 
-              </td>
-              <td>
-                <div class="flex items-center" :class="{
-                  'text-yes' : selectedEventType === EventType.Delegate,
-                  'text-no' : selectedEventType ===  EventType.Unbond,
-                }">
-                  <RouterLink :to="`/${props.chain}/tx/${item.txhash}`">
-                    <span class="mr-2">
-                      {{ (selectedEventType === EventType.Delegate ? '+' : '-')}} {{
-                      mapEvents(item.events)
-                    }}</span>
-                  </RouterLink>
-                  <Icon
-                    v-if="item.code === 0"
-                    icon="mdi-check"
-                    class="text-yes"
-                  />
-                  <Icon v-else icon="mdi-multiply" class="text-no" />
+            <tr v-if="loadingDelegations">
+              <td colspan="5" class="text-center py-6"> Loading delegations... </td>
+            </tr>
+            <tr v-else-if="delegationTxs.length === 0">
+              <td colspan="5" class="text-center py-6"> No delegations found </td>
+            </tr>
+            <tr v-for="tx in delegationTxs" :key="tx.hash" class="hover:bg-gray-100 dark:hover:bg-[#384059] dark:bg-base-200 bg-white border-0 rounded-xl">
+              <td class="py-3">
+                <div class="truncate" style="max-width: 250px">
+                  <RouterLink :to="`/${props.chain}/tx/${tx.hash}`" class="text-primary">
+                    {{ tx.hash }}
+                </RouterLink>
                 </div>
               </td>
-              <td width="150">
-                <RouterLink class="text-primary mb-0" :to="`/${props.chain}/block/${item.height}`">{{
-                  item.height
-                }}</RouterLink><br>
-                <span class="text-xs pt-0 mt-0">{{ format.toDay(item.timestamp, 'from') }}</span>
+              <td class="py-3">
+                <div
+                  class="flex items-center"
+                  :class="{ 'text-[#60BC29]': selectedEventType === EventType.Delegate, 'text-error': selectedEventType === EventType.Unbond }"
+                >
+                  {{ format.formatToken({ denom: 'upokt', amount: tx.amount }) }}
+                  <Icon v-if="tx.status === 'true'" icon="mdi-check" class="text-[#60BC29] text-lg" />
+                  <Icon v-else icon="mdi-multiply" class="text-error text-lg" />
+                </div>
+              </td>
+              <td class="py-3">
+                <RouterLink :to="`/${props.chain}/blocks/${tx.block_height}`" class="dark:text-primary text-[#09279F] dark:invert">
+                  {{ tx.block_height }}
+                </RouterLink>
+              </td>
+              <td class="py-3">
+                {{ format.toLocaleDate(tx.timestamp) }}
+                <span class="text-xs">{{ format.toDay(tx.timestamp, 'from') }}</span>
               </td>
             </tr>
           </tbody>
         </table>
-        <PaginationBar :total="events.pagination?.total" :limit="page.limit" :callback="pagePowerEvents"/>
+      </div>
+      <!-- Pagination -->
+      <div class="flex justify-between items-center gap-4 my-6 px-6">
+        <div class="flex items-center gap-2">
+          <span class="text-sm text-gray-600">Show:</span>
+          <select v-model="delegationLimit" class="select select-bordered select-sm w-20">
+            <option :value="10">10</option>
+            <option :value="25">25</option>
+            <option :value="50">50</option>
+            <option :value="100">100</option>
+          </select>
+          <span class="text-sm text-gray-600">per page</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-sm text-gray-600">
+            Showing {{ ((delegationPage - 1) * delegationLimit) + 1 }} to {{ Math.min(delegationPage * delegationLimit, delegationTotal) }} of {{ delegationTotal }} delegations
+          </span>
+          <div class="flex items-center gap-1">
+            <button
+              class="page-btn bg-[#f8f9fa] border border-[#ccc] rounded px-[10px] py-[5px] cursor-pointer text-[#007bff] transition-colors duration-200 hover:bg-[#e9ecef] disabled:opacity-50 disabled:cursor-not-allowed text-[14px]" 
+              @click="delegationPage = 1"
+              :disabled="delegationPage === 1"
+            >
+              First
+            </button>
+            <button
+              class="page-btn bg-[#f8f9fa] border border-[#ccc] rounded px-[10px] py-[5px] cursor-pointer text-[#007bff] transition-colors duration-200 hover:bg-[#e9ecef] disabled:opacity-50 disabled:cursor-not-allowed text-[14px]"
+              @click="delegationPage--"
+              :disabled="delegationPage === 1"
+            >
+              &lt;
+            </button>
+            <span class="text-xs px-2">
+              Page {{ delegationPage }} of {{ delegationTotalPages }}
+            </span>
+            <button
+              class="page-btn bg-[#f8f9fa] border border-[#ccc] rounded px-[10px] py-[5px] cursor-pointer text-[#007bff] transition-colors duration-200 hover:bg-[#e9ecef] disabled:opacity-50 disabled:cursor-not-allowed text-[14px]"
+              @click="delegationPage++"
+              :disabled="delegationPage === delegationTotalPages"
+            >
+              &gt;
+            </button>
+            <button
+              class="page-btn bg-[#f8f9fa] border border-[#ccc] rounded px-[10px] py-[5px] cursor-pointer text-[#007bff] transition-colors duration-200 hover:bg-[#e9ecef] disabled:opacity-50 disabled:cursor-not-allowed text-[14px]"
+              @click="delegationPage = delegationTotalPages"
+              :disabled="delegationPage === delegationTotalPages"
+            >
+              Last
+            </button>
+          </div>
+        </div>
       </div>
     </div>
-    <!-- end -->
+
+
+    <!-- Toast Notifications -->
     <div class="toast" v-show="showCopyToast === 1">
       <div class="alert alert-success">
         <div class="text-xs md:!text-sm">
@@ -729,5 +1168,32 @@ function mapDelegators(messages: any[]) {
 .validatore-table.table :where(th, td) {
   padding: 0.6rem 1rem;
   font-size: 14px;
+}
+
+.validatore-table.table {
+  max-height: 320px;
+}
+
+/* Fixed-height scrollable table container for validator tables */
+.validator-table-wrapper {
+  max-height: 320px;
+  display: flex;
+  flex-direction: column;
+}
+
+.validator-table-scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+}
+
+.validator-table-scroll table {
+  margin-bottom: 0;
+}
+
+.validator-table-scroll thead {
+  position: sticky;
+  top: 0;
+  background: inherit;
+  z-index: 1;
 }
 </style>

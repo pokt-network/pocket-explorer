@@ -22,8 +22,8 @@
     "links": "链接"
   },
   "pages": {
-    "title": "Ping Dashboard",
-    "slogan": "Ping Dashboard 是一个区块链浏览器，也是一个网页钱包，还有更多 ... 🛠",
+    "title": "Pocket Dashboard",
+    "slogan": "Pocket Dashboard 是一个区块链浏览器，也是一个网页钱包，还有更多 ... 🛠",
     "description": "Cosmos Ecosystem Blockchains 🚀",
     "search_placeholder": "搜索区块链",
     "add_to_favorite": "加入收藏夹",
@@ -76,6 +76,7 @@
     "remaining_blocks": "剩余区块",
     "average_block_time": "平均出块时间",
     "block_header": "区块高度",
+    "block": "Block",
     "last_commit": "最后提交",
     "recent": "最近区块",
     "future": "未来区块",
@@ -236,6 +237,8 @@
   "tx": {
     "title": "概要",
     "tx_hash": "Tx 哈希",
+    "tx_from": "From Address",
+    "tx_to": "To Address",
     "gas": "Gas",
     "fee": "手续费",
     "memo": "备注",

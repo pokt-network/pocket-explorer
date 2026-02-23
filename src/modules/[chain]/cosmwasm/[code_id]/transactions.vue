@@ -55,7 +55,7 @@ onMounted(() => {
     wasmStore.wasmClient.getWasmContracts(address).then((x) => {
         info.value = x.contract_info;
     });
-    chainStore.rpc.getTxs("?order_by=2&events=execute._contract_address='{address}'", { address }, page.value).then(res => {
+    chainStore.rpc.getTxs("?order_by=2&query=execute._contract_address='{address}'", { address }, page.value).then(res => {
         txs.value = res
     })
 
@@ -64,7 +64,7 @@ onMounted(() => {
 function pageload(pageNum: number) {
     page.value.setPage(pageNum)
     const address = String(route.query.contract)
-    chainStore.rpc.getTxs("?order_by=2&events=execute._contract_address='{address}'", { address }, page.value).then(res => {
+    chainStore.rpc.getTxs("?order_by=2&query=execute._contract_address='{address}'", { address }, page.value).then(res => {
         txs.value = res
     })
 }
@@ -183,7 +183,7 @@ const result = ref({});
         </div>
 
         <div class="bg-base-100 px-4 pt-3 pb-4 rounded mb-4 shadow">
-            <h2 class="card-title truncate w-full mt-4 mb-2">Transactions</h2>
+            <h2 class="card-title truncate w-full mt-6 mb-4">Transactions</h2>
             <table class="table">
                 <thead class=" bg-base-200">
                     <tr>

@@ -62,7 +62,8 @@ export interface ChainConfig {
   coinType: string;
   assets: Asset[];
   themeColor?: string;
-  features?: string[]
+  features?: string[];
+  transactionService?: string;
   endpoints: {
     rest?: Endpoint[];
     rpc?: Endpoint[];
@@ -93,6 +94,7 @@ export interface LocalConfig {
   consensus_prefix?: string;
   alias: string;
   api: string[] | Endpoint[];
+  transaction_service: string;
   provider_chain: {
     api: string[] | Endpoint[]
   }
@@ -156,6 +158,7 @@ export function fromLocal(lc: LocalConfig): ChainConfig {
   conf.versions = {
     cosmosSdk: lc.sdk_version
   }
+  conf.transactionService = lc.transaction_service;
   conf.bech32Prefix = lc.addr_prefix;
   conf.bech32ConsensusPrefix = lc.consensus_prefix ?? lc.addr_prefix + 'valcons';
   conf.chainName = lc.chain_name;
@@ -263,7 +266,7 @@ export const useDashboard = defineStore('dashboard', {
   state: () => {
     const favMap = JSON.parse(
       localStorage.getItem('favoriteMap') ||
-        '{"cosmos":true, "osmosis":true}'
+        '{"poktroll":true, "poktroll":true}'
     );
     return {
       status: LoadingStatus.Empty,
@@ -282,6 +285,7 @@ export const useDashboard = defineStore('dashboard', {
   },
   actions: {
     async initial() {
+      // TODO: MIGHT NEED TO SEE HOW THIS CAN BE UPDATED SOMEDAY
       await this.loadingFromLocal();
       // await this.loadingFromRegistry()
     },
@@ -307,6 +311,8 @@ export const useDashboard = defineStore('dashboard', {
       const currencies = ['usd, cny'] // usd,cny,eur,jpy,krw,sgd,hkd
       get(`https://api.coingecko.com/api/v3/simple/price?include_24hr_change=true&vs_currencies=${currencies.join(',')}&ids=${coinIds.join(",")}`).then(x => {
         this.prices = x
+      }).catch(e => {
+        console.error(e)
       })
     },
     async loadingFromRegistry() {
@@ -321,13 +327,14 @@ export const useDashboard = defineStore('dashboard', {
       }
     },
     async loadingFromLocal() {
-      if(window.location.hostname.search("testnet") > -1) {
-        this.networkType = NetworkType.Testnet
-      }
+      // if(window.location.hostname.search("beta") > -1 ||  window.location.hostname.includes("localhost")) {
+      this.networkType = NetworkType.Testnet
+      // }
       const source: Record<string, LocalConfig> =
-        this.networkType === NetworkType.Mainnet
-          ? import.meta.glob('../../chains/mainnet/*.json', { eager: true })
-          : import.meta.glob('../../chains/testnet/*.json', { eager: true });
+        // this.networkType === NetworkType.Mainnet
+        //   ? import.meta.glob('../../chains/mainnet/*.json', { eager: true })
+        //   : 
+          import.meta.glob('../../chains/testnet/*.json', { eager: true });
       Object.values<LocalConfig>(source).forEach((x: LocalConfig) => {
         this.chains[x.chain_name] = fromLocal(x);
       });

@@ -55,6 +55,24 @@ export interface AbstractRegistry {
 // use snake style, since the all return object use snake style.
 export interface RequestRegistry extends AbstractRegistry {
   auth_params: Request<any>;
+  application: Request<any>;
+  application_params: Request<{params: any}>;
+  gateway: Request<any>;
+  gateway_params: Request<{params: any}>;
+  supplier: Request<any>;
+  supplier_params: Request<{params: any}>;
+  services: Request<any>;
+  service_params: Request<{params: any}>;
+  migration_params: Request<{params: any}>;
+  proof_params: Request<{params: any}>;
+  session_params: Request<{params: any}>;
+  shared_params: Request<{params: any}>;
+  tokenomics_params: Request<{params: any}>;
+  application_info: Request<any>;
+  gateway_info: Request<any>;
+  supplier_info: Request<any>;
+  service_info: Request<any>;
+  relay_mining_difficulty: Request<any>;
   auth_accounts: Request<PaginabledAccounts>;
   auth_account_address: Request<{ account: AuthAccount }>;
 
@@ -103,14 +121,14 @@ export interface RequestRegistry extends AbstractRegistry {
   gov_proposals_votes: Request<PaginatedProposalVotes>;
   gov_proposals_votes_voter: Request<{ vote: GovVote }>;
 
-  staking_deletations: Request<PaginatedDelegations>;
+  staking_delegations: Request<PaginatedDelegations>;
   staking_delegator_redelegations: Request<PaginatedRedelegations>;
   staking_delegator_unbonding_delegations: Request<PaginatedUnbonding>;
   staking_delegator_validators: Request<PaginatedValdiators>;
   staking_params: Request<StakingParam>;
   staking_pool: Request<StakingPool>;
   staking_validators: Request<PaginatedValdiators>;
-  staking_validators_address: Request<{ validator: Validator }>;
+  staking_validators_address: Request<{ validator: Validator, supplier:any }>;
   staking_validators_delegations: Request<PaginatedDelegations>;
   staking_validators_delegations_delegator: Request<{
     delegation_response: Delegation;

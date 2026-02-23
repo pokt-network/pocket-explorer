@@ -1,55 +1,672 @@
 <script lang="ts" setup>
-import { useParamStore } from '@/stores';
-import { ref, onMounted } from 'vue';
+import { useFormatter, useParamStore, useStakingStore } from '@/stores';
+import { ref, onMounted, computed } from 'vue';
 import CardParameter from '@/components/CardParameter.vue';
 import ArrayObjectElement from '@/components/dynamic/ArrayObjectElement.vue';
+import ApexCharts from 'vue3-apexcharts';
+import { Icon } from '@iconify/vue';
+import type { Validator } from '@/types';
+import type { NodeInfo } from '@/types/base';
+
+interface ValidatorNodeInfo {
+  validator: Validator;
+  nodeInfo: NodeInfo | null;
+}
+
+interface VersionData {
+  count: number;
+  validators: Validator[];
+}
+
 const store = useParamStore();
+const stakingStore = useStakingStore();
 const chain = ref(store.chain);
-onMounted(() => {
+const validatorVersions = ref<Record<string, VersionData>>({});
+const isLoading = ref(true);
+const format = useFormatter()
+
+
+onMounted(async () => {
   // fetch the data
-  store.initial();
+  await store.initial();
+  isLoading.value = false;
+  
+  // Fetch validators to analyze versions
+  await loadValidatorVersions();
 });
+
+async function loadValidatorVersions() {
+  // Get active validators
+  const validators = await stakingStore.fetchValidators('BOND_STATUS_BONDED');
+  
+  // Get node info for each validator
+  const validatorNodes = await Promise.all(
+    validators.map(async (validator) => {
+      try {
+        // In a real implementation, we would fetch each validator's node info
+        // For now, we'll mock this with the current node version
+        const nodeInfo = await store.fetchAbciInfo();
+        return {
+          validator,
+          nodeInfo
+        } as ValidatorNodeInfo;
+      } catch (error) {
+        console.error(`Failed to fetch node info for validator ${validator.description.moniker}`, error);
+        return {
+          validator,
+          nodeInfo: null
+        } as ValidatorNodeInfo;
+      }
+    })
+  );
+  
+  // Extract version information
+  const versionMap: Record<string, VersionData> = {};
+  validatorNodes.forEach(data => {
+    if (data.nodeInfo && data.nodeInfo.application_version) {
+      const version = data.nodeInfo.application_version.version;
+      if (!versionMap[version]) {
+        versionMap[version] = {
+          count: 0,
+          validators: []
+        };
+      }
+      versionMap[version].count++;
+      versionMap[version].validators.push(data.validator);
+    }
+  });
+  
+  validatorVersions.value = versionMap;
+}
+
+const latestVersion = computed(() => {
+  if (!store.appVersion?.items?.length) return null;
+  const versionItem = store.appVersion.items.find(item => item.subtitle === 'version');
+  return versionItem ? versionItem.value : null;
+});
+
+const versionChartOptions = computed(() => {
+  return {
+    chart: {
+      type: 'donut',
+      height: 220,
+      toolbar: {
+        show: false
+      },
+      animations: {
+        enabled: true,
+        speed: 500,
+        animateGradually: {
+          enabled: true,
+          delay: 150
+        },
+        dynamicAnimation: {
+          enabled: true,
+          speed: 350
+        }
+      }
+    },
+    colors: ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'],
+    labels: Object.keys(validatorVersions.value).map(version => `v${version}`),
+    dataLabels: {
+      enabled: true,
+      formatter: function(val: number) {
+        return Math.round(val) + '%'
+      },
+      style: {
+        fontSize: '12px',
+        fontFamily: 'system-ui, sans-serif',
+        fontWeight: 600,
+      },
+      dropShadow: {
+        enabled: true,
+        opacity: 0.3,
+        blur: 3,
+        left: 0,
+        top: 0
+      }
+    },
+    plotOptions: {
+      pie: {
+        donut: {
+          size: '50%',
+          labels: {
+            show: true,
+            name: {
+              show: true,
+              fontSize: '14px',
+              fontFamily: 'system-ui, sans-serif',
+              offsetY: -10,
+            },
+            value: {
+              show: true,
+              fontSize: '24px',
+              fontFamily: 'system-ui, sans-serif',
+              fontWeight: 600,
+              formatter: function(val: number) {
+                return val
+              }
+            },
+            total: {
+              show: true,
+              label: 'Total',
+              fontSize: '14px',
+              fontFamily: 'system-ui, sans-serif',
+              fontWeight: 500,
+              formatter: function() {
+                return stakingStore.validators.length
+              }
+            }
+          }
+        },
+        expandOnClick: true
+      }
+    },
+    responsive: [{
+      breakpoint: 480,
+      options: {
+        chart: {
+          width: 200
+        },
+        legend: {
+          position: 'bottom'
+        }
+      }
+    }],
+    legend: {
+      position: 'bottom',
+      fontFamily: 'system-ui, sans-serif',
+      fontSize: '13px',
+      labels: {
+        colors: 'rgba(255, 255, 255, 0.8)'
+      },
+      markers: {
+        width: 12,
+        height: 12,
+        radius: 6
+      },
+      itemMargin: {
+        horizontal: 10,
+        vertical: 5
+      }
+    },
+    tooltip: {
+      enabled: true,
+      theme: 'dark',
+      style: {
+        fontSize: '12px',
+        fontFamily: 'system-ui, sans-serif'
+      },
+      y: {
+        title: {
+          formatter: function(seriesName: string) {
+            return 'Version ' + seriesName + ':'
+          }
+        },
+        formatter: function(value: number) {
+          return `${value} validators (${Math.round(value / stakingStore.validators.length * 100)}%)`
+        }
+      }
+    },
+    stroke: {
+      width: 2,
+      colors: ['transparent']
+    }
+  };
+});
+
+const versionChartSeries = computed(() => {
+  return Object.values(validatorVersions.value).map((v: VersionData) => v.count);
+});
+
+function formatTitle(v: string) {
+  if(!v) return ""
+  // capitalize the first letter of each word
+  return v.replace(/_/g, " ").replace('bonded', 'Staked').replace('unbonding', 'Unstaking').replace('unbonded', 'Unstaked').replace(/\b\w/g, (char) => char.toUpperCase())
+}
 </script>
 <template>
+<div class="pt-[6.5rem]">
+  <p class="bg-[#ffffff] hover:bg-base-200 text-2xl w-full px-4 py-4 my-4 font-bold text-[#000000] dark:text-[#ffffff] rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">Parameters</p>
   <div class="overflow-hidden">
     <!-- Chain ID -->
-    <div class="bg-base-100 px-4 pt-3 pb-4 rounded">
-      <div class="text-base mb-3 text-main">{{ chain.title }}</div>
+    <div class="bg-[#ffffff] text-2xl flex flex-col w-full px-4 py-4 my-4 font-bold text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
+      <div class="flex items-center mb-4">
+        <!-- <Icon icon="mdi:cube-outline" class="text-2xl text-info mr-2" /> -->
+        <div class="text-[30px]/[40px] font-semibold text-main">{{ chain.title }}</div>
+      </div>
       <div
         class="grid grid-cols-2 md:!grid-cols-4 lg:!grid-cols-5 2xl:!grid-cols-6 gap-4"
       >
         <div
           v-for="(item, index) of chain.items"
           :key="index"
-          class="rounded-sm bg-active px-4 py-2"
+          class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-4 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
         >
-          <div class="text-xs mb-2 text-secondary">{{ item.subtitle }}</div>
-          <div class="text-base text-main">{{ item.value }}</div>
+          <div class="text-xs mb-2 text-secondary flex items-center justify-center">
+            <Icon :icon="`mdi:${item.icon || 'information-outline'}`" class="mr-1 text-info" />
+            {{ formatTitle(item.subtitle) }}
+          </div>
+          <div class="text-base text-main font-medium overflow-hidden text-ellipsis flex items-center justify-center">{{ item.value }}</div>
         </div>
       </div>
     </div>
-    <!-- minting Parameters  -->
-    <CardParameter :cardItem="store.mint" />
-    <!-- Staking Parameters  -->
-    <CardParameter :cardItem="store.staking" />
-    <!-- Governance Parameters -->
-    <CardParameter :cardItem="store.gov" />
-    <!-- Distribution Parameters -->
-    <CardParameter :cardItem="store.distribution" />
-    <!-- Slashing Parameters -->
-    <CardParameter :cardItem="store.slashing" />
-    <!-- Application Version -->
-    <div class="bg-base-100 px-4 pt-3 pb-4 rounded-sm mt-6">
-      <div class="text-base mb-3 text-main">{{ store.appVersion?.title }}</div>
-      <ArrayObjectElement :value="store.appVersion?.items" :thead="false" />
+
+    <!-- Validator Version Distribution -->
+    <div class="bg-[#ffffff] w-full px-4 pt-3 pb-4 mt-6 font-bold text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
+      <div class="flex items-center mb-4">
+        <!-- Title -->
+        <div class="text-[30px]/[40px] font-semibold text-main">
+          Validator Version Distribution
+        </div>
+      </div>
+
+      <div v-if="isLoading" class="flex bg-[#ffffff] hover:bg-base-200 w-full py-8 rounded-xl justify-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
+        <div class="loading loading-spinner loading-lg text-primary"></div>
+      </div>
+
+      <div v-else>
+        <!-- Row for Version Box + Status Summary -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-5">
+          <!-- Version Box (small width) -->
+          <div class="md:col-span-1">
+            <div v-for="(versionData, version) in validatorVersions" :key="version" 
+              class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
+              :class="versionData.count === stakingStore.validators.length ? 'border-success' : versionData.count > stakingStore.validators.length / 2 ? 'border-primary' : 'border-warning'">
+              <div class="flex justify-between items-center mb-2">
+                <div class="flex items-center">
+                  <!-- <Icon icon="mdi:tag-text" class="mr-2 text-primary" /> -->
+                  <span class="text-[#64748B;] font-semibold">v{{ version }}</span>
+                </div>
+                <!-- <span class="badge badge-lg" 
+                  :class="versionData.count === stakingStore.validators.length ? 'badge-success' : versionData.count > stakingStore.validators.length / 2 ? 'badge-primary' : 'badge-warning'">
+                  {{ Math.round(versionData.count / stakingStore.validators.length * 100) }}%
+                </span>         -->
+              </div>
+              <div class="text-sm dark:text-gray-200 text-[#171C1F;] flex justify-between items-center mb-2">
+                <span class="font-medium">{{ versionData.count }} out of {{ stakingStore.validators.length }} validators </span>
+                <span class="badge badge-lg dark:bg-success bg-[#6AC13633;] dark:text-[#171C1F;] text-[#60BC29;]" 
+                  :class="versionData.count === stakingStore.validators.length ? 'badge-success' : versionData.count > stakingStore.validators.length / 2 ? 'badge-primary' : 'badge-warning'">
+                  {{ Math.round(versionData.count / stakingStore.validators.length * 100) }}%
+                </span>
+              </div>
+              <div class="mt-3 w-full bg-base-300 rounded-xl h-2.5 overflow-hidden">
+                <div class="h-2.5 rounded-full transition-all duration-500 bg-[#60BC29;]" 
+                  :class="versionData.count === stakingStore.validators.length ? 'bg-success' : versionData.count > stakingStore.validators.length / 2 ? 'bg-primary' : 'bg-warning'"
+                  :style="`width: ${versionData.count / stakingStore.validators.length * 100}%`"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Status Summary Box (bigger width) -->
+          <div class="md:grid-cols-2 bg-[#ffffff] hover:bg-base-200 dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border border-[#60BC29] rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300">
+            <div class="p-3 rounded-xl h-full flex items-center dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)]"
+              :class="Object.keys(validatorVersions).length === 1 ? 'bg-success/10 border border-success/20' : Object.keys(validatorVersions).length > 1 ? 'bg-warning/10 border border-warning/20' : 'hover:bg-base-200'">
+              <Icon :icon="Object.keys(validatorVersions).length === 1 ? 'mdi:check-circle' : 'mdi:alert-circle'" 
+                class="text-5xl mr-2" 
+                :class="Object.keys(validatorVersions).length === 1 ? 'text-[#60BC29;]' : 'text-warning'" />
+              <div>
+                <span class="text-xs">
+                  <span v-if="Object.keys(validatorVersions).length === 1" class="dark:text-[#60BC29;] text-[#171C1F;] font-semibold">
+                    All validators are running the latest protocol version.
+                  </span>
+                  <span v-else-if="Object.keys(validatorVersions).length > 1" class="text-warning">
+                    Multiple validator versions detected
+                  </span>
+                  <span v-else class="text-secondary">
+                    No validator version data available
+                  </span>
+                </span>
+                <p class="text-xs mt-1 text-secondary">
+                  <span v-if="Object.keys(validatorVersions).length === 1" class="dark:text-gray-200 text-[#171C1FA6;]">
+                    Network is synchronized with all validators on the same software version.
+                  </span>
+                  <span v-else-if="Object.keys(validatorVersions).length > 1">
+                    Network upgrade in progress. Some validators may need to update their software.
+                  </span>
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <!-- Node Information -->
-    <div class="bg-base-100 px-4 pt-3 pb-4 rounded-sm mt-6">
-      <div class="text-base mb-3 text-main">{{ store.nodeVersion?.title }}</div>
-      <ArrayObjectElement :value="store.nodeVersion?.items" :thead="false" />
+
+    <!-- Custom template for CardParameter components -->
+    <div class="px-4 pt-3 pb-4 rounded-xl mt-6 shadow-md border-t-4 border-success"
+      v-if="store.mint?.items && store.mint?.items?.length > 0">
+      <div class="flex items-center mb-4 shadow-md hover:shadow-lg transition-shadow duration-300">
+        <Icon icon="mdi:cash-multiple" class="text-2xl text-success mr-2" />
+        <div class="text-lg font-semibold text-main">{{ store.mint?.title }}</div>
+      </div>
+      <div class="grid grid-cols-2 md:!grid-cols-4 lg:!grid-cols-5 2xl:!grid-cols-6 gap-4">
+        <div
+          v-for="(item, index) of store.mint?.items"
+          :key="index"
+          class="rounded-xl bg-base-200 px-4 py-3 transition-all duration-200 border-l-4 border-success/50"
+        >
+          <div class="text-xs mb-2 text-secondary flex items-center shadow-md hover:shadow-lg transition-shadow duration-300">
+            <Icon icon="mdi:currency-usd" class="mr-1 text-success" />
+            <span class="capitalize">{{ formatTitle(item?.subtitle) }}</span>
+          </div>
+          <div class="text-base text-main font-medium overflow-hidden text-ellipsis shadow-md hover:shadow-lg transition-shadow duration-30">{{ item?.value }}</div>
+        </div>
+      </div>
+    </div>
+
+    
+    <!-- Staking Parameters -->
+    <div class="bg-[#ffffff] px-4 pt-3 pb-4 mt-6 text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
+      v-if="store.staking?.items && store.staking?.items?.length > 0">
+      <div class="flex items-center mb-4">
+        <!-- <Icon icon="mdi:bank" class="text-2xl text-secondary mr-2" /> -->
+        <div class="text-[30px]/[40px] font-semibold text-main">{{ store.staking?.title }}</div>
+      </div>
+      <div class="grid grid-cols-2 md:!grid-cols-4 lg:!grid-cols-5 2xl:!grid-cols-6 gap-4">
+        <div
+          v-for="(item, index) of store.staking?.items"
+          :key="index"
+          class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-4 py-3 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
+        >
+          <div class="text-xs mb-2 text-[#64748B;] flex items-center justify-center">
+            <!-- <Icon icon="mdi:gavel" class="mr-1 text-secondary" /> -->
+            <span class="capitalize">{{ formatTitle(item?.subtitle) }}</span>
+          </div>
+          <div class="text-base text-main font-medium overflow-hidden text-ellipsis flex justify-center items-center">{{ item?.value }}</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Governance Parameters -->
+    <div class="bg-[#ffffff] w-full px-4 pt-3 pb-4 mt-6 text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
+      v-if="store.gov?.items && store.gov?.items?.length > 0">
+      <div class="flex items-center mb-4">
+        <!-- <Icon icon="mdi:gavel" class="text-2xl text-accent mr-2" /> -->
+        <div class="text-[30px]/[40px] font-semibold text-main">{{ store.gov?.title }}</div>
+      </div>
+      <div class="grid grid-cols-2 md:!grid-cols-4 lg:!grid-cols-6 2xl:!grid-cols-7 gap-4">
+        <div
+          v-for="(item, index) of store.gov?.items"
+          :key="index"
+          class="flex flex-col bg-[#ffffff] hover:bg-base-200 px-4 py-3 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
+        >
+          <div class="text-xs mb-2 text-[#64748B;] flex items-center justify-center">
+            <!-- <Icon icon="mdi:vote" class="mr-1 text-accent" /> -->
+            <span class="capitalize">{{ formatTitle(item?.subtitle) }}</span>
+          </div>
+          <div class="text-xs text-main font-medium overflow-hidden text-ellipsis flex items-center justify-center">
+            {{ item?.subtitle == 'min_deposit' ? format.formatToken(item.value[0]) : item?.value }}
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Distribution Parameters -->
+    <div class="bg-[#ffffff] px-4 pt-3 pb-4 mt-6 text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
+      v-if="store.distribution?.items && store.distribution?.items?.length > 0">
+      <div class="flex items-center mb-4">
+        <!-- <Icon icon="mdi:share-variant" class="text-2xl text-warning mr-2" /> -->
+        <div class="text-[30px]/[40px] font-semibold text-main">{{ store.distribution?.title }}</div>
+      </div>
+      <div class="grid grid-cols-2 md:!grid-cols-4 lg:!grid-cols-5 2xl:!grid-cols-6 gap-4">
+        <div
+          v-for="(item, index) of store.distribution?.items"
+          :key="index"
+          class="flex flex-col bg-[#ffffff] hover:bg-base-200 px-4 py-3 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
+        >
+          <div class="text-xs mb-2 text-[#64748B;] flex items-center justify-center">
+            <!-- <Icon icon="mdi:percent" class="mr-1 text-warning" /> -->
+            <span class="capitalize">{{ formatTitle(item?.subtitle) }}</span>
+          </div>
+          <div class="text-base text-main font-medium overflow-hidden text-ellipsis flex items-center justify-center">{{ item?.value }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bank Parameters -->
+    <div class="bg-[#ffffff] px-4 pt-3 pb-4 mt-6 text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
+      v-if="store.bank?.items && store.bank?.items?.length > 0">
+      <div class="flex items-center mb-4">
+        <div class="text-[30px]/[40px] font-semibold text-main">{{ store.bank?.title }}</div>
+      </div>
+      <div class="grid grid-cols-2 md:!grid-cols-4 lg:!grid-cols-5 2xl:!grid-cols-6 gap-4">
+        <div
+          v-for="(item, index) of store.bank?.items"
+          :key="index"
+          class="flex flex-col bg-[#ffffff] hover:bg-base-200 px-4 py-3 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
+        >
+          <div class="text-xs mb-2 text-[#64748B;] flex items-center justify-center">
+            <span class="capitalize">{{ formatTitle(item?.subtitle) }}</span>
+          </div>
+          <div class="text-base text-main font-medium overflow-hidden text-ellipsis flex items-center justify-center">{{ item?.value }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Auth Parameters -->
+    <div class="bg-[#ffffff] px-4 pt-3 pb-4 mt-6 text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
+      v-if="store.auth?.items && store.auth?.items?.length > 0">
+      <div class="flex items-center mb-4">
+        <div class="text-[30px]/[40px] font-semibold text-main">{{ store.auth?.title }}</div>
+      </div>
+      <div class="grid grid-cols-2 md:!grid-cols-4 lg:!grid-cols-5 2xl:!grid-cols-6 gap-4">
+        <div
+          v-for="(item, index) of store.auth?.items"
+          :key="index"
+          class="flex flex-col bg-[#ffffff] hover:bg-base-200 px-4 py-3 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
+        >
+          <div class="text-xs mb-2 text-[#64748B;] flex items-center justify-center">
+            <span class="capitalize">{{ formatTitle(item?.subtitle) }}</span>
+          </div>
+          <div class="text-base text-main font-medium overflow-hidden text-ellipsis flex items-center justify-center">{{ item?.value }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Application Parameters -->
+    <div class="bg-[#ffffff] px-4 pt-3 pb-4 mt-6 text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
+      v-if="store.applicationParams?.items && store.applicationParams?.items?.length > 0">
+      <div class="flex items-center mb-4">
+        <div class="text-[30px]/[40px] font-semibold text-main">{{ store.applicationParams?.title }}</div>
+      </div>
+      <div class="grid grid-cols-2 md:!grid-cols-4 lg:!grid-cols-5 2xl:!grid-cols-6 gap-4">
+        <div
+          v-for="(item, index) of store.applicationParams?.items"
+          :key="index"
+          class="flex flex-col bg-[#ffffff] hover:bg-base-200 px-4 py-3 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
+        >
+          <div class="text-xs mb-2 text-[#64748B;] flex items-center justify-center">
+            <span class="capitalize">{{ formatTitle(item?.subtitle) }}</span>
+          </div>
+          <div class="text-base text-main font-medium overflow-hidden text-ellipsis flex items-center justify-center">{{ item?.subtitle == 'min_stake' ? format.formatToken(item.value) : item?.value }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gateway Parameters -->
+    <div class="bg-[#ffffff] px-4 pt-3 pb-4 mt-6 text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
+      v-if="store.gatewayParams?.items && store.gatewayParams?.items?.length > 0">
+      <div class="flex items-center mb-4">
+        <div class="text-[30px]/[40px] font-semibold text-main">{{ store.gatewayParams?.title }}</div>
+      </div>
+      <div class="grid grid-cols-2 md:!grid-cols-4 lg:!grid-cols-5 2xl:!grid-cols-6 gap-4">
+        <div
+          v-for="(item, index) of store.gatewayParams?.items"
+          :key="index"
+          class="flex flex-col bg-[#ffffff] hover:bg-base-200 px-4 py-3 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
+        >
+          <div class="text-xs mb-2 text-[#64748B;] flex items-center justify-center">
+            <span class="capitalize">{{ formatTitle(item?.subtitle) }}</span>
+          </div>
+          <div class="text-base text-main font-medium overflow-hidden text-ellipsis flex items-center justify-center">{{ item?.subtitle == 'min_stake' ? format.formatToken(item.value) : item?.value }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Migration Parameters -->
+    <div class="bg-[#ffffff] px-4 pt-3 pb-4 mt-6 text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
+      v-if="store.migrationParams?.items && store.migrationParams?.items?.length > 0">
+      <div class="flex items-center mb-4">
+        <div class="text-[30px]/[40px] font-semibold text-main">{{ store.migrationParams?.title }}</div>
+      </div>
+      <div class="grid grid-cols-2 md:!grid-cols-4 lg:!grid-cols-5 2xl:!grid-cols-6 gap-4">
+        <div
+          v-for="(item, index) of store.migrationParams?.items"
+          :key="index"
+          class="flex flex-col bg-[#ffffff] hover:bg-base-200 px-4 py-3 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
+        >
+          <div class="text-xs mb-2 text-[#64748B;] flex items-center justify-center">
+            <span class="capitalize">{{ formatTitle(item?.subtitle) }}</span>
+          </div>
+          <div class="text-base text-main font-medium overflow-hidden text-ellipsis flex items-center justify-center">{{ item?.subtitle == 'min_stake' ? format.formatToken(item.value) : item?.value }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Proof Parameters -->
+    <div class="bg-[#ffffff] px-4 pt-3 pb-4 mt-6 text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
+      v-if="store.proofParams?.items && store.proofParams?.items?.length > 0">
+      <div class="flex items-center mb-4">
+        <div class="text-[30px]/[40px] font-semibold text-main">{{ store.proofParams?.title }}</div>
+      </div>
+      <div class="grid grid-cols-2 md:!grid-cols-4 lg:!grid-cols-5 2xl:!grid-cols-6 gap-4">
+        <div
+          v-for="(item, index) of store.proofParams?.items"
+          :key="index"
+          class="flex flex-col bg-[#ffffff] hover:bg-base-200 px-4 py-3 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
+        >
+          <div class="text-xs mb-2 text-[#64748B;] flex items-center justify-center">
+            <span class="capitalize">{{ formatTitle(item?.subtitle) }}</span>
+          </div>
+          <div class="text-base text-main font-medium overflow-hidden text-ellipsis flex items-center justify-center">{{ ['proof_missing_penalty','proof_requirement_threshold','proof_submission_fee'].includes(item?.subtitle) ? format.formatToken(item.value) : item?.value }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Service Parameters -->
+    <div class="bg-[#ffffff] px-4 pt-3 pb-4 mt-6 text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
+      v-if="store.serviceParams?.items && store.serviceParams?.items?.length > 0">
+      <div class="flex items-center mb-4">
+        <div class="text-[30px]/[40px] font-semibold text-main">{{ store.serviceParams?.title }}</div>
+      </div>
+      <div class="grid grid-cols-2 md:!grid-cols-4 lg:!grid-cols-5 2xl:!grid-cols-6 gap-4">
+        <div
+          v-for="(item, index) of store.serviceParams?.items"
+          :key="index"
+          class="flex flex-col bg-[#ffffff] hover:bg-base-200 px-4 py-3 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
+        >
+          <div class="text-xs mb-2 text-[#64748B;] flex items-center justify-center">
+            <span class="capitalize">{{ formatTitle(item?.subtitle) }}</span>
+          </div>
+          <div class="text-base text-main font-medium overflow-hidden text-ellipsis flex items-center justify-center">{{ item?.subtitle == 'add_service_fee' ? format.formatToken(item.value) : item?.value }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Session Parameters -->
+    <div class="bg-[#ffffff] px-4 pt-3 pb-4 mt-6 text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
+      v-if="store.sessionParams?.items && store.sessionParams?.items?.length > 0">
+      <div class="flex items-center mb-4">
+        <div class="text-[30px]/[40px] font-semibold text-main">{{ store.sessionParams?.title }}</div>
+      </div>
+      <div class="grid grid-cols-2 md:!grid-cols-4 lg:!grid-cols-5 2xl:!grid-cols-6 gap-4">
+        <div
+          v-for="(item, index) of store.sessionParams?.items"
+          :key="index"
+          class="flex flex-col bg-[#ffffff] hover:bg-base-200 px-4 py-3 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
+        >
+          <div class="text-xs mb-2 text-[#64748B;] flex items-center justify-center">
+            <span class="capitalize">{{ formatTitle(item?.subtitle) }}</span>
+          </div>
+          <div class="text-base text-main font-medium overflow-hidden text-ellipsis flex items-center justify-center">{{ item?.value }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Shared Parameters -->
+    <div class="bg-[#ffffff] px-4 pt-3 pb-4 mt-6 text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
+      v-if="store.sharedParams?.items && store.sharedParams?.items?.length > 0">
+      <div class="flex items-center mb-4">
+        <div class="text-[30px]/[40px] font-semibold text-main">{{ store.sharedParams?.title }}</div>
+      </div>
+      <div class="grid grid-cols-2 md:!grid-cols-4 lg:!grid-cols-5 2xl:!grid-cols-6 gap-4">
+        <div
+          v-for="(item, index) of store.sharedParams?.items"
+          :key="index"
+          class="flex flex-col bg-[#ffffff] hover:bg-base-200 px-4 py-3 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
+        >
+          <div class="text-xs mb-2 text-[#64748B;] flex items-center justify-center">
+            <span class="capitalize">{{ formatTitle(item?.subtitle) }}</span>
+          </div>
+          <div class="text-base text-main font-medium overflow-hidden text-ellipsis flex items-center justify-center">{{ item?.value }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Supplier Parameters -->
+    <div class="bg-[#ffffff] px-4 pt-3 pb-4 mt-6 text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
+      v-if="store.supplierParams?.items && store.supplierParams?.items?.length > 0">
+      <div class="flex items-center mb-4">
+        <div class="text-[30px]/[40px] font-semibold text-main">{{ store.supplierParams?.title }}</div>
+      </div>
+      <div class="grid grid-cols-2 md:!grid-cols-4 lg:!grid-cols-5 2xl:!grid-cols-6 gap-4">
+        <div
+          v-for="(item, index) of store.supplierParams?.items"
+          :key="index"
+          class="flex flex-col bg-[#ffffff] hover:bg-base-200 px-4 py-3 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
+        >
+          <div class="text-xs mb-2 text-[#64748B;] flex items-center justify-center">
+            <span class="capitalize">{{ formatTitle(item?.subtitle) }}</span>
+          </div>
+          <div class="text-base text-main font-medium overflow-hidden text-ellipsis flex items-center justify-center">{{ ['min_stake','staking_fee'].includes(item?.subtitle) ? format.formatToken(item.value) : item?.value }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tokenomics Parameters -->
+    <div class="bg-[#ffffff] px-4 pt-3 pb-4 mt-6 text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
+      v-if="store.tokenomicsParams?.items && store.tokenomicsParams?.items?.length > 0">
+      <div class="flex items-center mb-4">
+        <div class="text-[30px]/[40px] font-semibold text-main">{{ store.tokenomicsParams?.title }}</div>
+      </div>
+      <div class="grid grid-cols-2 md:!grid-cols-4 lg:!grid-cols-5 2xl:!grid-cols-6 gap-4">
+        <div
+          v-for="(item, index) of store.tokenomicsParams?.items"
+          :key="index"
+          class="bg-[#ffffff] hover:bg-base-200 px-4 py-3 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
+        >
+          <div class="text-xs mb-2 text-[#64748B;] flex items-center justify-center">
+            <span class="capitalize">{{ formatTitle(item?.subtitle) }}</span>
+          </div>
+          <div class="text-base text-main font-medium overflow-hidden text-ellipsis flex items-center justify-center">{{ item?.value }}</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Slashing Parameters -->
+    <div class="bbg-[#ffffff] px-4 pt-3 pb-4 mt-6 mb-4 text-white rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
+      v-if="store.slashing?.items && store.slashing?.items?.length > 0">
+      <div class="flex items-center mb-4">
+        <!-- <Icon icon="mdi:alert" class="text-2xl text-error mr-2" /> -->
+        <div class="text-[30px]/[40px] font-semibold text-main">{{ store.slashing?.title }}</div>
+      </div>
+      <div class="grid grid-cols-2 md:!grid-cols-4 lg:!grid-cols-5 2xl:!grid-cols-6 gap-4">
+        <div
+          v-for="(item, index) of store.slashing?.items"
+          :key="index"
+          class="flex flex-col bg-[#ffffff] hover:bg-base-200 px-4 py-3 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg"
+        >
+          <div class="text-xs mb-2 text-[#64748B;] flex items-center justify-center">
+            <!-- <Icon icon="mdi:sword" class="mr-1 text-error" /> -->
+            <span class="capitalize">{{ formatTitle(item?.subtitle) }}</span>
+          </div>
+          <div class="text-base text-main font-medium overflow-hidden text-ellipsis flex items-center justify-center">{{ item?.value }}</div>
+        </div>
+      </div>
     </div>
   </div>
+</div>
 </template>
 
 <route>

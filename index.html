@@ -4,15 +4,83 @@
     <meta charset="UTF-8">
     <link rel="icon" href="/favicon.ico">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ping Dashboard - Cosmos Blockchain Explorer And Web Wallet</title>
-    <meta name="description" content="Ping Dashboard is a block explorer/web wallet for blockchains built on Cosmos SDK, Cosmoshub, Osmosis, Juno, Evmos, Injective, Canto and 70+ blockchains listed on ping.pub" />
-    <link rel="stylesheet" type="text/css" href="/loader.css" />    
+    
+    <!-- Primary Meta Tags -->
+    <title>Pocket Network Explorer | Blockchain Explorer</title>
+    <meta name="title" content="Pocket Network Explorer | Blockchain Explorer" />
+    <meta name="description" content="Explore the Pocket Network blockchain. View blocks, transactions, validators, and network statistics on the official Pocket Network Explorer." />
+    <meta name="keywords" content="Pocket Network, Pocket, Pocket Explorer, Pocket Network Explorer, blockchain explorer, POKT, validator, node runner, blockchain, decentralized infrastructure, RPC provider" />
+    <meta name="author" content="Pocket Network" />
+    <meta name="language" content="English" />
+    <link rel="canonical" href="https://explorer.pocket.network" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://explorer.pocket.network" />
+    <meta property="og:title" content="Pocket Network Explorer | Blockchain Explorer" />
+    <meta property="og:description" content="Explore the Pocket Network blockchain. View blocks, transactions, validators, and network statistics on the official Pocket Network Explorer." />
+    <meta property="og:image" content="https://pocket.network/wp-content/uploads/2024/12/logo.png" />
+    <meta property="og:site_name" content="Pocket Network Explorer" />
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://explorer.pocket.network" />
+    <meta name="twitter:title" content="Pocket Network Explorer | Blockchain Explorer" />
+    <meta name="twitter:description" content="Explore the Pocket Network blockchain. View blocks, transactions, validators, and network statistics on the official Pocket Network Explorer." />
+    <meta name="twitter:image" content="https://pocket.network/wp-content/uploads/2024/12/logo.png" />
+    
+    <!-- Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Pocket Network",
+      "url": "https://pocket.network",
+      "logo": "https://pocket.network/wp-content/uploads/2024/12/logo.png",
+      "sameAs": [
+        "https://twitter.com/POKTnetwork",
+        "https://github.com/pokt-network"
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "Pocket Network Explorer",
+      "url": "https://explorer.pocket.network",
+      "description": "Explore the Pocket Network blockchain. View blocks, transactions, validators, and network statistics.",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://explorer.pocket.network/search?q={search_term_string}",
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://explorer.pocket.network"
+        }
+      ]
+    }
+    </script>
+    
+    <link rel="stylesheet" type="text/css" href="/loader.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.0/css/all.min.css">
+    <link rel="icon" href="https://assets-global.website-files.com/651fe0a9a906d151784935f8/65834b8745b60c35c76cab89_Logo-black.svg">
   </head>
   <body>
     <div id="app">
       <div id="loading-bg">
         <div class="loading-logo">
-          <img src="/logo.svg" alt="Logo" />
+          <img src="https://assets-global.website-files.com/651fe0a9a906d151784935f8/65834b8745b60c35c76cab89_Logo-black.svg" height="132px" width="150px" alt="Logo" />
         </div>
         <div class="pre-loading">
           <div class="effect-1 effects"></div>

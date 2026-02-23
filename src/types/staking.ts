@@ -9,7 +9,7 @@ export interface Validator {
     "delegator_shares": string,
     "description": {
         "moniker": string,
-        "identity"?: string,
+        "identity": string,
         "website"?: string,
         "security_contact"?: string,
         "details"?: string
@@ -19,7 +19,8 @@ export interface Validator {
     "commission": CommissionRate,
     "min_self_delegation": string,
     "liquid_shares": string,
-    "validator_bond_shares": string
+    "validator_bond_shares": string,
+    "supplier": any|null,
 }
 
 export interface CommissionRate {

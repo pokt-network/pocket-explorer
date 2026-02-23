@@ -24,11 +24,13 @@ export function colorMap(color: string) {
   }
 }
 
+const bank = useBankStore();
+
 export const useIndexModule = defineStore('module-index', {
   state: () => {
     return {
       days: 14,
-      tickerIndex: 0,
+      tickerIndex: 1,
       coinInfo: {
         name: '',
         symbol: '',
@@ -47,6 +49,34 @@ export const useIndexModule = defineStore('module-index', {
         },
         market_data: {
           price_change_percentage_24h: 0,
+          circulating_supply: 0,
+          high_24h: {
+            usd: 0,
+          },
+          atl: {
+            usd: 0,
+          },
+          atl_change_percentage: {
+            usd: 0,
+          },
+          low_24h: {
+            usd: 0,
+          },
+          ath: {
+            usd: 0,
+          },
+          ath_change_percentage: {
+            usd: 0,
+          },
+          total_volume: {
+            usd: 0,
+          },
+          market_cap: {
+            usd: 0,
+          },
+          current_price: {
+            usd: 0,
+          },
         },
         tickers: [] as {
           market: {
@@ -143,61 +173,64 @@ export const useIndexModule = defineStore('module-index', {
 
     stats() {
       const base = useBaseStore();
-      const bank = useBankStore();
       const staking = useStakingStore();
       const mintStore = useMintStore();
       const formatter = useFormatter();
 
       return [
         {
-          title: 'Height',
+          title: 'Latest Block',
           color: 'primary',
-          icon: 'mdi-pound',
+          // icon: 'mdi-pound',
           stats: String(base?.latest?.block?.header?.height || 0),
           change: 0,
+          subtitle: `Avg Block Time: ${String(base.blocktime/1000)}s`
         },
         {
-          title: 'Validators',
-          color: 'error',
-          icon: 'mdi-human-queue',
+          title: 'Active Validators',
+          color: '',
+          // icon: 'mdi-human-queue',
           stats: String(base?.latest?.block?.last_commit?.signatures.length || 0),
           change: 0,
         },
         {
           title: 'Supply',
-          color: 'success',
-          icon: 'mdi-currency-usd',
+          color: '',
+          // icon: 'mdi-currency-usd',
           stats: formatter.formatTokenAmount(bank.supply),
           change: 0,
         },
         {
-          title: 'Bonded Tokens',
-          color: 'warning',
-          icon: 'mdi-lock',
-          stats: formatter.formatTokenAmount({
+          title: 'Staked Tokens',
+          color: '',
+          // icon: 'mdi-lock',
+          stats: `${formatter.formatTokenAmount({
             // @ts-ignore
             amount: this.pool.bonded_tokens,
             denom: staking.params.bond_denom,
-          }),
+          }) || ""} ${staking.params.bond_denom || ""}`,
           change: 0,
         },
         {
           title: 'Inflation',
           color: 'success',
-          icon: 'mdi-chart-multiple',
+          // icon: 'mdi-chart-multiple',
           stats: formatter.formatDecimalToPercent(mintStore.inflation),
           change: 0,
         },
         {
           title: 'Community Pool',
-          color: 'primary',
-          icon: 'mdi-bank',
-          stats: formatter.formatTokens(
-            // @ts-ignore
-            this.communityPool?.filter(
-              (x: Coin) => x.denom === staking.params.bond_denom
-            )
-          ),
+          color: '',
+          // icon: 'mdi-bank',
+          // @ts-expect-error
+          stats: `${this.communityPool[0]?.amount || ''} ${this.communityPool[0]?.denom || ''}`
+          // formatter.formatTokens(
+          //   // @ts-ignore
+          //   this.communityPool?.filter(
+          //     (x: Coin) => x.denom === staking.params.bond_denom
+          //   )
+          // )
+          ,
           change: 0,
         },
       ];
@@ -214,6 +247,9 @@ export const useIndexModule = defineStore('module-index', {
     async loadDashboard() {
       this.$reset();
       this.initCoingecko();
+      useBaseStore().fetchLatest();
+      bank.initial();
+      useStakingStore().init();
       useMintStore().fetchInflation();
       useDistributionStore()
         .fetchCommunityPool()
@@ -221,7 +257,7 @@ export const useIndexModule = defineStore('module-index', {
           this.communityPool = x?.pool
             ?.filter((t) => t.denom.length < 10)
             ?.map((t) => ({
-              amount: String(parseInt(t.amount)),
+              amount: String(parseFloat(t.amount).toFixed(2)),
               denom: t.denom,
             }));
         });

@@ -48,7 +48,7 @@ export const useStakingStore = defineStore('stakingStore', {
     },
     async keybase(identity: string) {
       return get(
-        `https://keybase.io/_/api/1.0/user/lookup.json?key_suffix=${identity}&fields=pictures`
+        `https://keybase.io/_/api/1.0/user/user_search.json?q=${identity}`
       );
     },
     async fetchParams() {
@@ -78,7 +78,7 @@ export const useStakingStore = defineStore('stakingStore', {
       validatorAddr: string,
       delegatorAddr: string
     ) {
-      return await this.blockchain.rpc?.getStakingValidatorsDelegationsDelegator(
+      return this.blockchain.rpc?.getStakingValidatorsDelegationsDelegator(
         validatorAddr,
         delegatorAddr
       );
@@ -129,7 +129,6 @@ export const useStakingStore = defineStore('stakingStore', {
     async fetchAllKeyRotation(chain_id: string) {
       for(const val of this.validators) {
         const { prefix } = fromBech32(val.operator_address)
-        console.log(val, prefix)
         await this.fetchKeyRotation(chain_id, pubKeyToValcons(val.consensus_pubkey, prefix.replace('valoper','valcons')))
       }
     },

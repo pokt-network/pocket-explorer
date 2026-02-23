@@ -13,6 +13,7 @@ import {
 } from './registry';
 import { PageRequest,type Coin } from '@/types';
 
+
 export class BaseRestClient<R extends AbstractRegistry> {
   endpoint: string;
   registry: R;
@@ -63,6 +64,9 @@ export class CosmosRestClient extends BaseRestClient<RequestRegistry> {
   }
 
   // Auth Module
+  async getAuthParams() {
+    return this.request(this.registry.auth_params, {});
+  }
   async getAuthAccounts(page?: PageRequest) {
     if(!page) page = new PageRequest()
     const query =`?${page.toQueryString()}`;
@@ -103,6 +107,72 @@ export class CosmosRestClient extends BaseRestClient<RequestRegistry> {
   async getDistributionCommunityPool() {
     return this.request(this.registry.distribution_community_pool, {});
   }
+  async getApplications(page?: PageRequest){
+    if(!page) page = new PageRequest();
+    const query =`?${page.toQueryString()}`;
+    return this.request(this.registry.application, {}, query);
+  }
+  async getApplicationParams(){
+    return this.request(this.registry.application_params, {});
+  }
+  async getSuppliers(page?: PageRequest){
+    if(!page) page = new PageRequest();
+    const query =`?${page.toQueryString()}`;
+    return this.request(this.registry.supplier, {}, query);
+  }
+  async getSupplierParams(){
+    return this.request(this.registry.supplier_params, {});
+  }
+  async getGateways(page?: PageRequest){
+    if(!page) page = new PageRequest();
+    const query =`?${page.toQueryString()}`;
+    return this.request(this.registry.gateway, {}, query);
+  }
+  async getGatewayParams(){
+    return this.request(this.registry.gateway_params, {});
+  }
+  async getServices(page?: PageRequest){
+    if(!page) page = new PageRequest();
+    const query =`?${page.toQueryString()}`;
+    return this.request(this.registry.services, {}, query);
+  }
+  async getServiceParams(){
+    return this.request(this.registry.service_params, {});
+  }
+  async getMigrationParams(){
+    return this.request(this.registry.migration_params, {});
+  }
+  async getProofParams(){
+    return this.request(this.registry.proof_params, {});
+  }
+  async getSessionParams(){
+    return this.request(this.registry.session_params, {});
+  }
+  async getSharedParams(){
+    return this.request(this.registry.shared_params, {});
+  }
+  async getTokenomicsParams(){
+    return this.request(this.registry.tokenomics_params, {});
+  }
+  async getApplicationsInfo(address: string){
+    return this.request(this.registry.application_info, {address});
+  }
+  async getSuppliersInfo(address: string){
+    return this.request(this.registry.supplier_info, {address});
+  }
+  async getGatewaysInfo(address: string){
+    return this.request(this.registry.gateway_info, {address});
+  }
+  async getServicesInfo(address: string){
+    return this.request(this.registry.service_info, {address});
+  }
+
+  async getRelayMiningDifficulty(page?: PageRequest){
+    if(!page) page = new PageRequest();
+    const query =`?${page.toQueryString()}`;
+    return this.request(this.registry.relay_mining_difficulty, {}, query);
+  }
+
   async getDistributionDelegatorRewards(delegator_addr: string) {
     return this.request(this.registry.distribution_delegator_rewards, {
       delegator_addr,
@@ -186,7 +256,7 @@ export class CosmosRestClient extends BaseRestClient<RequestRegistry> {
   }
   // staking
   async getStakingDelegations(delegator_addr: string) {
-    return this.request(this.registry.staking_deletations, { delegator_addr });
+    return this.request(this.registry.staking_delegations, { delegator_addr });
   }
   async getStakingDelegatorRedelegations(delegator_addr: string) {
     return this.request(this.registry.staking_delegator_redelegations, {
@@ -274,16 +344,16 @@ export class CosmosRestClient extends BaseRestClient<RequestRegistry> {
   // tx
   async getTxsBySender(sender: string, page?: PageRequest) {
     if(!page) page = new PageRequest()
-    const query = `?order_by=2&events=message.sender='${sender}'&pagination.limit=${page.limit}&pagination.offset=${page.offset||0}`;
+    const query = `?order_by=2&query=message.sender='${sender}'&pagination.limit=${page.limit}&pagination.offset=${page.offset||0}`;
     return this.request(this.registry.tx_txs, {}, query);
   }
   // query ibc sending msgs
-  // ?&pagination.reverse=true&events=send_packet.packet_src_channel='${channel}'&events=send_packet.packet_src_port='${port}'
+  // ?&pagination.reverse=true&query=send_packet.packet_src_channel='${channel}'&query=send_packet.packet_src_port='${port}'
   // query ibc receiving msgs
-  // ?&pagination.reverse=true&events=recv_packet.packet_dst_channel='${channel}'&events=recv_packet.packet_dst_port='${port}'
+  // ?&pagination.reverse=true&query=recv_packet.packet_dst_channel='${channel}'&query=recv_packet.packet_dst_port='${port}'
   async getTxs(query: string, params: any, page?: PageRequest) {
     if(!page) page = new PageRequest()    
-    return this.request(this.registry.tx_txs, params, `${query}&${page.toQueryString()}`);
+    return this.request(this.registry.tx_txs, params, `${query}${query.length ? '&' : '?'}${page.toQueryString()}`);
   }
   async getTxsAt(height: string | number) {
     return this.request(this.registry.tx_txs_block, { height });

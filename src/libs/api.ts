@@ -4,12 +4,31 @@ import {
 } from './registry';
 
 export const DEFAULT: RequestRegistry = {
+  application: {url: '/pokt-network/poktroll/application/application', adapter},
+  gateway: {url: '/pokt-network/poktroll/gateway/gateway', adapter},
+  supplier: {url: '/pokt-network/poktroll/supplier/supplier', adapter},
+  migration_params: {url: '/pokt-network/poktroll/migration/params', adapter},
+  application_params: {url: '/pokt-network/poktroll/application/params', adapter},
+  gateway_params: {url: '/pokt-network/poktroll/gateway/params', adapter},
+  supplier_params: {url: '/pokt-network/poktroll/supplier/params', adapter},
+  service_params: {url: '/pokt-network/poktroll/service/params', adapter},
+  proof_params: {url: '/pokt-network/poktroll/proof/params', adapter},
+  session_params: {url: '/pokt-network/poktroll/session/params', adapter},
+  shared_params: {url: '/pokt-network/poktroll/shared/params', adapter},
+  tokenomics_params: {url: '/pokt-network/poktroll/tokenomics/params', adapter},
+  application_info: {url: '/pokt-network/poktroll/application/application/{address}', adapter},
+  gateway_info: {url: '/pokt-network/poktroll/gateway/gateway/{address}', adapter},
+  supplier_info: {url: '/pokt-network/poktroll/supplier/supplier/{address}', adapter},
+  // application: {url: '/pokt-network/poktroll/application/application', adapter},
   auth_params: { url: '/cosmos/auth/v1beta1/params', adapter },
   auth_accounts: { url: '/cosmos/auth/v1beta1/accounts', adapter },
   auth_account_address: {
     url: '/cosmos/auth/v1beta1/accounts/{address}',
     adapter,
   },
+  services: {url: '/pokt-network/poktroll/service/service', adapter},
+  service_info: {url: '/pokt-network/poktroll/service/service/{address}', adapter},
+  relay_mining_difficulty: {url: '/pokt-network/poktroll/service/relay_mining_difficulty', adapter},
   params: { url: '/cosmos/params/v1beta1/params?subspace={subspace}&key={key}', adapter },
   bank_params: { url: '/cosmos/bank/v1beta1/params', adapter },
   bank_balances_address: {
@@ -72,7 +91,7 @@ export const DEFAULT: RequestRegistry = {
     url: '/cosmos/gov/v1beta1/proposals/{proposal_id}/votes/{voter}',
     adapter,
   },
-  staking_deletations: {
+  staking_delegations: {
     url: '/cosmos/staking/v1beta1/delegations/{delegator_addr}',
     adapter,
   },
