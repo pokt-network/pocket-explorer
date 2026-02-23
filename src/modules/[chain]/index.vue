@@ -72,6 +72,15 @@ const averageTxPerBlock = computed(() => {
   return (totalTxs / Math.max(1, base.recents.length)).toFixed(1);
 });
 
+// Map chain name to API chain name
+const getApiChainName = (chainName: string) => {
+  const chainMap: Record<string, string> = {
+    'pocket-lego-testnet': 'pocket-lego-testnet',
+    'pocket-mainnet': 'pocket-mainnet'
+  };
+  return chainMap[chainName] || chainName || 'pocket-lego-testnet';
+};
+
 const activeValidatorsCount = computed(() => {
   return String(base.latest?.block?.last_commit?.signatures.length || 0);
 });
@@ -203,15 +212,6 @@ interface ApiBlockItem {
   transaction_count?: number;
 }
 
-// Map frontend chain names to API chain names
-const getApiChainName = (chainName: string) => {
-  const chainMap: Record<string, string> = {
-    'pocket-beta': 'pocket-testnet-beta',
-    'pocket-mainnet': 'pocket-mainnet'
-  };
-  return chainMap[chainName] || chainName || 'pocket-testnet-beta';
-};
-
 const currentChainName = computed(() => blockchain?.current?.chainName || props.chain || 'pocket-beta');
 const apiChainName = computed(() => getApiChainName(currentChainName.value));
 
@@ -222,6 +222,12 @@ const blocksLimit = ref(25);
 const blocksTotal = ref(0);
 const blocksTotalPages = ref(0);
 const avgBlockProductionTime = ref<string | null>(null);
+
+// Fallback state for blocks
+const isBlocksNodeFallback = ref(false);
+const blocksFallbackError = ref('');
+const isTxsNodeFallback = ref(false);
+const txsFallbackError = ref('');
 
 // Indexer health status
 interface ChainStatus {
@@ -281,32 +287,177 @@ const currentChainIndexerStatus = computed(() => {
   return indexerHealth.value.chains.find((c) => c.chain === apiChainName.value) || null;
 });
 
+// async function loadBlocks() {
+//   loadingBlocks.value = true;
+//   try {
+//     const url = `/api/v1/blocks?chain=${apiChainName.value}&page=${blocksPage.value}&limit=${blocksLimit.value}`;
+//     const response = await fetch(url);
+//     const result = await response.json();
+//     if (response.ok) {
+//       blocks.value = result.data || [];
+//       blocksTotal.value = result.meta?.total || 0;
+//       blocksTotalPages.value = result.meta?.totalPages || 0;
+//       avgBlockProductionTime.value = Number(result.meta?.avgBlockProductionTime || null).toFixed(2) || null;
+//     } else {
+//       blocks.value = [];
+//       blocksTotal.value = 0;
+//       blocksTotalPages.value = 0;
+//       console.error('Error loading blocks:', result);
+//     }
+//   } catch (e) {
+//     console.error('Error loading blocks:', e);
+//     blocks.value = [];
+//     blocksTotal.value = 0;
+//     blocksTotalPages.value = 0;
+//   } finally {
+//     loadingBlocks.value = false;
+//   }
+// }
+
+// 🔹 Node se blocks fetch karo (Dashboard fallback)
+async function getBlocksFromNodeDashboard() {
+  try {
+    console.log('[Dashboard Fallback] Starting node fallback for blocks...')
+
+    // Wait for RPC to be ready (max 10 seconds)
+    let rpcRetries = 0
+    while (!blockchain.rpc && rpcRetries < 20) {
+      console.log(`[Dashboard Fallback] Waiting for RPC... retry ${rpcRetries + 1}/20`)
+      await new Promise(resolve => setTimeout(resolve, 500))
+      rpcRetries++
+    }
+
+    if (!blockchain.rpc) {
+      console.error('[Dashboard Fallback] RPC not available after waiting')
+      throw new Error('RPC not available')
+    }
+
+    console.log('[Dashboard Fallback] RPC is available')
+
+    // Try to fetch latest block from RPC directly if base store doesn't have it
+    if (!base.latest?.block?.header?.height) {
+      console.log('[Dashboard Fallback] Base store has no block data, fetching from RPC...')
+      try {
+        const latestBlock = await blockchain.rpc.getBaseBlockLatest()
+        if (latestBlock?.block?.header?.height) {
+          base.latest = latestBlock
+          console.log('[Dashboard Fallback] Successfully fetched latest block:', latestBlock.block.header.height)
+        }
+      } catch (err) {
+        console.warn('[Dashboard Fallback] Could not fetch latest block from RPC:', err)
+      }
+    } else {
+      console.log('[Dashboard Fallback] Base store already has block data:', base.latest.block.header.height)
+    }
+
+    // Get latest blocks from base store
+    let retries = 0
+    while (!base.latest?.block?.header?.height) {
+      if (retries > 10) {
+        throw new Error('Node not responding - no block data available')
+      }
+      await new Promise(r => setTimeout(r, 500))
+      retries++
+    }
+
+    const latestBlock = base.latest.block
+    const currentHeight = Number(latestBlock.header.height)
+
+    const endHeight = currentHeight
+    const startHeight = Math.max(endHeight - blocksLimit.value + 1, 1)
+
+    const blockPromises = []
+
+    for (let height = endHeight; height >= startHeight; height--) {
+      blockPromises.push(
+        blockchain.rpc.getBaseBlockAt(String(height)).catch(() => null)
+      )
+    }
+
+    const fetchedBlocks = await Promise.all(blockPromises)
+
+    const nodeBlocks = fetchedBlocks
+      .filter(block => block !== null)
+      .map((block: any) => ({
+        id: `${block.block?.header?.chain_id}:${block.block?.header?.height}`,
+        height: parseInt(block.block?.header?.height || '0'),
+        hash: block.block_id?.hash || '',
+        timestamp: block.block?.header?.time || new Date().toISOString(),
+        proposer: block.block?.header?.proposer_address || '',
+        chain: block.block?.header?.chain_id || apiChainName.value,
+        transaction_count: block.block?.data?.txs?.length || 0,
+        block_production_time: 0,
+        raw_block_size: 0
+      }))
+
+    console.log('[Dashboard Fallback] Successfully loaded blocks from node:', nodeBlocks.length)
+
+    return {
+      blocks: nodeBlocks,
+      total: currentHeight,
+      totalPages: Math.ceil(currentHeight / blocksLimit.value)
+    }
+  } catch (error: any) {
+    console.error('[Dashboard Fallback] Node fallback failed:', error)
+    throw error
+  }
+}
+
 async function loadBlocks() {
   loadingBlocks.value = true;
+  blocksFallbackError.value = '';
+
   try {
     const url = `/api/v1/blocks?chain=${apiChainName.value}&page=${blocksPage.value}&limit=${blocksLimit.value}`;
     const response = await fetch(url);
-    const result = await response.json();
+
+    const text = await response.text();
+
+    if (!text) {
+      throw new Error('Empty response from API');
+    }
+
+    const result = JSON.parse(text);
+
     if (response.ok) {
       blocks.value = result.data || [];
       blocksTotal.value = result.meta?.total || 0;
       blocksTotalPages.value = result.meta?.totalPages || 0;
-      avgBlockProductionTime.value = Number(result.meta?.avgBlockProductionTime || null).toFixed(2) || null;
+      avgBlockProductionTime.value =
+        result.meta?.avgBlockProductionTime != null
+          ? Number(result.meta.avgBlockProductionTime).toFixed(2)
+          : null;
+      isBlocksNodeFallback.value = false;
     } else {
-      blocks.value = [];
-      blocksTotal.value = 0;
-      blocksTotalPages.value = 0;
-      console.error('Error loading blocks:', result);
+      throw new Error('Server returned error status');
     }
-  } catch (e) {
-    console.error('Error loading blocks:', e);
-    blocks.value = [];
-    blocksTotal.value = 0;
-    blocksTotalPages.value = 0;
+  } catch (serverError) {
+    console.warn('[Dashboard] Server failed, trying node fallback...', serverError);
+
+    try {
+      isBlocksNodeFallback.value = true;
+
+      const nodeData = await getBlocksFromNodeDashboard();
+
+      blocks.value = nodeData.blocks;
+      blocksTotal.value = nodeData.total;
+      blocksTotalPages.value = nodeData.totalPages;
+    } catch (nodeError: any) {
+      console.error('[Dashboard] Node fallback also failed:', nodeError);
+      blocksFallbackError.value = nodeError.message || 'Both server and node are unavailable';
+      isBlocksNodeFallback.value = true;
+      // Keep previous data or show empty
+      if (blocks.value.length === 0) {
+        blocks.value = [];
+        blocksTotal.value = 0;
+        blocksTotalPages.value = 0;
+      }
+    }
   } finally {
     loadingBlocks.value = false;
   }
 }
+
 
 // Add these refs for block list virtualization after the existing refs
 const visibleBlocks = ref<{ item: any; index: number }[]>([]);
@@ -424,8 +575,36 @@ onMounted(async () => {
   // Set loading state
   isNetworkStatusLoading.value = true;
 
-  // Load transactions first
-  base.getAllTxs(blockchain.current?.transactionService);
+  // Load transactions first with proper chain name
+  const currentChain = blockchain.current?.chainName || props.chain || 'pocket-lego-testnet';
+  const apiChainName = getApiChainName(currentChain);
+  console.log('[Home Page] Loading transactions for chain:', apiChainName);
+
+  // Try to load transactions and track if fallback is used
+  try {
+    // First try server API directly to check availability
+    const testResponse = await fetch(`/api/v1/transactions?chain=${apiChainName}&page=1&limit=1`).catch(() => null);
+
+    if (!testResponse || !testResponse.ok) {
+      // Server is down, will use node fallback
+      isTxsNodeFallback.value = true;
+      txsFallbackError.value = '';
+    } else {
+      // Server is up
+      isTxsNodeFallback.value = false;
+      txsFallbackError.value = '';
+    }
+  } catch (e) {
+    // Server check failed
+    isTxsNodeFallback.value = true;
+    txsFallbackError.value = '';
+  }
+
+  // Now load transactions
+  base.getAllTxs(apiChainName).catch(err => {
+    console.error('[Home Page] Error loading transactions:', err);
+    txsFallbackError.value = err.message || 'Failed to load transactions';
+  });
 
   // Then load stats that depend on transaction data
   loadNetworkStats();
@@ -567,19 +746,51 @@ const networkStats = ref({
 const totalRelays24h = ref(0);
 const totalComputeUnits24h = ref(0);
 
+// async function loadServicesSummary24h() {
+//   try {
+//     const params = new URLSearchParams();
+//     params.append('window', '1');
+//     params.append('chain', apiChainName.value);
+//     const response = await fetch(`/api/v1/network-growth/summary?${params.toString()}`);
+//     const result = await response.json();
+//     if (response.ok && result?.data) {
+//       totalRelays24h.value = Number(result.data.relays || 0);
+//       totalComputeUnits24h.value = Number(result.data.claimed_compute_units || 0);
+//     } else {
+//       totalRelays24h.value = 0;
+//       totalComputeUnits24h.value = 0;
+//       console.error('Error loading 24h services summary:', result);
+//     }
+//   } catch (e) {
+//     totalRelays24h.value = 0;
+//     totalComputeUnits24h.value = 0;
+//     console.error('Error loading 24h services summary:', e);
+//   }
+// }
+
 async function loadServicesSummary24h() {
   try {
     const params = new URLSearchParams();
+    params.append('window', '1');
     params.append('chain', apiChainName.value);
-    const response = await fetch(`/api/v1/proof-submissions/summary?${params.toString()}`);
-    const result = await response.json();
+
+    const response = await fetch(`/api/v1/network-growth/summary?${params.toString()}`);
+
+    const text = await response.text(); // 👈 pehle raw text lo
+
+    if (!text) {
+      throw new Error('Empty response from API');
+    }
+
+    const result = JSON.parse(text); // 👈 now safe parse
+
     if (response.ok && result?.data) {
-      totalRelays24h.value = Number(result.data.total_relays || 0);
-      totalComputeUnits24h.value = Number(result.data.total_claimed_compute_units || 0);
+      totalRelays24h.value = Number(result.data.relays || 0);
+      totalComputeUnits24h.value = Number(result.data.claimed_compute_units || 0);
     } else {
       totalRelays24h.value = 0;
       totalComputeUnits24h.value = 0;
-      console.error('Error loading 24h services summary:', result);
+      console.error('API error:', result);
     }
   } catch (e) {
     totalRelays24h.value = 0;
@@ -587,6 +798,7 @@ async function loadServicesSummary24h() {
     console.error('Error loading 24h services summary:', e);
   }
 }
+
 
 const historicalData = ref({
   series: [
@@ -1106,7 +1318,9 @@ function updateTxChartForWindow(windowDays: number) {
 async function loadTransactionHistory() {
   try {
     // Fetch historical transaction data using the transactions/count endpoint with chain parameter
-    const historyPromise = fetch(`/api/v1/transactions/count?chain=${blockchain.current?.transactionService}`).catch(err => {
+    const currentChain = blockchain.current?.chainName || props.chain || 'pocket-lego-testnet';
+    const apiChainName = getApiChainName(currentChain);
+    const historyPromise = fetch(`/api/v1/transactions/count?chain=${apiChainName}`).catch(err => {
       console.error("Error fetching transaction history:", err);
       return null;
     });
@@ -1375,8 +1589,8 @@ function formatBlockTime(secondsStr?: string | number) {
                 <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full px-2 py-4 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
                   <div class="flex mb-5 items-center">
                     <Icon icon="mdi:coins" class="text-sm mr-1 text-[#64748B]" />
-                    <span class="text-[10px] text-secondary">Circulating Supply</span>
-                    <span class="text-[10px] text-secondary ml-1">({{ store.coinInfo?.symbol?.toUpperCase() || '' }})</span>
+                    <span class="text-[12px] text-secondary">Circulating Supply</span>
+                    <span class="text-[12px] text-secondary ml-1">({{ store.coinInfo?.symbol?.toUpperCase() || '' }})</span>
                   </div>
                   <div class="text-xl text-main flex items-center justify-center font-medium"> {{format.formatNumber((store.coinInfo?.market_data?.circulating_supply || 0), '123,456,789.[]') }}
                     <!-- <span class="text-sm font-medium"></span> -->
@@ -1423,14 +1637,19 @@ function formatBlockTime(secondsStr?: string | number) {
                 </div>
               </div>
             </div>
-            <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-[25%] p-4 mt-2 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
+            <div class="
+             flex flex-col w-[25%] p-6 mt-2 rounded-2xl justify-between items-center
+             bg-gradient-to-br from-[#1f3fbf] via-[#2447d6] to-[#1a2f8f]
+             dark:from-[#1f3fbf] dark:via-[#2447d6] dark:to-[#1a2f8f]
+             shadow-lg hover:shadow-xl transition-all duration-300
+             ">
               <!-- Logo -->
-              <img v-if="useBaseStore().theme === 'dark'" src="https://pocket.network/wp-content/uploads/2025/01/logo-white.png" alt="Coin logo" class="w-2/3 justify-self-center" />
-              <img v-else src="https://pocket.network/wp-content/uploads/2024/12/logo.png" alt="Coin logo" class="w-2/3 justify-self-center" />
+              <img src="https://pocket.network/wp-content/uploads/2025/01/logo-white.png" alt="Coin logo" class="w-2/3 justify-self-center" />
+              <!-- <img v-else src="https://pocket.network/wp-content/uploads/2024/12/logo.png" alt="Coin logo" class="w-2/3 justify-self-center" /> -->
 
               <!-- Price -->
               <div class="flex flex-col item-center mx-auto">
-                <div class="text-xl text-center">
+                <div class="text-xl text-center text-[#ffffff]">
                   ${{ store.coinInfo?.market_data?.current_price?.usd?.toFixed(6) || '0.00' }}
                 </div>
                 <div class="text-sm text-end"
@@ -1439,25 +1658,8 @@ function formatBlockTime(secondsStr?: string | number) {
                 </div>
               </div>
 
-              <!-- Dropdown -->
-              <!-- <div class="dropdown dropdown-end w-full border border-[#64748B] rounded-[5px]">
-                <label tabindex="0" class="btn btn-sm btn-outline w-full justify-between">
-                  {{ ticker?.market?.name || 'Market' }}
-                  <Icon icon="mdi:chevron-down" class="ml-1" />
-                </label>
-                <div tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52 mt-1"  style="height: 300px; overflow-y: scroll;">
-                <ul tabindex="0" class="">
-                  <li v-for="(tic, index) in tickers" :key="tic.market.identifier">
-                    <a @click="() => { store.selectTicker(index); }" :class="{ 'active': index === store.tickerIndex }">
-                      {{ tic.market.name }}
-                    </a>
-                  </li>
-                </ul>
-                </div>
-              </div> -->
-
               <!-- Buy Button -->
-              <a class="!text-white btn btn-sm w-full !bg-[#09279F] !border-[#09279F]"
+              <a class="!text-[#000000] btn btn-sm w-full !bg-[#ffd60a] !border-[#ffd60a]"
                 :class="{ '!btn-[#60BC29]': store.trustColor === 'green', '!btn-warning': store.trustColor === 'yellow' }"
                 :href="ticker?.trade_url" target="_blank">
                 {{ $t('index.buy') }} {{ store.coinInfo?.symbol?.toUpperCase() || 'COIN'}}
@@ -1623,15 +1825,15 @@ function formatBlockTime(secondsStr?: string | number) {
                 </div>
 
                 <!-- Logo + Price + Buy Button -->
-                <div class="flex flex-col bg-[#ffffff] hover:bg-base-200 w-full gap-2 p-3 mt-3 rounded-xl justify-center items-center shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
-                  <img v-if="useBaseStore().theme === 'dark'"
-                      src="https://pocket.network/wp-content/uploads/2025/01/logo-white.png"
-                      alt="Coin logo" class="w-24" />
-                  <img v-else
-                      src="https://pocket.network/wp-content/uploads/2024/12/logo.png"
-                      alt="Coin logo" class="w-24" />
+                <div class="flex flex-col w-full gap-2 p-3 mt-3 rounded-xl justify-center items-center  bg-gradient-to-br from-[#1f3fbf] via-[#2447d6] to-[#1a2f8f]
+                    dark:from-[#1f3fbf] dark:via-[#2447d6] dark:to-[#1a2f8f]
+                    shadow-lg hover:shadow-xl transition-all duration-300">
+                  <img
+                    src="https://pocket.network/wp-content/uploads/2025/01/logo-white.png"
+                    alt="Coin logo" class="w-24" 
+                  />
 
-                  <div class="text-sm text-center">
+                  <div class="text-sm text-center text-[#ffffff]">
                     ${{ store.coinInfo?.market_data?.current_price?.usd?.toFixed(6) || '0.00' }}
                   </div>
                   <div class="text-xs"
@@ -1640,7 +1842,7 @@ function formatBlockTime(secondsStr?: string | number) {
                     {{ store.coinInfo?.market_data?.price_change_percentage_24h?.toFixed(2) || '0.00' }}%
                   </div>
 
-                  <a class="!text-white btn btn-sm w-full !bg-[#09279F] !border-[#09279F]"
+                  <a class="!text-white btn btn-sm w-full !bg-[#ffd60a] !border-[#ffd60a]"
                     :href="ticker?.trade_url" target="_blank">
                     {{ $t('index.buy') }} {{ store.coinInfo?.symbol?.toUpperCase() || 'COIN' }}
                   </a>
@@ -1772,7 +1974,7 @@ function formatBlockTime(secondsStr?: string | number) {
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mt-5">
       <!-- Network Growth Chart -->
       <div class="bg-base-200 pt-3 rounded-lg hover:bg-base-300 shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
-        <div class="flex items-center justify-between mb-1 px-5 gap-4">
+        <div class="flex items-center justify-between mb-4 px-5 gap-4">
           <div class="flex flex-1 items-center gap-4 justify-between">
             <div class="flex text-lg font-semibold text-main">Network Growth</div>
             <!-- Tabs -->
@@ -1975,17 +2177,33 @@ function formatBlockTime(secondsStr?: string | number) {
           </RouterLink>
         </div>
 
+        <!-- 🔴 Fallback Warning Banner for Blocks -->
+        <div
+          v-if="isBlocksNodeFallback"
+          :class="blocksFallbackError ? 'bg-red-100 border-red-400 text-red-700' : 'bg-yellow-100 border-yellow-400 text-yellow-700'"
+          class="border px-4 py-2 mx-5 mb-3 rounded-lg"
+          role="alert"
+        >
+          <div class="flex items-center">
+            <Icon :icon="blocksFallbackError ? 'mdi:alert-octagon' : 'mdi:alert-circle'" class="mr-2 text-lg" />
+            <span class="text-sm font-medium">
+              <span v-if="!blocksFallbackError">Currently showing data from node because main server is down.</span>
+              <span v-else>Unable to load blocks: {{ blocksFallbackError }}</span>
+            </span>
+          </div>
+        </div>
+
         <div class="bg-base-200 rounded-md overflow-auto" style="max-height: 30rem;">
           <table class="table table-compact w-full bg-base-200">
-            <thead class="dark:bg-[rgba(255,255,255,.03)]  bg-base-200 sticky top-0 border-0">
-              <tr class="border-none">
-                <th class="dark:bg-[rgba(255,255,255,.03)]  bg-base-200">{{ $t('block.block_header') }}</th>
-                <th class="dark:bg-[rgba(255,255,255,.03)]  bg-base-200">{{ $t('account.hash') }}</th>
-                <th class="dark:bg-[rgba(255,255,255,.03)]  bg-base-200">{{ $t('block.proposer') }}</th>
-                <th class="dark:bg-[rgba(255,255,255,.03)]  bg-base-200">{{ $t('module.tx') }}</th>
-                <th class="dark:bg-[rgba(255,255,255,.03)]  bg-base-200">{{ $t('account.time') }}</th>
-                <th class="dark:bg-[rgba(255,255,255,.03)]  bg-base-200">{{ $t('account.production_time') }}</th>
-              </tr>
+            <thead class="dark:bg-[rgba(255,255,255,.03)] bg-base-200 sticky top-0 border-0">
+              <tr class="border-none bg-base-200">
+                <th class="dark:bg-[rgba(255,255,255,.03)] bg-base-200">{{ $t('block.block_header') }}</th>
+                <th class="dark:bg-[rgba(255,255,255,.03)] bg-base-200">{{ $t('account.hash') }}</th>
+                <th class="dark:bg-[rgba(255,255,255,.03)] bg-base-200">{{ $t('block.proposer') }}</th>
+                <th class="dark:bg-[rgba(255,255,255,.03)] bg-base-200">{{ $t('module.tx') }}</th>
+                <th class="dark:bg-[rgba(255,255,255,.03)] bg-base-200">{{ $t('account.time') }}</th>
+                <th class="dark:bg-[rgba(255,255,255,.03)] bg-base-200">{{ $t('account.production_time') }}</th>
+              </tr>  
             </thead>
             <tbody v-if="loadingBlocks" >
             <tr class="text-center">
@@ -2036,6 +2254,22 @@ function formatBlockTime(secondsStr?: string | number) {
           </RouterLink>
         </div>
 
+        <!-- 🔴 Fallback Warning Banner for Transactions -->
+        <div
+          v-if="isTxsNodeFallback"
+          :class="txsFallbackError ? 'bg-red-100 border-red-400 text-red-700' : 'bg-yellow-100 border-yellow-400 text-yellow-700'"
+          class="border px-4 py-2 mx-5 mb-3 rounded-lg"
+          role="alert"
+        >
+          <div class="flex items-center">
+            <Icon :icon="txsFallbackError ? 'mdi:alert-octagon' : 'mdi:alert-circle'" class="mr-2 text-lg" />
+            <span class="text-sm font-medium">
+              <span v-if="!txsFallbackError">Currently showing data from node because main server is down.</span>
+              <span v-else>Unable to load transactions: {{ txsFallbackError }}</span>
+            </span>
+          </div>
+        </div>
+
         <div class="bg-base-200 rounded-md overflow-auto" style="height: 30rem;" ref="txTableContainer">
           <table class="table table-compact w-full bg-base-200">
             <thead class="dark:bg-[rgba(255,255,255,.03)]  bg-base-200 sticky top-0 border-0">
@@ -2065,8 +2299,8 @@ function formatBlockTime(secondsStr?: string | number) {
                 </td>
                 <td>
                   <span class="text-xs truncate py-1 px-3 rounded-full"
-                    :class="item.item.status || item.item.tx_response.code === 0 ? 'bg-[#60BC29]/10 text-[#60BC29]' : 'bg-[#E03834]/10 text-[#E03834]'">
-                    {{ item.item.status || item.item.tx_response.code === 0 ? 'Success' : 'Failed' }}
+                    :class="(isTxsNodeFallback && item.item.status == 0) || item.item.status || item.item.tx_response?.code === 0 ? 'bg-[#60BC29]/10 text-[#60BC29]' : 'bg-[#E03834]/10 text-[#E03834]'">
+                    {{ (isTxsNodeFallback && item.item.status == 0) || item.item.status || item.item.tx_response?.code === 0 ? 'Success' : 'Failed' }}
                   </span>
                 </td>
                 <td>{{ item.item.type }}</td>

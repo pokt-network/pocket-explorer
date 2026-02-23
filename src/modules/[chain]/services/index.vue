@@ -39,6 +39,27 @@ const totalPages = computed(() => {
   return Math.ceil(total / itemsPerPage.value);
 });
 
+// per service totals
+const serviceTotals = ref<{ [serviceId: string]: { suppliers: number; applications: number } }>({});
+
+
+async function loadServiceTotals(serviceId: string) {
+  await waitForRpc();
+
+  try {
+    const res = await fetch(`/api/v1/services/${serviceId}?chain=${props.chain}&page=1&limit=25`)
+      .then(r => r.json());
+
+    serviceTotals.value[serviceId] = {
+      suppliers: res.meta.totalSuppliers || (res.data.suppliers?.length || 0),
+      applications: res.meta.totalApplications || (res.data.applications?.length || 0),
+    };
+  } catch (error) {
+    console.error('Error loading totals for service', serviceId, error);
+    serviceTotals.value[serviceId] = { suppliers: 0, applications: 0 };
+  }
+}
+
 const totalServices = computed(() => parseInt(pageResponse.value.total || '0'));
 
 // Client-side sorting (applied after server returns page data)
@@ -92,6 +113,13 @@ async function loadServices() {
     const response = await chainStore.rpc.getServices(pageRequest.value);
     list.value = response.service || [];
     pageResponse.value = response.pagination || {};
+
+    // Har naye service ka totals fetch karo (cache hai toh skip)
+    for (const svc of list.value) {
+      if (!serviceTotals.value[svc.id]) {
+        loadServiceTotals(svc.id);
+      }
+    }
   } catch (error) {
     console.error('Error loading services:', error);
     list.value = [];
@@ -197,12 +225,13 @@ function isMaxDifficulty(targetHash: string) {
   return targetHash.includes('////////////////////////////////////////////');
 }
 
-onMounted(() => {
-  loadServices();
+onMounted(async () => {
+  await loadServices(); // totals bhi andar se call ho jaayenge
   loadMiningDifficulties();
   loadSuppliers();
   loadApplications();
 });
+
 </script>
 
 <template>
@@ -303,10 +332,16 @@ onMounted(() => {
 
             <td>{{ item.compute_units_per_relay }}</td>
             <td>
-              {{ suppliers.find((s) => s.owner_address === item.owner_address)?.services || '-' }}
+              <div v-if="serviceTotals[item.id]">
+                {{ serviceTotals[item.id].suppliers || '-' }}
+              </div>
+              <span v-else>-</span>
             </td>
             <td>
-              {{ applications.find((a) => a.address === item.owner_address)?.service_configs || '-' }}
+              <div v-if="serviceTotals[item.id]">
+                {{ serviceTotals[item.id].applications || '-' }}
+              </div>
+              <span v-else>-</span>
             </td>
           </tr>
         </tbody>

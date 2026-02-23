@@ -173,6 +173,7 @@ async function loadApplications() {
         },
         balance: item.balance, // May need to fetch separately
         service_configs: item.service_configs || item.services || [],
+        chains: item.chains || [],
         delegatee_gateway_addresses: item.delegatee_gateway_addresses || [],
         status: item.status,
         unstake_session_end_height: item.unstake_session_end_height,
@@ -330,10 +331,10 @@ const CACHE_EXPIRATION_MS = 60000
 // Get API chain name helper
 const getApiChainName = (chainName: string) => {
   const chainMap: Record<string, string> = {
-    'pocket-beta': 'pocket-testnet-beta',
+    'pocket-lego-testnet': 'pocket-lego-testnet',
     'pocket-mainnet': 'pocket-mainnet'
   }
-  return chainMap[chainName] || chainName || 'pocket-testnet-beta'
+  return chainMap[chainName] || chainName || 'pocket-lego-testnet'
 }
 
 const apiChainName = computed(() =>
@@ -526,8 +527,11 @@ async function loadNetworkStats() {
                 {{ item.balance ? format.formatToken(item.balance) : "-" }}
               </span>
             </td>
-            <td>{{ item.service_configs?.length || 0 }}</td>
+            <td>{{ item.chains?.length || 0 }}</td>
             <td>
+              {{ item.chains?.length ? item.chains.join(', ') : '-' }}
+            </td>
+            <!-- <td>
               {{
                 item.service_configs
                   ?.map((sc: any) =>
@@ -535,7 +539,7 @@ async function loadNetworkStats() {
                   )
                   .join(', ')
               }}
-            </td>
+            </td> -->
             <td class="">
               <span
                 class="text-xs truncate py-1 px-3 rounded-full inline-flex items-center gap-2"
