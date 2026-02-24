@@ -109,6 +109,7 @@ const avgBlockProductionTime = ref<number | null>(null)
 const avgBlockSize = ref<number | null>(null)
 
 function updateCurrentBlockProductionTime() {
+  if (!Array.isArray(blocks.value)) return
   const height = currentBlockHeight.value
   // Ensure both values are of the same type for comparison
   const block = blocks.value.find(b => String(b.height) === String(height))
@@ -255,11 +256,14 @@ async function loadBlocks() {
   try {
     const serverData = await getBlocksFromServer()
 
-    blocks.value = serverData.blocks || serverData
-    totalBlocks.value = serverData.total || 0
-    totalPages.value = serverData.totalPages || 0
-    avgBlockProductionTime.value = serverData.avgBlockProductionTime || null
-    avgBlockSize.value = serverData.avgBlockSize || null
+    // Indexer returns { data: [...], meta: { total, page, limit, totalPages, avgBlockProductionTime, avgBlockSize } }
+    const rawBlocks = serverData?.data ?? serverData?.blocks ?? serverData
+    blocks.value = Array.isArray(rawBlocks) ? rawBlocks : []
+    const meta = serverData?.meta ?? serverData
+    totalBlocks.value = meta?.total ?? serverData?.total ?? blocks.value.length
+    totalPages.value = meta?.totalPages ?? serverData?.totalPages ?? (Math.ceil(totalBlocks.value / itemsPerPage.value) || 0)
+    avgBlockProductionTime.value = meta?.avgBlockProductionTime ?? serverData?.avgBlockProductionTime ?? null
+    avgBlockSize.value = meta?.avgBlockSize ?? serverData?.avgBlockSize ?? null
 
     isNodeFallback.value = false
 
