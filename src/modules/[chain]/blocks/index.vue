@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, ref, onMounted, watch } from 'vue'
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { useStakingStore, useBaseStore, useFormatter } from '@/stores'
 import { PageRequest } from '@/types'
 import { useBlockchain } from '@/stores'
@@ -124,6 +124,86 @@ watch(blocks, () => {
 watch(currentBlockHeight, () => {
   updateCurrentBlockProductionTime()
 })
+
+// Map raw block (base.latest / RPC shape) to ApiBlockItem for table
+// Optionally takes the previous block row so we can derive production time as
+// time(current) - time(previous) in seconds.
+function rawBlockToApiBlockItem(block: any, prev?: ApiBlockItem | null): ApiBlockItem {
+  if (!block?.block?.header) return null as unknown as ApiBlockItem
+  const height = parseInt(block.block.header.height || '0')
+  let blockProductionTime = 0
+
+  const currentTs = block.block?.header?.time
+  const prevTs = prev?.timestamp
+  if (currentTs && prevTs) {
+    const currentMs = new Date(currentTs).getTime()
+    const prevMs = new Date(prevTs).getTime()
+    if (Number.isFinite(currentMs) && Number.isFinite(prevMs) && currentMs > prevMs) {
+      blockProductionTime = (currentMs - prevMs) / 1000
+    }
+  }
+
+  return {
+    id: `${block.block?.header?.chain_id}:${block.block?.header?.height}`,
+    height,
+    hash: block.block_id?.hash || '',
+    timestamp: block.block?.header?.time || new Date().toISOString(),
+    proposer: block.block?.header?.proposer_address || '',
+    chain: block.block?.header?.chain_id || apiChainName.value,
+    transaction_count: block.block?.data?.txs?.length || 0,
+    block_production_time: blockProductionTime,
+    raw_block_size: 0
+  }
+}
+
+// Prepend latest block to table when on page 1 (called by watcher and poll)
+function tryPrependLatestBlock() {
+  if (loading.value || currentPage.value !== 1 || blocks.value.length === 0) return
+  const latest = base.latest?.block
+  if (!latest?.header?.height) return
+  const latestHeight = Number(latest.header.height)
+  const topHeight = Number(blocks.value[0]?.height)
+  if (Number.isNaN(topHeight) || latestHeight <= topHeight) return
+  const previousTop = blocks.value[0] || null
+  const row = rawBlockToApiBlockItem(base.latest, previousTop)
+  if (!row) return
+  blocks.value = [row, ...blocks.value]
+  if (blocks.value.length > itemsPerPage.value) blocks.value.pop()
+  totalBlocks.value = Math.max(totalBlocks.value, latestHeight)
+}
+
+// When latest block advances and we're on page 1, prepend new block in place
+watch(() => base.latest?.block?.header?.height, (newHeight, oldHeight) => {
+  if (!newHeight) return
+  const newH = Number(newHeight)
+  const oldH = oldHeight ? Number(oldHeight) : 0
+  if (oldH > 0 && newH <= oldH) return
+  tryPrependLatestBlock()
+})
+
+// Poll for latest block while on blocks page (page 1) so table updates reliably
+const latestBlockPollInterval = ref<ReturnType<typeof setInterval> | null>(null)
+const LATEST_BLOCK_POLL_MS = 10_000
+
+function startLatestBlockPoll() {
+  if (latestBlockPollInterval.value) return
+  latestBlockPollInterval.value = setInterval(async () => {
+    if (currentPage.value !== 1) return
+    try {
+      await base.fetchLatest()
+      tryPrependLatestBlock()
+    } catch {
+      // ignore
+    }
+  }, LATEST_BLOCK_POLL_MS)
+}
+
+function stopLatestBlockPoll() {
+  if (latestBlockPollInterval.value) {
+    clearInterval(latestBlockPollInterval.value)
+    latestBlockPollInterval.value = null
+  }
+}
 
 // 🔹 Server se blocks fetch karo
 async function getBlocksFromServer() {
@@ -365,6 +445,11 @@ function prevPage() { if (currentPage.value > 1) currentPage.value-- }
 onMounted(() => {
   loadNetworkStats()
   loadBlocks()
+  startLatestBlockPoll()
+})
+
+onUnmounted(() => {
+  stopLatestBlockPoll()
 })
 </script>
 

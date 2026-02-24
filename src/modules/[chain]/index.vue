@@ -458,6 +458,66 @@ async function loadBlocks() {
   }
 }
 
+// Map raw latest block (from base store / RPC) into ApiBlockItem shape for the dashboard table.
+// Optionally takes the previous row so we can derive production time as
+// time(current) - time(previous) in seconds.
+function latestBlockToApiBlockItem(prev?: ApiBlockItem | null): ApiBlockItem | null {
+  const latestBlock = base.latest?.block;
+  if (!latestBlock?.header) return null;
+
+  const height = parseInt(latestBlock.header.height || '0');
+
+  let blockProductionTime: number | undefined;
+  const currentTs = latestBlock.header.time;
+  const prevTs = prev?.timestamp;
+  if (currentTs && prevTs) {
+    const currentMs = new Date(currentTs).getTime();
+    const prevMs = new Date(prevTs).getTime();
+    if (Number.isFinite(currentMs) && Number.isFinite(prevMs) && currentMs > prevMs) {
+      blockProductionTime = (currentMs - prevMs) / 1000;
+    }
+  }
+
+  return {
+    id: `${latestBlock.header.chain_id}:${latestBlock.header.height}`,
+    height,
+    hash: base.latest?.block_id?.hash || '',
+    timestamp: latestBlock.header.time || new Date().toISOString(),
+    proposer: latestBlock.header.proposer_address || '',
+    chain: latestBlock.header.chain_id || apiChainName.value,
+    transaction_count: latestBlock.data?.txs?.length || 0,
+    block_production_time: blockProductionTime,
+  };
+}
+
+// When latest block advances and we're on the first page, prepend the new block into the dashboard table in-place
+function tryPrependLatestBlockToDashboard() {
+  if (loadingBlocks.value) return;
+  if (blocksPage.value !== 1) return;
+  if (!blocks.value.length) return;
+
+  const latest = base.latest?.block;
+  if (!latest?.header?.height) return;
+
+  const latestHeight = Number(latest.header.height);
+  const topHeight = Number(blocks.value[0]?.height || 0);
+
+  if (!Number.isFinite(latestHeight) || latestHeight <= topHeight) return;
+
+  const previousTop = blocks.value[0] || null;
+  const row = latestBlockToApiBlockItem(previousTop);
+  if (!row) return;
+
+  // Prepend newest block and trim to current limit
+  blocks.value = [row, ...blocks.value];
+  if (blocks.value.length > blocksLimit.value) {
+    blocks.value.pop();
+  }
+
+  // Keep total count in sync (at least not smaller than latest height)
+  blocksTotal.value = Math.max(blocksTotal.value, latestHeight);
+}
+
 
 // Add these refs for block list virtualization after the existing refs
 const visibleBlocks = ref<{ item: any; index: number }[]>([]);
@@ -1468,6 +1528,8 @@ watch(() => base.allTxs.length, () => {
 watch(() => base.latest?.block?.header?.height, (newVal, oldVal) => {
   if (newVal && newVal !== oldVal) {
     debouncedUpdateNetworkStats();
+    // Also keep the dashboard \"Latest Blocks\" table fresh by inserting the newest block at the top
+    tryPrependLatestBlockToDashboard();
   }
 });
 
