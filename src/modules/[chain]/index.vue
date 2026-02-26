@@ -806,28 +806,6 @@ const networkStats = ref({
 const totalRelays24h = ref(0);
 const totalComputeUnits24h = ref(0);
 
-// async function loadServicesSummary24h() {
-//   try {
-//     const params = new URLSearchParams();
-//     params.append('window', '1');
-//     params.append('chain', apiChainName.value);
-//     const response = await fetch(`/api/v1/network-growth/summary?${params.toString()}`);
-//     const result = await response.json();
-//     if (response.ok && result?.data) {
-//       totalRelays24h.value = Number(result.data.relays || 0);
-//       totalComputeUnits24h.value = Number(result.data.claimed_compute_units || 0);
-//     } else {
-//       totalRelays24h.value = 0;
-//       totalComputeUnits24h.value = 0;
-//       console.error('Error loading 24h services summary:', result);
-//     }
-//   } catch (e) {
-//     totalRelays24h.value = 0;
-//     totalComputeUnits24h.value = 0;
-//     console.error('Error loading 24h services summary:', e);
-//   }
-// }
-
 async function loadServicesSummary24h() {
   try {
     const params = new URLSearchParams();
@@ -1160,7 +1138,7 @@ async function loadNetworkGrowthPerformance(windowDays: number = 7) {
       
       const d = new Date(dayStr + 'T00:00:00Z');
       labels.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
-      relaysDaily.push(Number(dayItem.relays || 0));
+      relaysDaily.push(Number(dayItem.estimated_relays || 0));
       claimedCUDaily.push(Number(dayItem.claimed_compute_units || 0));
       estimatedCUDaily.push(Number(dayItem.estimated_compute_units || 0));
     }
@@ -1985,7 +1963,7 @@ function formatBlockTime(secondsStr?: string | number) {
             <span class="text-xs text-secondary">Relays (24h)</span>
           </div>
           <div class="text-xl text-main flex items-center justify-center font-medium">
-            {{ formatWithCommas(totalRelays24h) }}
+            {{ formatCompact(totalRelays24h) }}
           </div>
         </div>
 
