@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useBlockchain, useFormatter } from '@/stores';
 import { PageRequest, type Pagination, type Supplier } from '@/types';
 import type { PaginatedBalances } from '@/types/bank'
+import { Icon } from '@iconify/vue'
 const props = defineProps(['chain']);
 const blockchain = useBlockchain()
 
@@ -28,12 +29,32 @@ const totalPages = computed(() => {
 
 const totalSuppliers = computed(() => parseInt(pageResponse.value.total || '0'));
 
-// 🔹 Client-side sorting (applied after server returns page data)
+// Filter and sort state
+const statusFilter = ref('all');
+const sortBy = ref<'stake' | 'services'>('stake');
+const sortOrder = ref<'desc' | 'asc'>('desc');
+
+// 🔹 Client-side filtering and sorting
 const sortedList = computed(() => {
-  return [...list.value].sort((a: any, b: any) => {
-    const aValue = parseInt(a.stake.amount || '0');
-    const bValue = parseInt(b.stake.amount || '0');
-    return bValue - aValue; // descending order
+  let filtered = list.value.filter((item: any) => {
+    if (statusFilter.value === 'all') return true;
+    const status = getSupplierStatus(item);
+    if (statusFilter.value === 'staked') return status.label === 'Staked';
+    if (statusFilter.value === 'unstaked') return status.label === 'Unstaked';
+    if (statusFilter.value === 'unstaking') return status.label === 'Unstaking';
+    return true;
+  });
+
+  return [...filtered].sort((a: any, b: any) => {
+    if (sortBy.value === 'services') {
+      const aLen = a.services?.length || 0;
+      const bLen = b.services?.length || 0;
+      return sortOrder.value === 'desc' ? bLen - aLen : aLen - bLen;
+    }
+    // default: stake
+    const aValue = parseInt(a.stake?.amount || '0');
+    const bValue = parseInt(b.stake?.amount || '0');
+    return sortOrder.value === 'desc' ? bValue - aValue : aValue - bValue;
   });
 });
 
@@ -155,8 +176,8 @@ const networkStats = ref({
   suppliers: 0,
   gateways: 0,
   totalStakedTokens: 0,
-  unstakingCount24h: 0,      // <-- last 24h
-  totalUnstakingTokens: 0,
+  unstakingCount24h: 0,
+  totalUnstakingTokens24h: 0,
 })
 
 // Cache control
@@ -194,19 +215,41 @@ async function loadNetworkStats() {
 
     networkStats.value.suppliers = parseInt(suppliersData.pagination?.total || '0')
     
-    // Fetch from API for aggregate statistics
+    // Fetch from API for aggregate statistics (pass auth token if available)
     try {
+      const accessToken = typeof localStorage !== 'undefined' ? localStorage.getItem('access_token') : null
+      const authHeaders: Record<string, string> = {}
+      if (accessToken) authHeaders['Authorization'] = `Bearer ${accessToken}`
+
       const apiUrl = `/api/v1/suppliers?chain=${apiChainName.value}&page=1&limit=1`
-      const apiRes = await fetch(apiUrl)
+      const apiRes = await fetch(apiUrl, { headers: authHeaders })
       const apiData = await apiRes.json()
-      
+
       if (apiRes.ok && apiData.meta) {
         networkStats.value.totalStakedTokens = apiData.meta.totalStakedTokens || 0
-        networkStats.value.unstakingCount24h = apiData.meta.unstakingCount24h || 0          // last 24h
-        networkStats.value.totalUnstakingTokens = apiData.meta.totalUnstakingTokens || 0
+        networkStats.value.unstakingCount24h = apiData.meta.unstakingCount24h || 0
       }
     } catch (apiError) {
       console.error('Error loading API stats:', apiError)
+    }
+
+    // Calculate 24h unstaking tokens: fetch unstake_requested suppliers, filter by last_seen within 24h
+    try {
+      const accessToken = typeof localStorage !== 'undefined' ? localStorage.getItem('access_token') : null
+      const authHeaders: Record<string, string> = {}
+      if (accessToken) authHeaders['Authorization'] = `Bearer ${accessToken}`
+
+      const unstakingUrl = `/api/v1/suppliers?chain=${apiChainName.value}&page=1&limit=500&status=unstake_requested`
+      const unstakingRes = await fetch(unstakingUrl, { headers: authHeaders })
+      const unstakingData = await unstakingRes.json()
+      if (unstakingRes.ok && unstakingData.data) {
+        const yesterday = Date.now() - 24 * 60 * 60 * 1000
+        networkStats.value.totalUnstakingTokens24h = unstakingData.data
+          .filter((s: any) => s.last_seen && new Date(s.last_seen).getTime() > yesterday)
+          .reduce((sum: number, s: any) => sum + Number(s.staked_amount || 0), 0)
+      }
+    } catch (e) {
+      console.error('Error computing supplier 24h unstaking tokens:', e)
     }
     
     networkStatsCacheTime.value = now
@@ -270,19 +313,60 @@ const statusText = computed(() => (value.value === 'stake' ? 'Staked' : 'Unstake
       </div>
       <div class="flex bg-[#ffffff] hover:bg-base-200 p-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
         <span>
-          <div class="text-xs text-[#64748B]">Unstaking Tokens</div>
-          <div class="font-bold">{{ format.formatToken({ denom: 'upokt', amount: networkStats.totalUnstakingTokens.toString() }) }}</div>
+          <div class="text-xs text-[#64748B]">Unstaking Tokens (24h)</div>
+          <div class="font-bold">{{ format.formatToken({ denom: 'upokt', amount: networkStats.totalUnstakingTokens24h.toString() }) }}</div>
         </span>
       </div>
     </div>
 
-    <!-- Scroll hataya gaya -->
+    <!-- Filter Bar -->
+    <div class="bg-[#ffffff] p-4 mb-4 rounded-xl shadow-md bg-gradient-to-b dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg">
+      <div class="flex items-center gap-2 flex-wrap">
+        <!-- Status Filter -->
+        <div class="flex items-center gap-1.5">
+          <Icon icon="mdi:check-circle-outline" class="text-base-content/60 text-sm" />
+          <select
+            v-model="statusFilter"
+            class="select select-bordered select-xs h-8 min-h-8 px-2 text-xs w-28 hover:bg-base-200 dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)]"
+          >
+            <option value="all">All</option>
+            <option value="staked">Staked</option>
+            <option value="unstaked">Unstaked</option>
+            <option value="unstaking">Unstaking</option>
+          </select>
+        </div>
+
+        <!-- Sort By -->
+        <div class="flex items-center gap-1.5">
+          <Icon icon="mdi:sort" class="text-base-content/60 text-sm" />
+          <select
+            v-model="sortBy"
+            class="select select-bordered select-xs h-8 min-h-8 px-2 text-xs w-32 hover:bg-base-200 dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)]"
+          >
+            <option value="stake">Stake</option>
+            <option value="services">Services</option>
+          </select>
+        </div>
+
+        <!-- Sort Order Toggle -->
+        <button
+          @click="sortOrder = sortOrder === 'desc' ? 'asc' : 'desc'"
+          class="btn btn-xs h-8 min-h-8 px-2 gap-1"
+          :class="sortOrder === 'desc' ? 'btn-primary' : 'btn-ghost'"
+          :title="sortOrder === 'desc' ? 'Descending' : 'Ascending'"
+        >
+          <Icon :icon="sortOrder === 'desc' ? 'mdi:sort-descending' : 'mdi:sort-ascending'" class="text-sm" />
+        </button>
+      </div>
+    </div>
+
     <div
       class="bg-[#ffffff] hover:bg-base-200 p-3 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] dark:hover:bg-[rgba(255,255,255,0.06)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg overflow-x-auto"
     >
+      <div class="overflow-auto" style="max-height:calc(100vh - 18rem)">
       <table class="table w-full table-compact rounded-xl">
         <thead class="dark:bg-[rgba(255,255,255,.03)] bg-base-200 sticky top-0 border-0">
-          <tr class="text-sm font-semibold">
+          <tr class="text-sm font-semibold bg-base-200">
             <td>Rank</td>
             <td>Address</td>
             <td>Status</td>
@@ -388,6 +472,7 @@ const statusText = computed(() => (value.value === 'stake' ? 'Staked' : 'Unstake
           </tr>
         </tbody>
       </table>
+      </div>
 
       <!-- Pagination Bar -->
       <div class="flex justify-between items-center gap-4 my-6 px-6">
