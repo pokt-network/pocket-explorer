@@ -475,22 +475,27 @@ async function loadTransactions(address: string) {
     // Add type filter based on selected tab
     const selectedTypes = typeTabMap[selectedTypeTab.value];
     if (selectedTypes.length > 0) {
-      // if the account is an application, add the MsgStakeApplication type
       if (selectedTypeTab.value === 'staking') {
+        // Filter by stake+unstake types specific to the account entity type
         if (applications.value.address === address) {
-          filters.type = 'MsgStakeApplication (application)';
+          filters.types = ['MsgStakeApplication (application)', 'MsgUnstakeApplication (application)'];
         } else if (gateways.value.address === address) {
-          filters.type = 'MsgStakeGateway (gateway)';
+          filters.types = ['MsgStakeGateway (gateway)', 'MsgUnstakeGateway (gateway)'];
         } else if (suppliers.value.operator_address === address) {
-          filters.type = 'MsgStakeSupplier (supplier)';
+          filters.types = ['MsgStakeSupplier (supplier)', 'MsgUnstakeSupplier (supplier)'];
+        } else {
+          // Regular wallet: show all staking-related types
+          filters.types = selectedTypes;
         }
-      } else {
+      } else if (selectedTypes.length === 1) {
         filters.type = selectedTypes[0];
+      } else {
+        filters.types = selectedTypes;
       }
     }
 
     if (txStatusFilter.value) {
-      filters.status = txStatusFilter.value == 'success' ? "true" : "false";
+      filters.status = txStatusFilter.value == 'success' ? "true" : "pending";
     }
     if (txStartDate.value) {
       // Convert datetime-local to ISO 8601
@@ -1307,7 +1312,7 @@ async function loadAddressPerformance(address: string) {
         <div class="services-table-wrapper services-table-scroll rounded-xl">
           <table class="table table-compact w-full">
             <thead class="dark:bg-[rgba(255,255,255,.03)] bg-base-200 sticky top-0 border-0">
-              <tr class="border-b-[0px] text-sm font-semibold">
+              <tr class="bg-base-200 border-b-[0px] text-sm font-semibold">
                 <th class="dark:bg-[rgba(255,255,255,.03)] bg-base-200 hover:bg-base-300">Service ID</th>
                 <th class="dark:bg-[rgba(255,255,255,.03)] bg-base-200 hover:bg-base-300">JSON_RPC URL</th>
                 <th class="dark:bg-[rgba(255,255,255,.03)] bg-base-200 hover:bg-base-300">WEBSOCKET URL</th>
@@ -1420,7 +1425,7 @@ async function loadAddressPerformance(address: string) {
     <div class="overflow-x-auto">
       <table class="table text-sm w-full">
         <thead class="bg-base-200">
-          <tr class="text-sm font-semibold">
+          <tr class="bg-base-200 text-sm font-semibold">
             <th class="py-3 bg-base-300">{{ $t('account.creation_height') }}</th>
             <th class="py-3 bg-base-300">{{ $t('account.initial_balance') }}</th>
             <th class="py-3 bg-base-300">{{ $t('account.balance') }}</th>
@@ -1579,7 +1584,7 @@ async function loadAddressPerformance(address: string) {
       <div class="services-table-wrapper services-table-scroll rounded-xl">
         <table class="table table-compact w-full">
           <thead class="dark:bg-[rgba(255,255,255,.03)] bg-base-200 sticky top-0 border-0">
-            <tr class="dark:bg-[rgba(255,255,255,.03)] bg-base-200 border-b-[0px] text-sm font-semibold">
+            <tr class="bg-base-200 border-b-[0px] text-sm font-semibold">
               <th class="">Day</th>
               <th class="">Rewards (POKT)</th>
               <th class="">Relays</th>
@@ -1775,7 +1780,7 @@ async function loadAddressPerformance(address: string) {
     <div class="services-table-wrapper services-table-scroll bg-base-200 px-0.5 pt-0.5 pb-4 mb-4 rounded-xl shadow-md bg-gradient-to-b  dark:bg-[rgba(255,255,255,.03)] border dark:border-white/10 dark:shadow-[0 solid #e5e7eb] hover:shadow-lg overflow-auto">
       <table class="table table-compact w-full">
         <thead class="bg-base-200 dark:bg-[rgba(255,255,255,.03)] sticky top-0 border-0">
-          <tr class="border-b-[0px] text-sm font-semibold">
+          <tr class="bg-base-200 border-b-[0px] text-sm font-semibold">
             <th class="bg-base-200 dark:bg-[rgba(255,255,255,.03)">{{ $t('account.height') }}</th>
             <th class="bg-base-200 dark:bg-[rgba(255,255,255,.03)">{{ $t('account.hash') }}</th>
             <th class="bg-base-200 dark:bg-[rgba(255,255,255,.03)">{{ $t('account.type') }}</th>
