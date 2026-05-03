@@ -959,16 +959,21 @@ async function loadTopServicesByComputeUnits() {
   try {
     const params = new URLSearchParams();
     params.append('limit', topServicesLimit.value.toString());
-    params.append('days', topServicesDays.value.toString());
     params.append('chain', apiChainName.value);
-    // Add filter support
+    // Explicit date range from parent takes priority over internal days selector
+    if (props.startDate && props.endDate) {
+      params.append('start_date', props.startDate);
+      params.append('end_date', props.endDate);
+    } else {
+      params.append('days', topServicesDays.value.toString());
+    }
     const supplierFilter = props.filters?.supplier_address;
     if (supplierFilter) params.append('supplier_address', supplierFilter);
     if (props.filters?.owner_address) params.append('owner_address', props.filters.owner_address);
-    
+
     const data = await fetchApi('/api/v1/services/top-by-compute-units', params);
-      topServicesByComputeUnits.value = data.data || [];
-      updateTopServicesChart();
+    topServicesByComputeUnits.value = data.data || [];
+    updateTopServicesChart();
   } catch (error: any) {
     console.error('Error loading top services by compute units:', error);
     topServicesByComputeUnits.value = [];
@@ -981,19 +986,22 @@ async function loadTopServicesByPerformance() {
   loadingPerformanceTable.value = true;
   try {
     const params = new URLSearchParams();
-    // params.append('limit', itemsPerPages.value.toString());
     params.append('limit', rewardItemsPerPage.value.toString());
-    params.append('days', performanceDays.value.toString());
     params.append('chain', apiChainName.value);
-    // Add filter support
+    // Explicit date range from parent takes priority over internal days selector
+    if (props.startDate && props.endDate) {
+      params.append('start_date', props.startDate);
+      params.append('end_date', props.endDate);
+    } else {
+      params.append('days', performanceDays.value.toString());
+    }
     const supplierFilter = props.filters?.supplier_address;
     if (supplierFilter) params.append('supplier_address', supplierFilter);
     if (props.filters?.owner_address) params.append('owner_address', props.filters.owner_address);
-    
+
     const data = await fetchApi('/api/v1/services/top-by-performance', params);
-      topServicesByPerformance.value = data.data || [];
-      totalComputeUnits.value = data.total_compute_units || 0;
-    // Update the chart data based on the new top services
+    topServicesByPerformance.value = data.data || [];
+    totalComputeUnits.value = data.total_compute_units || 0;
     updateTopServicesChart();
   } catch (error: any) {
     console.error('Error loading top services by performance:', error);
@@ -1025,8 +1033,8 @@ async function loadRewardShareData() {
 
     // Get supplier addresses from filters (may be comma-separated)
     const supplierFilter = props.filters?.supplier_address;
-    if (!supplierFilter) {
-      // No supplier filter - clear all data
+    if (!supplierFilter && !props.filters?.owner_address) {
+      // No filter at all - clear all data
       rewardShareDistribution.value = [];
       topRewardEarners.value = [];
       rewardEfficiencyAnalysis.value = [];
@@ -1133,47 +1141,19 @@ async function loadRewardShareData() {
         }
       });
     } else {
-      // Group by owner address
-      const ownerMap = new Map<string, {
-        rewards: number;
-        suppliers: Set<string>;
-        relays: number;
-        efficiency: number;
-        compute_units: number;
-      }>();
-      
+      // Specific operators were selected — show per-operator data so each operator's
+      // share is visible individually (single operator = 1 slice, multiple = N slices)
       supplierMap.forEach((data, supplier) => {
-        const owner = data.owner || supplier;
-        const existing = ownerMap.get(owner) || {
-          rewards: 0,
-          suppliers: new Set(),
-          relays: 0,
-          efficiency: 0,
-          compute_units: 0
-        };
-        existing.rewards += data.rewards;
-        existing.suppliers.add(supplier);
-        existing.relays += data.relays;
-        existing.compute_units += data.compute_units;
-        ownerMap.set(owner, existing);
-      });
-
-      ownerMap.forEach((data, owner) => {
-        // Calculate weighted average efficiency
-        const avgEfficiency = supplierMap.size > 0
-          ? Array.from(data.suppliers).reduce((sum, s) => sum + (supplierMap.get(s)?.efficiency || 0), 0) / data.suppliers.size
-          : 0;
-
         rewardShareEntries.push({
-          account: owner,
-          moniker: null, // Supplier metadata not available in list endpoint
+          account: supplier,
+          moniker: data.supplier?.moniker || null,
           total_rewards: data.rewards / 1000000,
           share_percent: totalRewardsUpokt > 0 ? (data.rewards / totalRewardsUpokt) * 100 : 0,
           total_relays: data.relays,
-          efficiency: avgEfficiency,
+          efficiency: data.efficiency,
           compute_units: data.compute_units,
-          nodes: data.suppliers.size,
-          status: null // Supplier metadata not available in list endpoint
+          nodes: 1,
+          status: data.supplier?.status || null
         });
       });
     }
@@ -1788,20 +1768,20 @@ function perfGoLast() { if (perfCurrentPage.value !== perfTotalPages.value && pe
           <div v-if="loadingTopServices" class="flex justify-center items-center h-64">
             <div class="loading loading-spinner loading-sm"></div>
           </div>
-          <div v-else-if="topServicesByComputeUnits.length === 0" class="flex justify-center items-center h-64 text-gray-500 text-xs">
+          <div v-else-if="topServicesByPerformance.length === 0" class="flex justify-center items-center h-64 text-gray-500 text-xs">
             No data
           </div>
           <div v-else class="h-[35vh]">
-            <ApexCharts 
-              :type="topServicesChartType" 
-              height="360" 
-              :options="topServicesChartOptions" 
+            <ApexCharts
+              :type="topServicesChartType"
+              height="360"
+              :options="topServicesChartOptions"
               :series="topServicesChartSeries"
               :key="`topServices-${topServicesChartType}`"
             />
           </div>
           <!-- Chart Type Selector - Bottom Right -->
-          <div v-if="!loadingTopServices && topServicesByComputeUnits.length > 0" class="absolute bottom-2 right-2 tabs tabs-boxed bg-base-200 dark:bg-base-300">
+          <div v-if="!loadingTopServices && topServicesByPerformance.length > 0" class="absolute bottom-2 right-2 tabs tabs-boxed bg-base-200 dark:bg-base-300">
             <button
               @click="topServicesChartType = 'bar'"
               :class="[
